@@ -1,0 +1,24 @@
+## This is the bytecode transformer Config file
+## The following entries are _MANDATORY_
+
+# The Computation Class offers two static methods
+COMPUTATIONCLASS = be.ac.kuleuven.cs.ttm.computation.Computation
+
+# 1st static method: Switching -> true when the thread is breaking up
+SWITCHING = isSwitching
+
+# 2nd static method: Restoring -> true when the thread is being rebuilt
+RESTORING = isRestoring
+
+# The Context Class offers two ranges of static methods
+CONTEXTCLASS = be.ac.kuleuven.cs.ttm.computation.Context
+
+# 1ste range: the Push methods : one for every basic type
+#				 one for "Object"
+#				 one for "This"
+PUSHMETHOD = curPush
+
+# 2nd range: the Pop methods : one for every basic type
+#			       one for "Object"
+#			       one for "This"
+POPMETHOD = curPop
