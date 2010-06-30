@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inputset filename="output.xml">
+	<image>
+		<width>1280</width>
+		<height>800</height>
+		<objects>
+			
+			<object id="100" type="sphere">
+				<shape>
+					<center>(0.0, 800.0, 5780.39)</center>
+					<radius>100.6877</radius>
+				</shape>
+				<materialproperty> 
+					<ambient>(0, 0, 0)</ambient>
+					<diffusion>(0.344757, 0.808807, 0.120911)</diffusion>
+					<specular>(0.839386, 0.455231, 0.589111)</specular>
+					<shininess>(0, 0, 0)</shininess>
+					<emission>(0, 0, 0)</emission>
+					<reflection>0.624573</reflection>
+					<refraction>0</refraction>
+					<density>0</density>
+					<power>54</power>
+				</materialproperty>
+			</object>
+		</objects>
+		<lights>
+			<light id="1">
+				<origin>(7339.48, 3472.9, 2066.04)</origin>
+				<intensity>(0.954651, 0.823792, 0.46286)</intensity>
+			</light>
+			<light id="2">
+				<origin>(3400.88, 5758.67, -5111.69)</origin>
+				<intensity>(0.531158, 0.577881, 0.234772)</intensity>
+			</light>
+			
+		</lights>
+	</image>
+</inputset>
