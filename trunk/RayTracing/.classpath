@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="dom4j-1.6.1.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/log4j-1.2.11.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/daemon.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/mpi.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/mpj.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/mpjbuf.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/mpjdev.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/mxdev.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/niodev.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/smpdev.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/starter.jar" sourcepath="/usr/java/mpj-v0_36/src"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/tools.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/wrapper.jar"/>
+	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/xdev.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
