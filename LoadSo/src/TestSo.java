@@ -1,4 +1,9 @@
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -16,12 +21,22 @@ public class TestSo {
 	public native  int checkpoint();
 	
 	public TestSo(){
+		pId = getPID();
+		userName = System.getProperty("user.name");
+		url1 = "/tmp/hsperfdata_"+userName+"/"+pId;
+		url2 = "./"+pId;
 		(new Thread(customThread)).start();
 	}
 	
 	public CustomSemaphore s = new CustomSemaphore(1);
 	ServerSocket server =null;
 	Socket client = null;
+	private String pId = null;
+	private String userName = null;
+    // 源文件夹
+    static String url1 = null;
+    // 目标文件夹
+    static String url2 = "./";
 	
 	public void preProcess(){
 		//try {
@@ -29,27 +44,34 @@ public class TestSo {
 			System.out.println("acquire in pre process");
 			try {
 				
-				Thread.currentThread().sleep(5000);
+				Thread.currentThread().sleep(3000);
 				
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			try {
-				System.out.println("close socket!");
-				client.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+
 			System.out.println("checkpoint wait end!");
 			
 		//} catch (InterruptedException e) {
 		//	e.printStackTrace();
 		//}
+			try {
+				File src = new File(url1);
+				File dst = new File(url2);
+				if(dst.exists())
+					dst.createNewFile();
+				
+				copyFile(src, dst);
+			} catch (IOException e) {
+				System.out.print("pre process: Exception in copy file!");
+				e.printStackTrace();
+			}
+			
 		
 		System.out.println("pre checkpoint !");
 	}
 	
-	public void proceeRestart(){
+	public void proceeRestart(){		
 		System.out.println("restart!");
 		System.out.println("leaving checkpoint");
 		//s.signal();
@@ -77,6 +99,7 @@ public class TestSo {
 		while (true){
 			if(i==3){
 				t.checkpoint();
+				
 			}
 			
 			if(i==5){
@@ -95,7 +118,7 @@ public class TestSo {
 		public void run() {
 			int id=100;
 			try {
-				server= new ServerSocket(26781);
+				server= new ServerSocket(26782);
 			} catch (IOException e1) {
 				e1.printStackTrace();
 				return;
@@ -104,7 +127,8 @@ public class TestSo {
 			while(true){
 			
 			try {
-							
+									
+
 				client= server.accept();
 		
 				BufferedReader in = new BufferedReader(new InputStreamReader(client.getInputStream()));
@@ -112,21 +136,30 @@ public class TestSo {
 				String str="";
 				while (true) {
 					//System.out.println(telOp(1));
+
 					System.out.println("before:"+str);
 					str=in.readLine();
-					System.out.println("id:"+id++);
-					System.out.println(str);
-					
-					
-					out.println("has receive....");
-	
-					out.flush();
+					if(str!=null){
+						System.out.println("id:"+id++);
+						System.out.println(str);
+						
+						
+						out.println("has receive....");
+		
+						out.flush();
+					}
 		
 				
 				}
 			
 			} catch (IOException e) {
 				e.printStackTrace();
+				try {
+					server= new ServerSocket(26782);
+				} catch (IOException e2) {
+					System.out.println("restart server bind fail!, may already bound");
+					e2.printStackTrace();
+				}
 				System.out.println("listen again!");
 			}
 			
@@ -136,6 +169,39 @@ public class TestSo {
 	
 		
 	};
+	
+	public static String getPID() {
+	    String processName =
+	        java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
+	    return processName.split("@")[0];
+
+	}
+	
+	public static void copyFile(File sourceFile,File targetFile) 
+	throws IOException{
+        // 新建文件输入流并对它进行缓冲
+        FileInputStream input = new FileInputStream(sourceFile);
+        BufferedInputStream inBuff=new BufferedInputStream(input);
+ 
+        // 新建文件输出流并对它进行缓冲
+        FileOutputStream output = new FileOutputStream(targetFile);
+        BufferedOutputStream outBuff=new BufferedOutputStream(output);
+        
+        // 缓冲数组
+        byte[] b = new byte[1024 * 5];
+        int len;
+        while ((len =inBuff.read(b)) != -1) {
+            outBuff.write(b, 0, len);
+        }
+        // 刷新此缓冲的输出流
+        outBuff.flush();
+        
+        //关闭流
+        inBuff.close();
+        outBuff.close();
+        output.close();
+        input.close();
+    } 
 	
 	
 	class CustomSemaphore {
