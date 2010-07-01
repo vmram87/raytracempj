@@ -33,9 +33,9 @@ public class TestSo {
 	Socket client = null;
 	private String pId = null;
 	private String userName = null;
-    // 源文件夹
+    // src directory
     static String url1 = null;
-    // 目标文件夹
+    // dst directory
     static String url2 = "./";
 	
 	public void preProcess(){
@@ -71,7 +71,7 @@ public class TestSo {
 		System.out.println("pre checkpoint !");
 	}
 	
-	public void proceeRestart(){		
+	public void processRestart(){		
 		System.out.println("restart!");
 		System.out.println("leaving checkpoint");
 		//s.signal();
@@ -179,24 +179,23 @@ public class TestSo {
 	
 	public static void copyFile(File sourceFile,File targetFile) 
 	throws IOException{
-        // 新建文件输入流并对它进行缓冲
+        // buffer the input stream
         FileInputStream input = new FileInputStream(sourceFile);
         BufferedInputStream inBuff=new BufferedInputStream(input);
  
-        // 新建文件输出流并对它进行缓冲
+        //buffer the output stream
         FileOutputStream output = new FileOutputStream(targetFile);
         BufferedOutputStream outBuff=new BufferedOutputStream(output);
         
-        // 缓冲数组
+        //buffer array
         byte[] b = new byte[1024 * 5];
         int len;
         while ((len =inBuff.read(b)) != -1) {
             outBuff.write(b, 0, len);
         }
-        // 刷新此缓冲的输出流
+        
         outBuff.flush();
         
-        //关闭流
         inBuff.close();
         outBuff.close();
         output.close();
