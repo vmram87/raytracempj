@@ -35,6 +35,7 @@ public class TestSo {
 				e.printStackTrace();
 			}
 			try {
+				System.out.println("close socket!");
 				client.close();
 			} catch (IOException e) {
 				e.printStackTrace();
