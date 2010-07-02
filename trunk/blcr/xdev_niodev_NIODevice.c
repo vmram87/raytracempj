@@ -8,11 +8,13 @@
 #include "libcr.h"
 
 
-JNIEXPORT void JNICALL Java_xdev_niodev_NIODevice_setCallBack(JNIEnv * jEnv, jobject jObj, jstring versionId){
+JNIEXPORT void JNICALL Java_xdev_niodev_NIODevice_setCallBack(JNIEnv * jEnv, jobject jObj){
 
 }
 
 
-JNIEXPORT jint JNICALL Java_xdev_niodev_NIODevice_checkpoint(JNIEnv * jEnv, jobject jObj){
+JNIEXPORT jint JNICALL Java_xdev_niodev_NIODevice_checkpoint(JNIEnv * jEnv, jobject jObj, jstring versionId){
+	printf("in C\n");
+	fflush(stdout);
 	return 1;
 }

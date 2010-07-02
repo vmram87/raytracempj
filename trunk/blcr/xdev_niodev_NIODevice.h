@@ -16,18 +16,18 @@ extern "C" {
 /*
  * Class:     xdev_niodev_NIODevice
  * Method:    setCallBack
- * Signature: (Ljava/lang/String;)V
+ * Signature: ()V
  */
 JNIEXPORT void JNICALL Java_xdev_niodev_NIODevice_setCallBack
-  (JNIEnv *, jobject, jstring);
+  (JNIEnv *, jobject);
 
 /*
  * Class:     xdev_niodev_NIODevice
  * Method:    checkpoint
- * Signature: ()I
+ * Signature: (Ljava/lang/String;)I
  */
 JNIEXPORT jint JNICALL Java_xdev_niodev_NIODevice_checkpoint
-  (JNIEnv *, jobject);
+  (JNIEnv *, jobject, jstring);
 
 #ifdef __cplusplus
 }
