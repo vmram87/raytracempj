@@ -54,7 +54,7 @@ import org.apache.log4j.Logger;
 
 /**
  * <p>
- * This class is implementation of <i>xdev</i> based on the Java New
+ * This class is implementation of <i>xdev</i> based on the Java New  
  * I/O package.
  * </p>
  *
@@ -2796,7 +2796,7 @@ public class NIODevice
         return request;
       }
 
-    } //end for
+    } //end if (request != null)
 
     request = new NIORecvRequest(id.uuid(),tag, false, 
                                  context, staBufferSize,
