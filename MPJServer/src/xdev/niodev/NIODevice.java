@@ -68,6 +68,8 @@ import java.util.StringTokenizer;
 import java.util.UUID;
 import java.util.Vector;
 
+import javax.imageio.spi.RegisterableService;
+
 import mpi.ProcTree;
 import mpjbuf.BufferFactory;
 import mpjbuf.NIOBuffer;
@@ -245,7 +247,6 @@ public class NIODevice
 	
 	
 	static{
-		System.loadLibrary("cr");
 		System.loadLibrary("blcr");
 	}
 	
@@ -707,7 +708,12 @@ public class NIODevice
       throw new XDevException(unkhe);
     }
 
+    System.loadLibrary("cr");
+    setCallBack();
     socketInit();
+    
+    
+    
     
     
 //System.out.println(" init "+rank);
@@ -724,6 +730,9 @@ public class NIODevice
   public void socketInit(){
 	  ConfigReader reader = null;
 
+
+	  
+	  
 	    try {
 	      reader = new ConfigReader(args[1]); 
 	      nprocs = (new Integer(reader.readNoOfProc())).intValue();
@@ -775,6 +784,9 @@ public class NIODevice
 	    }
 
 	    reader.close();
+	    reader = null;
+	    
+	    
 
 	    /* Open the selector */
 	    try {
@@ -783,6 +795,8 @@ public class NIODevice
 	    catch (IOException ioe) {
 	      throw new XDevException(ioe);
 	    }
+	    
+	    
 
 	    /* Create server socket */
 	    SocketChannel[] rChannels = new SocketChannel[nodeList.length - 1];
@@ -795,6 +809,8 @@ public class NIODevice
 	     * we want to bind is already in use */
 	    boolean isOK = false; 
 	    boolean isError = false ;
+	    
+	    
 
 	    while(isOK != true) { 
 
@@ -1259,8 +1275,10 @@ public class NIODevice
 	    
 
 	    if(isCheckpointing == false)
-		    for (int k = 0; k < writableChannels.size(); k++) {
-		      writeLockTable.put(pids[k].uuid(),
+		    for (int k = 0; k < pids.length; k++) {
+		    	if(k==this.rank)
+		    		continue;
+		    	writeLockTable.put(pids[k].uuid(),
 		                         new CustomSemaphore(1));
 		    }
 
@@ -1271,6 +1289,7 @@ public class NIODevice
 	    catch (Exception e) {
 	      throw new XDevException(e);
 	    }
+	    
   }
   
   
@@ -4120,6 +4139,9 @@ public class NIODevice
 		System.out.println("acquire in pre process");
 		
 		try {
+			//selector and writableChannels involes open file so have to close them before checkpiont
+			selector.close();
+			writableChannels.clear();
 			File src = new File(url1);
 			File dst = new File(url2);
 			if(dst.exists())
@@ -4138,12 +4160,14 @@ public class NIODevice
 	@Override
 	public void processContinue() {
 		// TODO Auto-generated method stub
+		System.out.println("Enter Continue!");
 		isCheckpointing = true;
 	
 		SocketChannel socketChannel = null;
 		ByteBuffer cMsgBuffer = ByteBuffer.allocate(12);
 		
-		cMsgBuffer.flip();
+		//cMsgBuffer.flip();
+		//cMsgBuffer.position(0);
 	    cMsgBuffer.putInt(START_CHECKPOINT);
 	    cMsgBuffer.putInt(this.rank);
 	    cMsgBuffer.putInt(versionNum); 
@@ -4165,6 +4189,8 @@ public class NIODevice
 	        }
 	      } //end while.
 	    } //end for.
+	    
+	    System.out.println("Leave Continue!");
 		
 	}
 	
