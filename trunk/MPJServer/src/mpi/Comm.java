@@ -2038,6 +2038,11 @@ public class Comm {
    */
   public void Abort(int errorcode) throws MPIException {
   }
+  
+  
+  public void checkpoint() throws MPIException {
+	  mpjdevComm.checkpoint();
+  }
 
   /**
    * Duplicate this communicator.

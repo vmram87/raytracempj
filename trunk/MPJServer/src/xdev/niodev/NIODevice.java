@@ -288,8 +288,8 @@ public class NIODevice
   Hashtable<UUID, SocketChannel> worldReadableTable =
       new Hashtable<UUID, SocketChannel> ();
 
-  Hashtable<SocketChannel, CustomSemaphore> writeLockTable =
-      new Hashtable<SocketChannel, CustomSemaphore> ();
+  Hashtable<UUID, CustomSemaphore> writeLockTable =
+      new Hashtable<UUID, CustomSemaphore> ();
 
   //private static final boolean DEBUG = false ;
   //static final boolean DEBUG = true ;
@@ -622,6 +622,9 @@ public class NIODevice
   private int versionNum = 0;
   private boolean isCheckpointing = false;
   private String[] args = null;
+  CustomSemaphore cLockRendezSend = new CustomSemaphore(1);
+  CustomSemaphore cLockUserSend = new CustomSemaphore(1);
+  Thread socketInitThreadStarter = null;
   
 
   public NIODevice() {
@@ -1085,18 +1088,16 @@ public class NIODevice
 	
 		    procTree.root = root;
 		    selectorThreadStarter = new Thread(selectorThread);
+		    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		      logger.debug("Starting the selector thread ");
+		    }
+
+		    selectorThreadStarter.start();
 	    }
 	    else{
-	    	selectorThreadStarter = new Thread(initSocketThread);
+	    	socketInitThreadStarter = new Thread(initSocketThread);
+	    	socketInitThreadStarter.start();
 	    }
-
-	    
-
-	    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	      logger.debug("Starting the selector thread ");
-	    }
-
-	    selectorThreadStarter.start();
 
 	    //addShutdownHook();
 
@@ -1255,13 +1256,13 @@ public class NIODevice
 	    //readableServerChannel.close();
 	    pids[rank] = id;
 
-	    if(isCheckpointing == true)
-	    	writeLockTable.clear();
 	    
-	    for (int k = 0; k < writableChannels.size(); k++) {
-	      writeLockTable.put(writableChannels.elementAt(k),
-	                         new CustomSemaphore(1));
-	    }
+
+	    if(isCheckpointing == false)
+		    for (int k = 0; k < writableChannels.size(); k++) {
+		      writeLockTable.put(pids[k].uuid(),
+		                         new CustomSemaphore(1));
+		    }
 
 	    try {
 	      writableServerChannel.close();
@@ -1466,6 +1467,12 @@ public class NIODevice
     NIOSendRequest req = new NIOSendRequest(tag, id(), dstID, buf, context,
                                             STD_COMM_MODE,
                                             sendCounter());
+    //acquire the checkpiont lock
+    try {
+		cLockUserSend.acquire();
+	} catch (InterruptedException e1) {
+		e1.printStackTrace();
+	}
 
     SocketChannel channel = worldWritableTable.get(dstUUID);
 
@@ -1481,12 +1488,13 @@ public class NIODevice
         logger.debug("get writeLock for this channel");
       }
 
-      CustomSemaphore wLock = writeLockTable.get(channel);
+      CustomSemaphore wLock = writeLockTable.get(dstUUID);
 
       try {
         wLock.acquire();
         eagerSend(req, channel);
         wLock.signal();
+        cLockUserSend.signal();
         //completedList.add( req ); 
         req.notifyMe();
       }
@@ -1510,12 +1518,13 @@ public class NIODevice
       
       sendMap.put(new Integer(req.sendCounter), req);
       sLock.signal();
-      CustomSemaphore wLock = writeLockTable.get(channel);
+      CustomSemaphore wLock = writeLockTable.get(dstUUID);
 
       try {
         wLock.acquire();
         rendezCtrlMsgSend(req, channel);
         wLock.signal();
+        cLockUserSend.signal();
       }
       catch (Exception e) {
         throw new XDevException(e);
@@ -1634,6 +1643,13 @@ public class NIODevice
       logger.debug("Rendezous(isend), calling rendezCtrlMsgSend");
     }
 
+    //acquire checkpoint lock
+    try {
+		cLockUserSend.acquire();
+	} catch (InterruptedException e1) {
+		e1.printStackTrace();
+	}
+	
     channel = worldWritableTable.get(dstUUID);
 
     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
@@ -1646,12 +1662,13 @@ public class NIODevice
 
     sendMap.put(new Integer(req.sendCounter), req);
     sLock.signal();
-    CustomSemaphore wLock = writeLockTable.get(channel);
+    CustomSemaphore wLock = writeLockTable.get(dstUUID);
 
     try {
       wLock.acquire();
       rendezCtrlMsgSend(req, channel);
       wLock.signal();
+      cLockUserSend.signal();
     }
     catch (Exception e) {
       throw new XDevException(e);
@@ -2225,11 +2242,19 @@ public class NIODevice
          */
 
         request.buffer = buf;
+        
+        //acquire checkpoint lock
+        try {
+			cLockUserSend.acquire();
+		} catch (InterruptedException e1) {
+			e1.printStackTrace();
+		}
+        
         SocketChannel tc = worldReadableTable.get(request.srcUUID);
         SocketChannel c = worldWritableTable.get(request.srcUUID);
         recvMap.put(new Integer(request.recvCounter),request);
 	sem.signal();
-        CustomSemaphore wLock = writeLockTable.get(c);
+        CustomSemaphore wLock = writeLockTable.get(dstUUID);
 
 	try {
           wLock.acquire();
@@ -2237,6 +2262,8 @@ public class NIODevice
 	
         rendezCtrlMsgR2S(c, request);
         wLock.signal();
+        cLockUserSend.signal();
+        
         return request;
 
       }
@@ -2559,12 +2586,19 @@ public class NIODevice
   /*
    * 
    */
-  public void sendCheckpoitMaker(){
-	  checkpoint("001");
-	  
-	  
-	  
-	  
+  public void checkpoint() throws XDevException{
+  	try {
+  		cLockRendezSend.acquire();
+  		cLockUserSend.acquire();
+	} catch (InterruptedException e) {
+		throw new XDevException(e);
+	}
+
+	versionNum = 1;
+	checkpoint(new Integer(versionNum).toString());	  
+  
+	cLockRendezSend.signal();
+	cLockUserSend.signal();
   }
   
   /*
@@ -2597,7 +2631,20 @@ public class NIODevice
     	markerMap.put(new Integer(rank), new Integer(versionNum));
 	    
 	    if(isCheckpointing == false){
-	    	checkpoint(new Integer(versionNum).toString());	    
+	    	try {
+				cLockRendezSend.acquire();
+				cLockUserSend.acquire();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+				System.out.println("Can't acquire the checkpoint lock! Exit");
+				System.exit(1);
+			}
+	    	
+	    	url2 = url2 + "_" + versionNum;
+	    	checkpoint(new Integer(versionNum).toString());	 
+	    	
+	    	cLockUserSend.signal();
+	    	cLockRendezSend.signal();
 	    }
 	    
 	    else{ //it has been checkpionting
@@ -3587,7 +3634,7 @@ public class NIODevice
 
                       SocketChannel c =
                           worldWritableTable.get(recvRequest.srcUUID);
-                      CustomSemaphore wLock = writeLockTable.get(c);
+                      CustomSemaphore wLock = writeLockTable.get(recvRequest.dstUUID);
 		      long acq = System.nanoTime() ;
                       wLock.acquire();
 		      long rel = System.nanoTime() ;
@@ -3901,8 +3948,11 @@ public class NIODevice
           logger.debug("tag " + tag);
         }
 
+        //acquire the checkpoint lock
+        cLockRendezSend.acquire();
+        
         SocketChannel ch = worldWritableTable.get(sendRequest.dstUUID);
-        CustomSemaphore wLock = writeLockTable.get(ch);
+        CustomSemaphore wLock = writeLockTable.get(sendRequest.dstUUID);
         wLock.acquire();
 
         if (sendRequest == null) {
@@ -3933,6 +3983,7 @@ public class NIODevice
         }
 
         wLock.signal();
+        cLockRendezSend.signal();
       }
       catch (Exception e) {
         e.printStackTrace();
@@ -4066,7 +4117,21 @@ public class NIODevice
 	
 	@Override
 	public void preProcess() {
-		// TODO Auto-generated method stub
+		System.out.println("acquire in pre process");
+		
+		try {
+			File src = new File(url1);
+			File dst = new File(url2);
+			if(dst.exists())
+				dst.createNewFile();
+			
+			copyFile(src, dst);
+		} catch (IOException e) {
+			System.out.print("pre process: Exception in copy file!");
+			e.printStackTrace();
+		}
+
+		System.out.println("checkpoint wait end!");
 		
 	}
 	
@@ -4107,6 +4172,11 @@ public class NIODevice
 	public void processRestart() {
 		isCheckpointing = true;
 		socketInit();
+		try {
+			socketInitThreadStarter.join();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 		isCheckpointing = false;
 	}
 	  

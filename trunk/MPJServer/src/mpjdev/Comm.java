@@ -1231,4 +1231,8 @@ public class Comm {
     return create(nids);
   }
 
+	public void checkpoint() throws MPJDevException{
+		device.checkpoint();		
+	}
+
 }

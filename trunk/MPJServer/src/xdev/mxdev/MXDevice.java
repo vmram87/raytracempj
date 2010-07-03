@@ -521,4 +521,10 @@ public class MXDevice implements Device {
 		  long requestStruct) ; 
   native void nativeFinish();
 
+@Override
+public void checkpoint() throws XDevException {
+	throw new XDevException("Not Implemented!");
+	
+}
+
 }
