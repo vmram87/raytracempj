@@ -107,6 +107,8 @@ JNIEXPORT void JNICALL Java_TestSo_setCallBack(JNIEnv * jEnv, jobject jObj){
 
 	cr_client_id_t client_id = 0;
 
+	printf("init!");
+	fflush(stdout);
 	client_id = cr_init();
 	CALLBACKARGS_T cbArgs;
 
