@@ -2,6 +2,7 @@ package org.raytrace.viewport;
 
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
@@ -69,7 +70,8 @@ public abstract class AbstractViewPort implements IViewPort {
 	public boolean configureFromFile(String fileName) throws Exception {
 		File srcxmlFile=new File(fileName);
 		SAXReader reader=new SAXReader();
-		Document srcdoc=reader.read(srcxmlFile);
+		FileInputStream fis = new FileInputStream(srcxmlFile);
+		Document srcdoc=reader.read(fis);
 		Element root=srcdoc.getRootElement();
 		
 		Element imgElem =(Element)root.elements().get(0);
@@ -178,6 +180,9 @@ public abstract class AbstractViewPort implements IViewPort {
 			}
 		}
 		
+		fis.close();
+		reader = null;
+		srcxmlFile=null;
 		return true;
 	}
 

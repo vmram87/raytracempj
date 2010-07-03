@@ -48,7 +48,7 @@ public class MPIViewport extends AbstractViewPort {
 		//MPI_Request request;       /* handle for pending communication */
 		//MPI_Init( &argc, &argv );
 		//MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-		   
+		
 		   
 		return false;
 	}
@@ -67,6 +67,14 @@ public class MPIViewport extends AbstractViewPort {
 			this.locHeight = this.height/this.size;
 		
 		this.datasize = this.width * this.locHeight; 
+		
+		//checkpoint
+		if(this.rank == 0){
+			System.out.println("before checkpoint!");
+			MPI.COMM_WORLD.checkpoint();
+			System.out.println("After checkpoint!");
+			
+		}
 		
 		//send and receieve the data size
 		if(!dataSizeCollection())
