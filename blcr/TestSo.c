@@ -135,7 +135,6 @@ JNIEXPORT void JNICALL Java_TestSo_setCallBack(JNIEnv * jEnv, jobject jObj){
 		printf("cr_register_callback() failed.  ret=%d\n", ret);
 		exit(1);
 	}
-	printf("ret:%d",ret);
 }
 
 /*
