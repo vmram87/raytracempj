@@ -25,6 +25,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 package xdev.smpdev;
 
 import xdev.*;
+
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 
@@ -345,4 +346,11 @@ public int
 getSendOverhead() { 
     return 0 ; 
   }
+
+@Override
+public void checkpoint() throws XDevException {
+	throw new XDevException("Not Implemented!");
+	
+}
+
 }

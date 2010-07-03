@@ -254,5 +254,8 @@ public interface Device {
                                        int context) throws XDevException;
 
   public abstract mpjdev.Request peek() throws XDevException; 
+  
+  public void checkpoint() throws XDevException; 
+	  
 
 }
