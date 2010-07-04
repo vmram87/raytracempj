@@ -71,14 +71,17 @@ public class MPIViewport extends AbstractViewPort {
 		//checkpoint
 		if(this.rank == 0){
 			
-			MPI.COMM_WORLD.checkpoint();
+			//MPI.COMM_WORLD.checkpoint();
 			
 			
 		}
 		
+		System.out.println("1 time send receive");
 		//send and receieve the data size
 		if(!dataSizeCollection())
 			return false;
+		
+		System.out.println("after 1 time send receive");
 		
 		this.imageMatrix=new float[this.datasize*3];
 		
