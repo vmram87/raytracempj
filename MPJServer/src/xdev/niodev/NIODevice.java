@@ -1410,6 +1410,34 @@ public class NIODevice
 	    //writableServerChannel.close();
 	    //readableServerChannel.close();
 	    pids[rank] = id;
+	    
+	      initMsgBuffer.flip();
+
+	      /* send the the writable checkpoint channel */
+	      while (initMsgBuffer.hasRemaining()) {
+	        try {
+	          if (writableCheckpointServer.write(initMsgBuffer) == -1) {
+	            throw new XDevException(new ClosedChannelException());
+	          }
+	        }
+	        catch (Exception e) {
+	          throw new XDevException(e);
+	        }
+	      } //end while.
+	      
+	      initMsgBuffer.flip();
+
+	      /* send the the readable checkpoint channel */
+	      while (initMsgBuffer.hasRemaining()) {
+	        try {
+	          if (readableCheckpointServer.write(initMsgBuffer) == -1) {
+	            throw new XDevException(new ClosedChannelException());
+	          }
+	        }
+	        catch (Exception e) {
+	          throw new XDevException(e);
+	        }
+	      } //end while.
 
 	    
 
@@ -2414,7 +2442,8 @@ public class NIODevice
         SocketChannel c = worldWritableTable.get(request.srcUUID);
         recvMap.put(new Integer(request.recvCounter),request);
 	sem.signal();
-        CustomSemaphore wLock = writeLockTable.get(dstUUID);
+		System.out.println(writeLockTable.containsKey(srcUUID));
+        CustomSemaphore wLock = writeLockTable.get(srcUUID);
 
 	try {
           wLock.acquire();
@@ -2787,6 +2816,7 @@ public class NIODevice
 	    
 	    if(isCheckpointing == false){
 	    	try {
+	    		System.out.println("acquire the checkpoint lock");
 				cLockRendezSend.acquire();
 				cLockUserSend.acquire();
 			} catch (InterruptedException e) {
