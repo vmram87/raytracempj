@@ -70,9 +70,9 @@ public class MPIViewport extends AbstractViewPort {
 		
 		//checkpoint
 		if(this.rank == 0){
-			System.out.println("before checkpoint!");
+			
 			MPI.COMM_WORLD.checkpoint();
-			System.out.println("After checkpoint!");
+			
 			
 		}
 		

@@ -243,7 +243,7 @@ import xdev.XDevException;
  *     </p>
  */
 public class NIODevice
-    implements Device, ICheckpoint {
+    implements Device {
 	
 	
 	static{
@@ -622,9 +622,11 @@ public class NIODevice
   
   private int versionNum = 0;
   private boolean isCheckpointing = false;
+  private boolean startCheckpoint = false;
   private String[] args = null;
   CustomSemaphore cLockRendezSend = new CustomSemaphore(1);
   CustomSemaphore cLockUserSend = new CustomSemaphore(1);
+  CustomSemaphore markerLock = new CustomSemaphore(1);
   Thread socketInitThreadStarter = null;
   
 
@@ -2606,18 +2608,7 @@ public class NIODevice
    * 
    */
   public void checkpoint() throws XDevException{
-  	try {
-  		cLockRendezSend.acquire();
-  		cLockUserSend.acquire();
-	} catch (InterruptedException e) {
-		throw new XDevException(e);
-	}
-
-	versionNum = 1;
-	checkpoint(new Integer(versionNum).toString());	  
-  
-	cLockRendezSend.signal();
-	cLockUserSend.signal();
+  		startCheckpoint = true;
   }
   
   /*
@@ -2647,6 +2638,12 @@ public class NIODevice
 	    cMsgBuffer.position(4);
 	    cMsgBuffer.putInt(rank);
 	    cMsgBuffer.putInt(versionNum); 	    
+	    
+	    try {
+			markerLock.acquire();
+		} catch (InterruptedException e1) {
+			e1.printStackTrace();
+		}
     	markerMap.put(new Integer(rank), new Integer(versionNum));
 	    
 	    if(isCheckpointing == false){
@@ -2658,21 +2655,68 @@ public class NIODevice
 				System.out.println("Can't acquire the checkpoint lock! Exit");
 				System.exit(1);
 			}
-	    	
-	    	url2 = url2 + "_" + versionNum;
-	    	checkpoint(new Integer(versionNum).toString());	 
-	    	
+			
+			isCheckpointing = true;
+			
+			sendMarkers();	  
+			System.out.println("Sending markers");
+	    }
+	    
+
+	    //receive all markers from others, begin checkpoint
+	    if(markerMap.size() == (nprocs-1)){   
+	    	try {
+				Thread.currentThread().sleep(1000);
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			}
+	    	checkpoint(new Integer(versionNum).toString());	
 	    	cLockUserSend.signal();
 	    	cLockRendezSend.signal();
+	    	System.out.println("checkpoint finished");
+			
 	    }
 	    
-	    else{ //it has been checkpionting
-	    	if(markerMap.size() == (nprocs-1))
-	    		isCheckpointing = false;	    	
-	    }
-	    
-	
+	    markerLock.signal();
+
 	}
+  
+  /*
+   * send markers to all the write channel, note that, 
+   * you should acquire the lock befor calling this function
+   */
+  void sendMarkers(){
+  	ByteBuffer cMsgBuffer = ByteBuffer.allocate(12);	    
+    
+    cMsgBuffer.limit(12);
+  	SocketChannel c = null;
+	
+	//cMsgBuffer.flip();
+	cMsgBuffer.position(0);
+    cMsgBuffer.putInt(START_CHECKPOINT);
+    cMsgBuffer.putInt(this.rank);
+    cMsgBuffer.putInt(versionNum); 
+    
+    /* Writing start checkpoint message into writable-channels */
+    for (int i = 0; i < writableChannels.size(); i++) {
+    	
+      c = writableChannels.get(i);
+      cMsgBuffer.flip();
+
+      /* Do we need to iterate here? */
+      while (cMsgBuffer.hasRemaining()) {
+        try {
+          if (c.write(cMsgBuffer) == -1) {
+            throw new XDevException(new ClosedChannelException());
+          }
+        }
+        catch (Exception e) {
+          throw new XDevException(e);
+        }
+      } //end while.
+    } //end for.
+    
+  }
 
   /* called from the selector thread, and accept the connections */
   boolean doAccept(SelectableChannel keyChannel,
@@ -3550,6 +3594,24 @@ public class NIODevice
           readyItor = readyKeys.iterator();
 
           while (readyItor.hasNext()) {
+        	if(startCheckpoint){  
+        		System.out.println("before checkpoint!");
+	        	try {
+	    	  		cLockRendezSend.acquire();
+	    	  		cLockUserSend.acquire();
+	    		} catch (InterruptedException e) {
+	    			throw new XDevException(e);
+	    		}
+	    		
+	    		startCheckpoint = false;
+	
+	    		versionNum = 1;	    		
+	    		
+	    		sendMarkers();
+	    		
+	    		System.out.println("send the markers to others!");
+	    		
+        	}
 
             key = readyItor.next();
             readyItor.remove();
@@ -3821,6 +3883,8 @@ public class NIODevice
                   case START_CHECKPOINT:
                 	  doCheckpoint( ( (SocketChannel) keyChannel),
                               worldWritableTable);
+                	  
+                	  System.out.println("out checkpoint");
                 	  break;
 
                   case END_OF_STREAM:
@@ -4134,7 +4198,7 @@ public class NIODevice
 		}
 	};
 	
-	@Override
+
 	public void preProcess() {
 		System.out.println("acquire in pre process");
 		
@@ -4157,44 +4221,17 @@ public class NIODevice
 		
 	}
 	
-	@Override
+
 	public void processContinue() {
 		// TODO Auto-generated method stub
 		System.out.println("Enter Continue!");
 		isCheckpointing = true;
-	
-		SocketChannel socketChannel = null;
-		ByteBuffer cMsgBuffer = ByteBuffer.allocate(12);
-		
-		//cMsgBuffer.flip();
-		//cMsgBuffer.position(0);
-	    cMsgBuffer.putInt(START_CHECKPOINT);
-	    cMsgBuffer.putInt(this.rank);
-	    cMsgBuffer.putInt(versionNum); 
-	    
-	    /* Writing start checkpoint message into writable-channels */
-	    for (int i = 0; i < writableChannels.size(); i++) {
-	      socketChannel = writableChannels.get(i);
-	      cMsgBuffer.flip();
-
-	      /* Do we need to iterate here? */
-	      while (cMsgBuffer.hasRemaining()) {
-	        try {
-	          if (socketChannel.write(cMsgBuffer) == -1) {
-	            throw new XDevException(new ClosedChannelException());
-	          }
-	        }
-	        catch (Exception e) {
-	          throw new XDevException(e);
-	        }
-	      } //end while.
-	    } //end for.
 	    
 	    System.out.println("Leave Continue!");
 		
 	}
 	
-	@Override
+
 	public void processRestart() {
 		isCheckpointing = true;
 		socketInit();

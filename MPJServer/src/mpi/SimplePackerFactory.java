@@ -37,7 +37,7 @@
 
 package mpi;
 
-public class SimplePackerFactory {
+public class SimplePackerFactory{
   public static Packer create(int count, int datatype) {
 
     switch (datatype) {
