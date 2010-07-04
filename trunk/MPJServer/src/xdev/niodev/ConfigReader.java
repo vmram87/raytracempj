@@ -169,9 +169,7 @@ public class ConfigReader {
    * @return String
    */
   public String readLine() throws IOException {
-    if (count > numberOfHosts) {
-      return null;
-    }
+    
     String temp;
     try {
       temp = bufferedReader.readLine();
