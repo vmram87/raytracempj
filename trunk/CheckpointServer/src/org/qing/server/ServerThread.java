@@ -342,7 +342,7 @@ public class ServerThread {
 		    for (int i = 0; i < writableChannels.size(); i++) {
 		      SocketChannel socketChannel = writableChannels.get(i);
 		      try {
-		        doBarrierRead(socketChannel, worldWritableTable, true);
+		        doBarrierRead(socketChannel, worldWritableTable, false);
 		      }
 		      catch (Exception xde) {
 		        throw xde;
@@ -468,12 +468,12 @@ public class ServerThread {
 	                
 	                  case INIT_MSG_HEADER_DATA_CHANNEL:
 	                    doBarrierRead( ( (SocketChannel) keyChannel),
-	                                  worldReadableTable, false);
+	                                  worldReadableTable, true);
 	                    break;
 
 	                  case INIT_MSG_HEADER_CTRL_CHANNEL:
 	                    doBarrierRead( ( (SocketChannel) keyChannel),
-	                                  worldReadableTable, false);
+	                                  worldReadableTable, true);
 	               
 	                    
 	                  case START_CHECKPOINT:
@@ -573,7 +573,7 @@ public class ServerThread {
 	    UUID ruid = null;
 	    ByteBuffer barrBuffer = ByteBuffer.allocate(24); //changeallocate
 
-	    if (ignoreFirstFourBytes) {
+	    if (!ignoreFirstFourBytes) {
 	      barrBuffer.limit(24);
 	    }
 	    else {
@@ -593,7 +593,7 @@ public class ServerThread {
 
 	    barrBuffer.flip();
 
-	    if (ignoreFirstFourBytes) {
+	    if (!ignoreFirstFourBytes) {
 	      barrBuffer.getInt();
 	    }
 
@@ -610,7 +610,7 @@ public class ServerThread {
 	      table.put(ruid, socketChannel);
 
 
-	      if ( (table.size() == nprocs - 1)) {
+	      if ( (table.size() == nprocs )) {
 	        try {
 	          table.notify();
 	        }
