@@ -629,6 +629,15 @@ public class NIODevice
   CustomSemaphore markerLock = new CustomSemaphore(1);
   Thread socketInitThreadStarter = null;
   
+  SocketChannel readableCheckpointServer = null;
+  SocketChannel writableCheckpointServer = null;
+
+  private String cp_host = null;
+
+  private int cp_port = 0;
+
+  private int cp_rank = 0;
+  
 
   public NIODevice() {
     //this.deviceName = "niodev"; 
@@ -725,16 +734,14 @@ public class NIODevice
   
   
   /*
-   * 
-   * 
+   * reand the configure file
+   * init the socket channel 
+   * reinit the socket after checkpoint
    * 
    */
   public void socketInit(){
 	  ConfigReader reader = null;
-
-
-	  
-	  
+  
 	    try {
 	      reader = new ConfigReader(args[1]); 
 	      nprocs = (new Integer(reader.readNoOfProc())).intValue();
@@ -772,10 +779,22 @@ public class NIODevice
 	        throw new XDevException(ioe);
 	      }
 
-	      if (line == null || line.equals("") || line.equals("#")) {
+	      if (line == null || line.equals("") || line.startsWith("#")) {
 	        continue;
 	      }
 
+	      if(line.contains("$")){
+	    	  //checkpoint must be declare before the nodes
+	    	  line = line.trim();
+		      StringTokenizer tokenizer = new StringTokenizer(line, "$");
+		      cp_host = tokenizer.nextToken();
+		      cp_port = (new Integer(tokenizer.nextToken())).intValue();
+		      cp_rank = (new Integer(tokenizer.nextToken())).intValue();
+	    	  
+	    	  continue;
+	      }
+	      
+	      
 	      line = line.trim();
 	      StringTokenizer tokenizer = new StringTokenizer(line, "@");
 	      nodeList[count] = tokenizer.nextToken();
@@ -1076,6 +1095,122 @@ public class NIODevice
 	      temp++;
 
 	    } //end while
+	    
+	    
+	    connected = false;
+    	//conect the readable checkpoint server channel
+    	while (!connected) {
+
+          try {
+            readableCheckpointServer = SocketChannel.open();
+            readableCheckpointServer.configureBlocking(true);
+          }
+          catch (Exception e) {
+            throw new XDevException(e);
+          }
+
+          try {
+            connected = readableCheckpointServer.connect(
+                new InetSocketAddress(cp_host, cp_port));
+          }
+          catch (AlreadyConnectedException ace) {
+            throw new XDevException(ace);
+          }
+          catch (ConnectionPendingException cpe) {
+            throw new XDevException(cpe);
+          }
+          catch (ClosedChannelException cce) {
+            throw new XDevException(cce);
+          }
+          catch (UnresolvedAddressException uae) {
+            throw new XDevException(uae);
+          }
+          catch (UnsupportedAddressTypeException uate) {
+            throw new XDevException(uate);
+          }
+          catch (SecurityException se) {
+            throw new XDevException(se);
+          }
+          catch (IOException ioe) {
+            // this is continuing coz process 1 alwayz connect to process 0
+            // server socket. If process 0 is not up, then this exception
+            connected = false;
+
+            continue;
+          }
+
+          try {
+        	  readableCheckpointServer.configureBlocking(false);
+        	  readableCheckpointServer.register(selector,SelectionKey.OP_READ);
+        	  readableCheckpointServer.socket().setTcpNoDelay(true);
+	    //these are useful if running MPJ on gigabit ethernet.
+        	  readableCheckpointServer.socket().setSendBufferSize(524288);
+        	  readableCheckpointServer.socket().setReceiveBufferSize(524288);
+          }
+          catch (Exception e) {
+            throw new XDevException(e);
+          }
+          connected = true;
+        } //end while
+    	
+    	
+    	
+    	connected = false;
+    	//conect the writable checkpoint server channel
+    	while (!connected) {
+
+          try {
+            writableCheckpointServer = SocketChannel.open();
+            writableCheckpointServer.configureBlocking(true);
+          }
+          catch (Exception e) {
+            throw new XDevException(e);
+          }
+
+          try {
+            connected = writableCheckpointServer.connect(
+                new InetSocketAddress(cp_host, cp_port+1));
+          }
+          catch (AlreadyConnectedException ace) {
+            throw new XDevException(ace);
+          }
+          catch (ConnectionPendingException cpe) {
+            throw new XDevException(cpe);
+          }
+          catch (ClosedChannelException cce) {
+            throw new XDevException(cce);
+          }
+          catch (UnresolvedAddressException uae) {
+            throw new XDevException(uae);
+          }
+          catch (UnsupportedAddressTypeException uate) {
+            throw new XDevException(uate);
+          }
+          catch (SecurityException se) {
+            throw new XDevException(se);
+          }
+          catch (IOException ioe) {
+            // this is continuing coz process 1 alwayz connect to process 0
+            // server socket. If process 0 is not up, then this exception
+            connected = false;
+
+            continue;
+          }
+
+          try {
+        	  writableCheckpointServer.configureBlocking(true);
+        	  writableCheckpointServer.socket().setTcpNoDelay(true);
+	    //these are useful if running MPJ on gigabit ethernet.
+        	  writableCheckpointServer.socket().setSendBufferSize(524288);
+        	  writableCheckpointServer.socket().setReceiveBufferSize(524288);
+          }
+          catch (Exception e) {
+            throw new XDevException(e);
+          }
+          connected = true;
+        } //end while
+    	
+    	
 
 	    if(isCheckpointing == false){
 		    index = rank;
@@ -1244,6 +1379,8 @@ public class NIODevice
 	    } //end for.
 
 	    /* Do blocking-reads, is this correct? will work but wont scale i think.
+	     * record the every pair of <uuid, writableChannel>
+	     * the pair of <uuid, readableChannel> left for the selecotr thread to record
 	     */
 	    for (int i = 0; i < writableChannels.size(); i++) {
 	      socketChannel = writableChannels.get(i);
@@ -1283,6 +1420,8 @@ public class NIODevice
 		    	writeLockTable.put(pids[k].uuid(),
 		                         new CustomSemaphore(1));
 		    }
+	    
+   	
 
 	    try {
 	      writableServerChannel.close();
@@ -1292,7 +1431,7 @@ public class NIODevice
 	      throw new XDevException(e);
 	    }
 	    
-  }
+  }//end of socket init
   
   
 
