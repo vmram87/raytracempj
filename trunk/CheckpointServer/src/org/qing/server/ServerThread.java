@@ -28,6 +28,9 @@ import java.util.Vector;
 
 
 
+
+
+
 public class ServerThread {
 	private Thread serverThread = null;
 	private String mpjHomeDir = null;
@@ -36,6 +39,8 @@ public class ServerThread {
 	private static final int SHUTDOWN_SIGNAL = -13;
 	private static final int END_OF_STREAM = -14;
 	private static String server_host = null;
+	private boolean isCheckpointing = false;
+	private int versionNum = 0;
 	
 	String localHostName = null;
 	InetAddress localaddr = null;
@@ -54,6 +59,10 @@ public class ServerThread {
 	  private final int INIT_MSG_HEADER_DATA_CHANNEL = -21;
 	
 	  private final int INIT_MSG_HEADER_CTRL_CHANNEL = -20;
+	  
+	  private final int CHECKPOINT_RECONNECT = -40;
+	  
+	  private final int MARKER_ACK = -41;
 	
 	  private final int RENDEZ_CTRL_MSG_LENGTH = 4;
 	
@@ -97,8 +106,12 @@ public class ServerThread {
 	  
 	
 	Vector<SocketChannel> writableChannels = new Vector<SocketChannel> ();
+	Vector<SocketChannel> tempWritableChannels = new Vector<SocketChannel> ();
 
 	Vector<SocketChannel> readableChannels = new Vector<SocketChannel> ();
+	Vector<SocketChannel> tempReadableChannels = new Vector<SocketChannel> ();
+	
+	private boolean isRenew = false;
 
 	Hashtable<UUID, SocketChannel> worldWritableTable =
 		new Hashtable<UUID, SocketChannel> ();
@@ -312,6 +325,8 @@ public class ServerThread {
 
 		    } //end sync.
 		    System.out.println("2");
+		    
+		    isRenew = true;
 
 
 		    /*
@@ -342,7 +357,7 @@ public class ServerThread {
 		    for (int i = 0; i < writableChannels.size(); i++) {
 		      SocketChannel socketChannel = writableChannels.get(i);
 		      try {
-		        doBarrierRead(socketChannel, worldWritableTable, false);
+		        doBarrierRead(socketChannel, worldWritableTable, true);
 		      }
 		      catch (Exception xde) {
 		        throw xde;
@@ -368,13 +383,7 @@ public class ServerThread {
 		    	writeLockTable.put(pids[k],new CustomSemaphore(1));
 		    }
 
-		    try {
-		      writableServerChannel.close();
-		      readableServerChannel.close();
-		    }
-		    catch (Exception e) {
-		      throw new Exception(e);
-		    }
+		    
 		    
 	  }//end of socket init
 
@@ -393,6 +402,8 @@ public class ServerThread {
 	   * basically the selector thread
 	   */
 	  Runnable selectorThread = new Runnable() {
+
+		
 
 		/* This is selector thread */
 	    public void run() {
@@ -428,11 +439,16 @@ public class ServerThread {
 	                  (ServerSocketChannel) keyChannel;
 	              if (sChannel.socket().getLocalPort() == my_server_port) {
 
-	                doAccept(keyChannel, writableChannels, true);
+	            	  if(!isRenew)
+	            		  doAccept(keyChannel, writableChannels, true);
+	            	  else
+	            		  doAccept(keyChannel, tempWritableChannels, true);
 	              }
 	              else {
-	            	  
-	                doAccept(keyChannel, readableChannels, false);
+	            	  if(!isRenew)
+	            		  doAccept(keyChannel, readableChannels, false);
+	            	  else
+	            		  doAccept(keyChannel, tempReadableChannels, false);
 	              }
 
 	            }
@@ -468,12 +484,22 @@ public class ServerThread {
 	                
 	                  case INIT_MSG_HEADER_DATA_CHANNEL:
 	                    doBarrierRead( ( (SocketChannel) keyChannel),
-	                                  worldReadableTable, true);
+	                                  worldReadableTable, false);
 	                    break;
-
+	                    
 	                  case INIT_MSG_HEADER_CTRL_CHANNEL:
+	                      doBarrierRead( ( (SocketChannel) keyChannel),
+	                                    worldReadableTable, false);
+	                      break;
+
+	                  case CHECKPOINT_RECONNECT:
+	                	  if(isCheckpointing == false){
+	                		  isCheckpointing = true;
+	                		  (new Thread(renewThread)).start();
+	                	  }
 	                    doBarrierRead( ( (SocketChannel) keyChannel),
-	                                  worldReadableTable, true);
+	                                  worldReadableTable, false);
+	                    break;
 	               
 	                    
 	                  case START_CHECKPOINT:
@@ -516,6 +542,122 @@ public class ServerThread {
 
 
 	  }; //end selectorThread which is an inner class
+	  
+	  
+	  Runnable renewThread = new Runnable() {
+		
+		@Override
+		public void run() {
+			//wait all to finish
+			 synchronized (tempWritableChannels) {
+
+		      if (tempWritableChannels.size() != nprocs) {
+		        try {
+		        	tempWritableChannels.wait();
+		        }
+		        catch (Exception e) {
+		          e.printStackTrace();
+		        }
+		      }
+
+		    } //end sync.
+			 for(int i=0;i < writableChannels.size();i++){
+				try {
+					writableChannels.get(i).close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			 }
+			 
+			 writableChannels.clear();
+			 writableChannels = tempReadableChannels;
+		    
+		    System.out.println("r1");
+
+		    /* This is for control-channels. */
+		    synchronized (tempReadableChannels) {
+
+		      if (tempReadableChannels.size() != nprocs) {
+		        try {
+		        	tempReadableChannels.wait();
+		        }
+		        catch (Exception e) {
+		        	e.printStackTrace();
+		        }
+		      }
+
+		    } //end sync.
+		    
+		    for(int i=0;i < readableChannels.size();i++){
+				try {
+					readableChannels.get(i).close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+		    }
+			 
+			readableChannels.clear();
+		    readableChannels = tempReadableChannels;
+		    
+		    tempReadableChannels =  new Vector<SocketChannel> ();
+		    tempWritableChannels =  new Vector<SocketChannel> ();
+		    System.out.println("r2");
+		    
+		    
+		    
+		    /*
+		     * At this point, all-to-all connectivity has been acheived. 
+		     */
+    
+		    worldWritableTable.clear();
+		    worldReadableTable.clear();
+		    
+		    /*
+		     * non checkpoint server node send the rank, msb, lsb to the checkpoint server
+		     *  Do blocking-reads, record the every pair of <uuid, writableChannel>
+		     *  the pair of <uuid, readableChannel> left for the selecotr thread to record
+		     */
+		    
+		    /* worldTable is accessed from doBarrierRead or here, so their access
+		     * should be synchronized */
+		    synchronized (worldReadableTable) {
+		      if ( (worldReadableTable.size() != nprocs)) {
+		        try {
+		          worldReadableTable.wait();
+		        }
+		        catch (Exception e) {
+		          e.printStackTrace();
+		        }
+		      }
+		    } //end sync
+		    System.out.println("r3");
+		    
+		    for (int i = 0; i < writableChannels.size(); i++) {
+		      SocketChannel socketChannel = writableChannels.get(i);
+		      try {
+		        doBarrierRead(socketChannel, worldWritableTable, true);
+		      }
+		      catch (Exception xde) {
+		    	  xde.printStackTrace();
+		      }
+		    }
+		    
+		    
+		    synchronized (worldWritableTable) {
+		      if ( (worldWritableTable.size() != nprocs - 1)) {
+		        try {
+		          worldWritableTable.wait();
+		        }
+		        catch (Exception e) {
+		        	e.printStackTrace();
+		        }
+		      }
+		    } //end sync
+		    System.out.println("r4");
+		  
+		}
+	};// end renew thread
+	
 	
 	  private boolean doAccept(SelectableChannel keyChannel,
 				Vector<SocketChannel> channelCollection, boolean blocking) throws Exception {
@@ -573,7 +715,7 @@ public class ServerThread {
 	    UUID ruid = null;
 	    ByteBuffer barrBuffer = ByteBuffer.allocate(24); //changeallocate
 
-	    if (!ignoreFirstFourBytes) {
+	    if (ignoreFirstFourBytes) {
 	      barrBuffer.limit(24);
 	    }
 	    else {
@@ -586,14 +728,14 @@ public class ServerThread {
 	          throw new Exception(new ClosedChannelException());
 	        }
 	      }
-	      catch (Exception e) {
-	        throw new Exception(e);
+	      catch (ClosedChannelException e) {
+	        return;
 	      }
 	    }
 
 	    barrBuffer.flip();
 
-	    if (!ignoreFirstFourBytes) {
+	    if (ignoreFirstFourBytes) {
 	      barrBuffer.getInt();
 	    }
 
@@ -626,8 +768,75 @@ public class ServerThread {
 	  
 	  
 	  private void doCheckpoint(SocketChannel socketChannel,
-				Hashtable<UUID, SocketChannel> worldWritableTable) {
-			// TODO Auto-generated method stub
+				Hashtable<UUID, SocketChannel> worldWritableTable) throws Exception {
+			
+		  	ByteBuffer cMsgBuffer = ByteBuffer.allocate(12);	  
+		  	ByteBuffer ackBuffer = ByteBuffer.allocate(4);
+		    
+		    cMsgBuffer.limit(12);
+		    cMsgBuffer.position(4);
+		    
+		    while (cMsgBuffer.hasRemaining()) {
+		        try {
+		          if (socketChannel.read(cMsgBuffer) == -1) {
+		            throw new Exception(new ClosedChannelException());
+		          }
+		        }
+		        catch (Exception e) {
+		          throw e;
+		        }
+		    }
+		    
+		    int rank;
+		    cMsgBuffer.position(4);
+		    rank =cMsgBuffer.getInt();
+		    versionNum = cMsgBuffer.getInt();
+		    
+		    UUID uid = pids[rank];
+		    
+		    ackBuffer.limit(4);
+		    ackBuffer.putInt(MARKER_ACK);
+		    SocketChannel c = worldWritableTable.get(uid);
+		    
+		    ackBuffer.flip();
+		    while(ackBuffer.hasRemaining()){	    	
+		    	try {
+			          if (c.write(ackBuffer) == -1) {
+			            throw new Exception(new ClosedChannelException());
+			          }
+			    }
+		        catch (Exception e) {
+		        	System.out.println("can not write back marker ack");
+		        	throw e;
+		        }
+		    }
+		    
+		    cMsgBuffer.position(0);
+		    cMsgBuffer.limit(12);
+		    cMsgBuffer.putInt(START_CHECKPOINT);
+		    cMsgBuffer.putInt(rank);
+		    cMsgBuffer.putInt(versionNum);
+		    Iterator it = worldWritableTable.entrySet().iterator();
+		    SocketChannel other = null;
+		    while(it.hasNext()){
+		    	java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+		    	if(((UUID)entry.getKey()).equals(uid))
+		    		continue;
+		    	
+		    	cMsgBuffer.flip();
+		    	other = (SocketChannel)entry.getValue();
+		    	while(cMsgBuffer.hasRemaining()){	    	
+			    	try {
+				          if (other.write(cMsgBuffer) == -1) {
+				            throw new Exception(new ClosedChannelException());
+				          }
+				    }
+			        catch (Exception e) {
+			        	System.out.println("can not write marker to other process");
+			        	throw e;
+			        }
+			    }
+		    }
 			
 		}
 	  
