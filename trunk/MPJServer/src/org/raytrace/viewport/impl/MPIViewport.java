@@ -71,17 +71,23 @@ public class MPIViewport extends AbstractViewPort {
 		//checkpoint
 		if(this.rank == 0){
 			
-			//MPI.COMM_WORLD.checkpoint();
+			MPI.COMM_WORLD.checkpoint();
+			try {
+				Thread.currentThread().sleep(2000);
+			} catch (InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 			
 			
 		}
 		
-		System.out.println("1 time send receive");
+		System.out.println("before dataSizeCollection");
 		//send and receieve the data size
 		if(!dataSizeCollection())
 			return false;
 		
-		System.out.println("after 1 time send receive");
+		System.out.println("after dataSizeCollection");
 		
 		this.imageMatrix=new float[this.datasize*3];
 		
@@ -103,11 +109,12 @@ public class MPIViewport extends AbstractViewPort {
 		}
 		
 		//data collection from all the processes
+		System.out.println("before dataCollection");
 		if(!dataCollection())
 		{
 			return false;
 		}
-		
+		System.out.println("after dataCollection");
 		return true;
 	}
 	
