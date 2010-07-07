@@ -24,9 +24,6 @@ callback(void *arg)
 {
     int ret;
 
-	printf("C:In the call back1\n");
-	fflush(stdout);
-
 	//jmethodID mid;
 	//jclass cls = (*jenv)->GetObjectClass(jenv,jobj);
 
@@ -35,7 +32,7 @@ callback(void *arg)
 	//(*jenv)->CallObjectMethod(jenv, jobj, mid);
 
 
-    printf("C:In the call back2\n");
+    printf("C:Endter the call back\n");
     fflush(stdout);
     ret = cr_checkpoint(0);
     if (ret > 0) {
