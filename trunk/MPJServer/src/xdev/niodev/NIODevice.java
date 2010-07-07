@@ -631,6 +631,7 @@ public class NIODevice
   private String[] args = null;
   CustomSemaphore cLockRendezSend = new CustomSemaphore(1);
   CustomSemaphore cLockUserSend = new CustomSemaphore(1);
+  CustomSemaphore cLockSelector = new CustomSemaphore(1);
   CustomSemaphore markerLock = new CustomSemaphore(1);
   boolean recvMarkerAck = false;
   Thread socketInitThreadStarter = null;
@@ -3969,18 +3970,23 @@ public class NIODevice
                       if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
                         logger.debug("calling r2s " + socketChannel);
                       }
-
-                      SocketChannel c =
-                          worldWritableTable.get(recvRequest.srcUUID);
-                      CustomSemaphore wLock = writeLockTable.get(recvRequest.srcUUID);
-		      long acq = System.nanoTime() ;
-                      wLock.acquire();
-		      long rel = System.nanoTime() ;
-                      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-                        logger.debug("lock=<"+(rel-acq)/(1000000000.0));
+                      
+                      try{
+	
+	                      SocketChannel c =
+	                          worldWritableTable.get(recvRequest.srcUUID);
+	                      CustomSemaphore wLock = writeLockTable.get(recvRequest.srcUUID);
+			      long acq = System.nanoTime() ;
+	                      wLock.acquire();
+			      long rel = System.nanoTime() ;
+	                      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	                        logger.debug("lock=<"+(rel-acq)/(1000000000.0));
+	                      }
+	                      rendezCtrlMsgR2S(c, recvRequest);
+	                      wLock.signal();
+                      }catch(InterruptedException e){
+                    	  
                       }
-                      rendezCtrlMsgR2S(c, recvRequest);
-                      wLock.signal();
 
                       /*
                        * Receiver will recv message in user memory
@@ -4408,6 +4414,7 @@ public class NIODevice
       s++ ;
       notify() ;
     }
+    
   }
 
   

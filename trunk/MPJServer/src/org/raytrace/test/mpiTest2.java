@@ -20,7 +20,9 @@ public class mpiTest2 {
 		
 		IViewPort viewport=new MPIViewport(scene);
 		
-		viewport.init(args);
+		String param="2 mpj.conf niodev";
+		String[] params=param.split(" ");
+		viewport.init(params);
 		try {
 			viewport.configureFromFile("08.xml");
 		} catch (Exception e) {
@@ -28,7 +30,9 @@ public class mpiTest2 {
 			e.printStackTrace();
 		}
 		viewport.render();
+		System.out.println("Finish render!");
 		viewport.saveToIMGFile("test2.gif");
+		System.out.println("Finish ray tracing!");
 		viewport.viewportFinalize();
 		//viewport.saveConfigToFile("09.xml");
 
