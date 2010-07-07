@@ -1109,6 +1109,11 @@ public class NIODevice
           try {
             readableCheckpointServer = SocketChannel.open();
             readableCheckpointServer.configureBlocking(true);
+            
+            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("Connecting to " + cp_host +
+	                           "@" + cp_port);
+	        }
           }
           catch (Exception e) {
             throw new XDevException(e);
@@ -1140,6 +1145,10 @@ public class NIODevice
             // this is continuing coz process 1 alwayz connect to process 0
             // server socket. If process 0 is not up, then this exception
             connected = false;
+            
+            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("connecting error ->" + ioe.getMessage());
+	            }
 
             continue;
           }
@@ -1167,6 +1176,11 @@ public class NIODevice
           try {
             writableCheckpointServer = SocketChannel.open();
             writableCheckpointServer.configureBlocking(true);
+            
+            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("Connecting to " + cp_host +
+	                           "@" + (cp_port+1));
+	        }
           }
           catch (Exception e) {
             throw new XDevException(e);
@@ -1198,6 +1212,10 @@ public class NIODevice
             // this is continuing coz process 1 alwayz connect to process 0
             // server socket. If process 0 is not up, then this exception
             connected = false;
+            
+            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("connecting error ->" + ioe.getMessage());
+	            }
 
             continue;
           }
@@ -1215,7 +1233,17 @@ public class NIODevice
           connected = true;
         } //end while
     	
+    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+            logger.debug("read and write checkpoint server channel connected!");
+          }
     	
+    	if(isCheckpointing == true){
+    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+                logger.debug("clear world Readable and writable table");
+              }
+	    	worldReadableTable.clear();
+	    	worldWritableTable.clear();
+	    }
 
 	    if(isCheckpointing == false){
 		    index = rank;
@@ -1245,17 +1273,18 @@ public class NIODevice
 		    }
 	
 		    procTree.root = root;
-		    selectorThreadStarter = new Thread(selectorThread);
+	    }
+	    
+		    selectorThreadStarter = new selectorThread();
 		    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
 		      logger.debug("Starting the selector thread ");
 		    }
 
 		    selectorThreadStarter.start();
-	    }
-	    else{
-	    	socketInitThreadStarter = new Thread(initSocketThread);
-	    	socketInitThreadStarter.start();
-	    }
+		    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+                logger.debug("issue the socketInitThreadStarter start");
+              }
+	    
 
 	    //addShutdownHook();
 
@@ -1311,10 +1340,7 @@ public class NIODevice
 	     * is used extensively throughout the niodev.
 	     */
 	    
-	    if(isCheckpointing){
-	    	worldReadableTable.clear();
-	    	worldWritableTable.clear();
-	    }
+	    
 
 	    SocketChannel socketChannel = null;
 	    ByteBuffer initMsgBuffer = ByteBuffer.allocate(24);
@@ -1357,7 +1383,7 @@ public class NIODevice
 
 	    /* worldTable is accessed from doBarrierRead or here, so their access
 	     * should be synchronized */
-	    if(isCheckpointing == false)
+	    //if(isCheckpointing == false)
 		    synchronized (worldReadableTable) {
 		      if ( (worldReadableTable.size() != nprocs - 1)) {
 		        try {
@@ -1405,7 +1431,7 @@ public class NIODevice
 	      }
 	    }
 
-	    if(isCheckpointing == false)
+	   //if(isCheckpointing == false)
 		    synchronized (worldWritableTable) {
 		      if ( (worldWritableTable.size() != nprocs - 1)) {
 		        try {
@@ -1426,21 +1452,7 @@ public class NIODevice
 	    pids[rank] = id;
 	    
 	      
-	      //change the init message for the checkpoint server
-	     if(isCheckpointing == true){
-	    	 initMsgBuffer.position(0);
-	    	 initMsgBuffer.limit(24);
-	    	 initMsgBuffer.putInt(CHECKPOINT_RECONNECT);
-	    	 
-	    	 initMsgBuffer.putInt(rank);
-	 	     initMsgBuffer.putLong(msb);
-	 	     initMsgBuffer.putLong(lsb);
-	 	     
-	 	    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	 		      logger.debug("send checkpoint reconnect to checkpoint server ");
-	 		}
-	    	 
-	     }
+	     
 
 	      initMsgBuffer.flip();
 	      /* send the the writable checkpoint channel */
@@ -1459,6 +1471,7 @@ public class NIODevice
  		      logger.debug("send checkpoint reconnect to writable checkpoint server ");
 	      }
 	      
+
 	      initMsgBuffer.flip();
 
 	      /* send the the readable checkpoint channel */
@@ -1489,8 +1502,8 @@ public class NIODevice
    	
 
 	    try {
-	      writableServerChannel.close();
-	      readableServerChannel.close();
+	    	writableServerChannel.close();
+	    	readableServerChannel.close();
 	    }
 	    catch (Exception e) {
 	      throw new XDevException(e);
@@ -2566,6 +2579,21 @@ public class NIODevice
       }
     });
   }
+  
+  private void realFinish(SocketChannel socketChannel) {
+		// TODO Auto-generated method stub
+	  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	      logger.debug("---close a channel---");
+	      logger.debug("channel:" + socketChannel);
+	    }
+	  
+		try {
+			socketChannel.close();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
 
   private void realFinish() throws XDevException {
     selectorFlag = false;
@@ -2801,7 +2829,7 @@ public class NIODevice
         logger.debug("Adding rank " + rank + "into table " + table);
       }
 
-      if(isCheckpointing == false){
+      //if(isCheckpointing == false){
 	      if ( (table.size() == nprocs - 1)) {
 	        try {
 	        	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
@@ -2816,7 +2844,7 @@ public class NIODevice
 	          throw new XDevException(e);
 	        }
 		  }
-      }
+      //}
 
     }
 
@@ -2836,9 +2864,9 @@ public class NIODevice
   private void doCheckpoint(SocketChannel socketChannel,
 			Hashtable<UUID, SocketChannel> worldWritableTable) {  
 	  	
-	    ByteBuffer cMsgBuffer = ByteBuffer.allocate(12);	    
+	    ByteBuffer cMsgBuffer = ByteBuffer.allocate(28);	    
 	    
-	    cMsgBuffer.limit(12);
+	    cMsgBuffer.limit(28);
 	    cMsgBuffer.position(4);
 	    
 	    while (cMsgBuffer.hasRemaining()) {
@@ -2853,9 +2881,16 @@ public class NIODevice
 	    }
 	    
 	    int rank = 0;
+	    long msb,lsb;
+	    UUID ruid;
 	    cMsgBuffer.position(4);
 	    rank = cMsgBuffer.getInt();
+	    msb = cMsgBuffer.getLong();
+	    lsb = cMsgBuffer.getLong();
+	    ruid = new UUID(msb, lsb);
 	    versionNum = cMsgBuffer.getInt(); 	    
+	    
+	    
 	    
 	    try {
 			markerLock.acquire();
@@ -2884,14 +2919,6 @@ public class NIODevice
 	    
 
 	    //receive all markers from others, begin checkpoint
-	    if(markerMap.size() == (nprocs-1)&& recvMarkerAck == true){   
-	    	
-	    	checkpoint(new Integer(versionNum).toString());	
-	    	cLockUserSend.signal();
-	    	cLockRendezSend.signal();
-	    	System.out.println("checkpoint finished");
-			
-	    }
 	    
 	    markerLock.signal();
 
@@ -2902,15 +2929,17 @@ public class NIODevice
    * you should acquire the lock befor calling this function
    */
   void sendMarkers(){
-  	ByteBuffer cMsgBuffer = ByteBuffer.allocate(12);	    
+  	ByteBuffer cMsgBuffer = ByteBuffer.allocate(28);	    
     
-    cMsgBuffer.limit(12);
+    cMsgBuffer.limit(28);
   	SocketChannel c = null;
 	
 	//cMsgBuffer.flip();
 	cMsgBuffer.position(0);
     cMsgBuffer.putInt(START_CHECKPOINT);
     cMsgBuffer.putInt(this.rank);    
+    cMsgBuffer.putLong(id.uuid().getMostSignificantBits());
+    cMsgBuffer.putLong(id.uuid().getLeastSignificantBits());
     cMsgBuffer.putInt(versionNum); 
     
     /* Writing start checkpoint message into writable-channels */
@@ -3776,7 +3805,7 @@ public class NIODevice
    * Static anonymous inner class that is
    * basically the selector thread
    */
-  Runnable selectorThread = new Runnable() {
+  class selectorThread extends Thread{
 
 	/* This is selector thread */
     public void run() {
@@ -3798,12 +3827,11 @@ public class NIODevice
       NIORecvRequest recvRequest = null;
       SocketChannel pendingReadChannel = null;
       int header = 0;
+      boolean isFinished = false;
       //long strt = 0L, stop = 0L, intv = 0L ;
 
       try {
-        while (selectorFlag && selector.select() > -1) {
-
-          //strt = System.nanoTime() ;
+        while (!isFinished && selector.select() > -1) {
 
           readyKeys = selector.selectedKeys();
           readyItor = readyKeys.iterator();
@@ -4101,6 +4129,28 @@ public class NIODevice
                               worldWritableTable);
                 	  
                 	  System.out.println("out checkpoint");
+                	  
+                	  markerLock.acquire();
+                	  
+                	  if(markerMap.size() == (nprocs - 1) && recvMarkerAck == true){
+                		  
+                		  	//checkpoint(new Integer(versionNum).toString());	
+                		    preProcess();
+                		    checkpoint(new Integer(versionNum).toString());	
+              	    		processContinue();
+              	    	
+              	    		cLockUserSend.signal();
+              	    		cLockRendezSend.signal();
+              	    		markerMap.clear();              	    		            	    		
+	              	    	recvMarkerAck = false;
+	              	    	isFinished = true;
+	              	    	System.out.println("checkpoint finished");  
+	              	    	
+	              	    	markerLock.signal();
+	              	    	return;
+                	  }
+                	  
+                	  markerLock.signal();
                 	  break;
                 	  
                   case MARKER_ACK:
@@ -4110,25 +4160,31 @@ public class NIODevice
                 	  System.out.println("receive marker ack");                	  
                 	  
                 	  if(markerMap.size() == (nprocs - 1)){
-                		  	checkpoint(new Integer(versionNum).toString());	
+                		  	//checkpoint(new Integer(versionNum).toString());	
+                		    preProcess();
+                		    checkpoint(new Integer(versionNum).toString());	
+                		  	processContinue();
 	              	    	cLockUserSend.signal();
 	              	    	cLockRendezSend.signal();
+	              	    	recvMarkerAck = false;
+	              	    	isFinished = true;
+	              	    	markerMap.clear();
 	              	    	System.out.println("checkpoint finished");
+	              	    	
+	              	    	markerLock.signal();
+	              	    	return;
                 	  }
                 	  markerLock.signal();
-                	  
-                	  
                 	  
                 	  break;
 
                   case END_OF_STREAM:
                     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
                       logger.debug("END OF STREAM ");
-                      logger.debug("leaf is -1" +
-                                   procTree.numChildren);
+                      
                     }
 
-                    realFinish();
+                    realFinish((SocketChannel) keyChannel);
 
                     break;
 
@@ -4209,6 +4265,9 @@ public class NIODevice
         //ioe1.printStackTrace() ;
       } //end catch(Exception e) ...
       
+      if(mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+          logger.debug(" isFinished:" + isFinished);
+        }
       if(mpi.MPI.DEBUG && logger.isDebugEnabled()) {
         logger.debug(" last statement in selector thread");
       }
@@ -4370,145 +4429,19 @@ public class NIODevice
         input.close();
     } 
 	
-	Runnable initSocketThread = new Runnable() {
-	
-		@Override
-		public void run() {
-			  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-		        logger.info("selector Thread started ");
-		      }
-		      Set readyKeys = null;
-		      Iterator<SelectionKey> readyItor = null;
-		      SelectionKey key = null;
-		      ByteBuffer lilBuffer = ByteBuffer.allocate(4);
-		      SelectableChannel keyChannel = null;
-		      SocketChannel socketChannel = null;
-		      int header = 0;
-		      //long strt = 0L, stop = 0L, intv = 0L ;
-
-		      try {
-		        while (selectorFlag && selector.select() > -1) {
-
-		          //strt = System.nanoTime() ;
-
-		          readyKeys = selector.selectedKeys();
-		          readyItor = readyKeys.iterator();
-
-		          while (readyItor.hasNext()) {
-
-		            key = readyItor.next();
-		            readyItor.remove();
-		            keyChannel = (SelectableChannel) key.channel();
-		            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-		              logger.debug("---selector EVENT---");
-		            }
-
-		            if (key.isValid() && key.isAcceptable()) {
-
-		              ServerSocketChannel sChannel =
-		                  (ServerSocketChannel) keyChannel;
-		              if (sChannel.socket().getLocalPort() == my_server_port) {
-		                if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-		                  logger.debug("selector calling doAccept (data-channel) ");
-		                }
-		                doAccept(keyChannel, writableChannels, true);
-		              }
-		              else {
-		                if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-		                  logger.debug("selector calling doAccept (ctrl-channel) ");
-		                }
-		                doAccept(keyChannel, readableChannels, false);
-		              }
-
-		            }
-		            
-		            else if (key.isValid() && key.isReadable()) {
-		            	
-		            	socketChannel = (SocketChannel) keyChannel;
-
-	                  /* Read the first 4 bytes */
-	                  lilBuffer.clear();
-	                  header = 0;
-
-	                  while (lilBuffer.hasRemaining()) {
-	                    if ( (header = socketChannel.read(lilBuffer)) == -1) {
-	                      //throw new ClosedChannelException();
-	                      break;
-	                    }
-	                  }
-
-	                  if (header != -1) {
-	                    lilBuffer.flip();
-	                    header = lilBuffer.getInt();
-	                    lilBuffer.clear();
-	                  }
-	                  else {
-	                    header = END_OF_STREAM;
-	                  }
-
-	                  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	                    logger.debug("---READ_EVENT---" + header);
-	                  }
-
-	                  /**
-	                   * 
-	                   */
-	                  switch (header) {
-	                  	case INIT_MSG_HEADER_DATA_CHANNEL:
-	                      doBarrierRead( ( (SocketChannel) keyChannel),
-	                                    worldReadableTable, false);
-	                      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	             		      logger.debug("worldReadableTable size:"+worldReadableTable.size());
-	            	      }
-	                      if(worldReadableTable.size() == (nprocs -1)){
-	                    	  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-		             		      logger.debug("socket init thread return");
-		            	      }
-	                    	  return;
-	                      }
-	                      break;
-
-	                    case INIT_MSG_HEADER_CTRL_CHANNEL:
-	                      doBarrierRead( ( (SocketChannel) keyChannel),
-	                                    worldReadableTable, false);
-	                      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	             		      logger.debug("worldReadableTable size:"+worldReadableTable.size());
-	            	      }
-	                      if(worldReadableTable.size() == (nprocs -1)){
-	                    	  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-		             		      logger.debug("socket init thread return");
-		            	      }
-	                    	  return;
-	                      }
-	                      break;
-	                      
-	                    default:
-	                        System.out.println(" impossible ");
-	                        break;
-	                  }
-		            	
-		            }
-		            
-		           }
-		        }
-		      }catch(Exception e){
-		    	  e.printStackTrace();
-		      }
-		        
-		      
-			
-		}
-	};
-	
 
 	public void preProcess() {
 		System.out.println("acquire in pre process");
 		
 		try {
 			//selector and writableChannels involes open file so have to close them before checkpiont
-			selector.close();
+			for(int i=0;i<readableChannels.size();i++)
+				readableChannels.get(i).close();
+			for(int i=0;i<writableChannels.size();i++)
+				writableChannels.get(i).close();
 			writableChannels.clear();
 			readableChannels.clear();
+			selector.close();
 			File src = new File(url1);
 			File dst = new File(url2);
 			if(dst.exists())
@@ -4520,6 +4453,7 @@ public class NIODevice
 			e.printStackTrace();
 		}
 
+		//processContinue();
 		System.out.println("checkpoint wait end!");
 		
 	}
@@ -4530,11 +4464,13 @@ public class NIODevice
 		System.out.println("Enter Continue!");
 		isCheckpointing = true;
 		socketInit();
+		/*
 		try {
 			socketInitThreadStarter.join();
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+		*/
 		isCheckpointing = false;
 	    
 	    System.out.println("Leave Continue!");
@@ -4543,14 +4479,18 @@ public class NIODevice
 	
 
 	public void processRestart() {
+		System.out.println("Enter restart!");
 		isCheckpointing = true;
 		socketInit();
+		/*
 		try {
 			socketInitThreadStarter.join();
 		} catch (InterruptedException e) {
 			e.printStackTrace();
 		}
+		*/
 		isCheckpointing = false;
+		System.out.println("leave restart!");
 	}
 	  
 	public native  void setCallBack();
