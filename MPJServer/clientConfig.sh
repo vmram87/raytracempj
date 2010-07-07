@@ -9,3 +9,6 @@ mount 192.168.$address.$nfsServer:/nfs/share /nfs/share
 mount 192.168.$address.$nfsServer:/usr/java/mpj-v0_36/ /usr/java/mpj-v0_36/
 
 sed -i "s/192\.168\.[0-9]\{1,3\}\./192.168.$address./g" /etc/hosts
+
+/sbin/insmod /usr/local/lib/blcr/2.6.23.1-42.fc8/blcr_imports.ko
+/sbin/insmod /usr/local/lib/blcr/2.6.23.1-42.fc8/blcr.ko
