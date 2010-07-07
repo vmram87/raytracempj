@@ -51,6 +51,7 @@ import java.nio.ByteBuffer;
 import java.nio.ReadOnlyBufferException;
 import java.nio.channels.AlreadyConnectedException;
 import java.nio.channels.ClosedChannelException;
+import java.nio.channels.ClosedSelectorException;
 import java.nio.channels.ConnectionPendingException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
@@ -642,6 +643,8 @@ public class NIODevice
   private int cp_port = 0;
 
   private int cp_rank = 0;
+  
+  private int threadCounter = 1;
   
 
   public NIODevice() {
@@ -1275,7 +1278,7 @@ public class NIODevice
 		    procTree.root = root;
 	    }
 	    
-		    selectorThreadStarter = new selectorThread();
+		    selectorThreadStarter = new selectorThread(threadCounter++);
 		    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
 		      logger.debug("Starting the selector thread ");
 		    }
@@ -2593,6 +2596,9 @@ public class NIODevice
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+		
+		if(selectorFlag == false)
+			realFinish();
 	}
 
   private void realFinish() throws XDevException {
@@ -2693,6 +2699,8 @@ public class NIODevice
         return;
       }
     }
+    
+    selectorFlag = false;
 
     //do this fanning bit ..
     int offset = 0;
@@ -3806,12 +3814,17 @@ public class NIODevice
    * basically the selector thread
    */
   class selectorThread extends Thread{
-
+	  int threadNum = 0;
+	  
+	  public selectorThread(int Num){
+		  this.threadNum = Num;
+	  }
+	  
 	/* This is selector thread */
     public void run() {
 
       if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-        logger.info("selector Thread started ");
+        logger.info("selector Thread started!" + " In seletor thread<" + threadNum + ">");
       }
       Set readyKeys = null;
       long t_start=0l, t_end=0l ; 
@@ -3861,7 +3874,7 @@ public class NIODevice
             readyItor.remove();
             keyChannel = (SelectableChannel) key.channel();
             if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-              logger.debug("---selector EVENT---");
+              logger.debug("---selector EVENT---" + " In seletor thread<" + threadNum + ">");
             }
 
             if (key.isValid() && key.isAcceptable()) {
@@ -3909,7 +3922,7 @@ public class NIODevice
                 }
 
                 if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-                  logger.debug("---READ_EVENT---" + header);
+                  logger.debug("---READ_EVENT---" + header + " In seletor thread<" + threadNum + ">");
                 }
 
                 /**
@@ -4145,6 +4158,10 @@ public class NIODevice
 	              	    	recvMarkerAck = false;
 	              	    	isFinished = true;
 	              	    	System.out.println("checkpoint finished");  
+	              	    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	                            logger.debug("checkpoint finished, thread<" + threadNum + "> return!");
+	                            
+	                        }
 	              	    	
 	              	    	markerLock.signal();
 	              	    	return;
@@ -4170,6 +4187,10 @@ public class NIODevice
 	              	    	isFinished = true;
 	              	    	markerMap.clear();
 	              	    	System.out.println("checkpoint finished");
+	              	    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	              	    		logger.debug("checkpoint finished, thread<" + threadNum + "> return!");
+	                            
+	                        }
 	              	    	
 	              	    	markerLock.signal();
 	              	    	return;
@@ -4254,11 +4275,12 @@ public class NIODevice
             } //end else writable.
 
           } //end while iterator
+      
         } //end while
       }
       catch (Exception ioe1) {
         if(mpi.MPI.DEBUG && logger.isDebugEnabled() )  {
-          logger.debug(" error in selector thread " + ioe1.getMessage());
+          logger.debug(" error"  + " In seletor thread<" + threadNum + "> "  + ioe1.getMessage());
           
           ioe1.printStackTrace();
 	}
@@ -4269,7 +4291,7 @@ public class NIODevice
           logger.debug(" isFinished:" + isFinished);
         }
       if(mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-        logger.debug(" last statement in selector thread");
+        logger.debug(" last statement" + " In seletor thread<" + threadNum + ">");
       }
 
     } //end run()
