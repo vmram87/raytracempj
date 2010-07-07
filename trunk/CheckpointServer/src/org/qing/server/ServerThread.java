@@ -23,6 +23,14 @@ import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.UUID;
 import java.util.Vector;
+import java.util.concurrent.Semaphore;
+
+
+import org.apache.log4j.DailyRollingFileAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
+import org.apache.log4j.spi.LoggerRepository;
 
 
 
@@ -41,6 +49,8 @@ public class ServerThread {
 	private static String server_host = null;
 	private boolean isCheckpointing = false;
 	private int versionNum = 0;
+	private boolean initializing = false;
+	private CustomSemaphore initLock = new CustomSemaphore(1); 
 	
 	String localHostName = null;
 	InetAddress localaddr = null;
@@ -110,8 +120,7 @@ public class ServerThread {
 
 	Vector<SocketChannel> readableChannels = new Vector<SocketChannel> ();
 	Vector<SocketChannel> tempReadableChannels = new Vector<SocketChannel> ();
-	
-	private boolean isRenew = false;
+
 
 	Hashtable<UUID, SocketChannel> worldWritableTable =
 		new Hashtable<UUID, SocketChannel> ();
@@ -123,7 +132,8 @@ public class ServerThread {
 		new Hashtable<UUID, CustomSemaphore> ();
 	
 	
-	
+	static Logger logger = null ;
+	public static final boolean DEBUG = true; 
 	
 	public ServerThread(){
 		
@@ -139,8 +149,31 @@ public class ServerThread {
 	           "OR http://holly.dsg.port.ac.uk:15000/xdev.conf <Remote>");
 	    }	
 */		
-		Map<String,String> map = System.getenv() ;
-	    mpjHomeDir = map.get("MPJ_HOME");
+		
+		  DailyRollingFileAppender fileAppender = null ;  	  
+	      Map<String,String> map = System.getenv() ;
+	      String mpjHomeDir = map.get("MPJ_HOME");
+	      
+	      if(logger == null && DEBUG ) {
+	        try {
+	          fileAppender = new DailyRollingFileAppender( 
+				  new PatternLayout(
+					  " %-5p %c %x - %m\n" ),
+				  mpjHomeDir+"/logs/cpServer.log", 
+				  "yyyy-MM-dd-HH" );
+		  
+		  Logger rootLogger = Logger.getRootLogger() ;
+		  rootLogger.addAppender( fileAppender);
+		  LoggerRepository rep =  rootLogger.getLoggerRepository() ;
+		  rootLogger.setLevel ((Level) Level.ALL );
+		  //rep.setThreshold((Level) Level.OFF ) ;
+		  logger = Logger.getLogger( "cpServer" );  
+	        }
+	        catch(Exception e) {
+	          throw new Exception(e) ;
+	        }
+	      }
+
 	    
 	    try {
 
@@ -155,6 +188,9 @@ public class ServerThread {
 	      String[] argv={"0","mpj.conf","niodev"};
 	      this.args = argv;
 	      
+	      if(DEBUG && logger.isDebugEnabled())  {
+	          logger.debug("socket Init") ;
+	        }
 	      socketInit();
 		
 		return true;
@@ -256,17 +292,25 @@ public class ServerThread {
 		      isError = false;
 
 		      try {
+		    	  	
 		    	  	writableServerChannel = ServerSocketChannel.open();
 			        writableServerChannel.configureBlocking(false);
 			        writableServerChannel.socket().bind(new InetSocketAddress(my_server_port));
 			        writableServerChannel.register(selector, SelectionKey.OP_ACCEPT);
-
+			        
+			        if(DEBUG && logger.isDebugEnabled())  {
+				          logger.debug("Init writableServerChannel at port " + my_server_port) ;
+				    }
 
 			        readableServerChannel = ServerSocketChannel.open();
 			        readableServerChannel.configureBlocking(false);
 			        readableServerChannel.socket().bind(
 			            new InetSocketAddress( (my_server_port + 1)));
 			        readableServerChannel.register(selector, SelectionKey.OP_ACCEPT);
+			        
+			        if(DEBUG && logger.isDebugEnabled())  {
+				          logger.debug("Init readableServerChannel at port " + my_server_port) ;
+				    }
 
 		      }
 		      catch (IOException ioe) {
@@ -285,104 +329,7 @@ public class ServerThread {
 
 		    serverThread.start();
 
-
-
-		    //addShutdownHook();
-
-
-		    count = 0;
-
-		    /* doAccept() and/or while
-		     * loop above adds SocketChannels to writableChannels
-		     * so access to writableChannels should be synchronized.
-		     */
-		    synchronized (writableChannels) {
-
-		      if (writableChannels.size() != nprocs) {
-		        try {
-		          writableChannels.wait();
-		        }
-		        catch (Exception e) {
-		          throw new Exception(e);
-		        }
-		      }
-
-		    } //end sync.
-		    
-		    System.out.println("1");
-
-		    /* This is for control-channels. */
-		    synchronized (readableChannels) {
-
-		      if (readableChannels.size() != nprocs) {
-		        try {
-		          readableChannels.wait();
-		        }
-		        catch (Exception e) {
-		          throw new Exception(e);
-		        }
-		      }
-
-		    } //end sync.
-		    System.out.println("2");
-		    
-		    isRenew = true;
-
-
-		    /*
-		     * At this point, all-to-all connectivity has been acheived. 
-		     */
-
-		    /* worldTable is accessed from doBarrierRead or here, so their access
-		     * should be synchronized */
-		    synchronized (worldReadableTable) {
-		      if ( (worldReadableTable.size() != nprocs)) {
-		        try {
-		          worldReadableTable.wait();
-		        }
-		        catch (Exception e) {
-		          throw new Exception(e);
-		        }
-		      }
-		    } //end sync
-		    
-		    System.out.println("3");
-		    
-		    
-		    /*
-		     * non checkpoint server node send the rank, msb, lsb to the checkpoint server
-		     *  Do blocking-reads, record the every pair of <uuid, writableChannel>
-		     *  the pair of <uuid, readableChannel> left for the selecotr thread to record
-		     */
-		    for (int i = 0; i < writableChannels.size(); i++) {
-		      SocketChannel socketChannel = writableChannels.get(i);
-		      try {
-		        doBarrierRead(socketChannel, worldWritableTable, true);
-		      }
-		      catch (Exception xde) {
-		        throw xde;
-		      }
-		    }
-		    
-
-		    synchronized (worldWritableTable) {
-		      if ( (worldWritableTable.size() != nprocs)) {
-		        try {
-		          worldWritableTable.wait();
-		        }
-		        catch (Exception e) {
-		          throw new Exception(e);
-		        }
-		      }
-		    } //end sync
-		    
-		    System.out.println("4");
-
-
-		    for (int k = 0; k < pids.length; k++) {
-		    	writeLockTable.put(pids[k],new CustomSemaphore(1));
-		    }
-
+		    //(new Thread(renewThread)).start();
 		    
 		    
 	  }//end of socket init
@@ -402,12 +349,15 @@ public class ServerThread {
 	   * basically the selector thread
 	   */
 	  Runnable selectorThread = new Runnable() {
-
+		  
 		
 
 		/* This is selector thread */
 	    public void run() {
-
+	    	if(DEBUG && logger.isDebugEnabled())  {
+		          logger.debug("selector thread started");
+			 }
+	    	
 	      Set readyKeys = null;
 	      long stop_ready_sendrecv =0l,  start_ready_sendrecv =0l ; 
 	      Iterator<SelectionKey> readyItor = null;
@@ -433,26 +383,42 @@ public class ServerThread {
 	            readyItor.remove();
 	            keyChannel = (SelectableChannel) key.channel();
 
+	            
+	            if (DEBUG && logger.isDebugEnabled()) {
+	                logger.debug("---selector EVENT---");
+	              }
+	            
 	            if (key.isValid() && key.isAcceptable()) {
 
 	              ServerSocketChannel sChannel =
 	                  (ServerSocketChannel) keyChannel;
+	              	             
+	              if(initializing == false){
+	            	  if (DEBUG && logger.isDebugEnabled()) {
+			                logger.debug("---CLEAR TABLES---");
+			              }
+            		  readableChannels.clear();
+            		  writableChannels.clear();
+            		  worldReadableTable.clear();
+            		  worldWritableTable.clear();
+            		  initializing = true;
+            		  
+            		  (new Thread(renewThread)).start();
+            	  }
+	              
 	              if (sChannel.socket().getLocalPort() == my_server_port) {
-
-	            	  if(!isRenew)
-	            		  doAccept(keyChannel, writableChannels, true);
-	            	  else
 	            		  doAccept(keyChannel, tempWritableChannels, true);
 	              }
 	              else {
-	            	  if(!isRenew)
-	            		  doAccept(keyChannel, readableChannels, false);
-	            	  else
 	            		  doAccept(keyChannel, tempReadableChannels, false);
 	              }
 
 	            }
 	            else if (key.isValid() && key.isReadable()) {
+	            	
+	            	if (DEBUG && logger.isDebugEnabled()) {
+		                logger.debug("---READ EVENT---");
+		              }
 
 	              socketChannel = (SocketChannel) keyChannel;
 
@@ -487,15 +453,18 @@ public class ServerThread {
 	                                  worldReadableTable, false);
 	                    break;
 	                    
-	                  case INIT_MSG_HEADER_CTRL_CHANNEL:
+	                  case INIT_MSG_HEADER_CTRL_CHANNEL:	                	  
 	                      doBarrierRead( ( (SocketChannel) keyChannel),
 	                                    worldReadableTable, false);
 	                      break;
 
 	                  case CHECKPOINT_RECONNECT:
+	                	  if (DEBUG && logger.isDebugEnabled()) {
+	  		                logger.debug("receive chepoint reconnect quest");
+	  		              }
 	                	  if(isCheckpointing == false){
 	                		  isCheckpointing = true;
-	                		  (new Thread(renewThread)).start();
+	                		  
 	                	  }
 	                    doBarrierRead( ( (SocketChannel) keyChannel),
 	                                  worldReadableTable, false);
@@ -503,15 +472,17 @@ public class ServerThread {
 	               
 	                    
 	                  case START_CHECKPOINT:
+	                	  initLock.acquire();
 	                	  doCheckpoint( ( (SocketChannel) keyChannel),
 	                              worldWritableTable);
 	                	  
 	                	  System.out.println("out checkpoint");
+	                	  initLock.signal();
 	                	  break;
 	                	  
 	                  case END_OF_STREAM:
 
-	                      realFinish();
+	                      realFinish((SocketChannel) keyChannel);
 
 	                      break;
 
@@ -549,6 +520,16 @@ public class ServerThread {
 		@Override
 		public void run() {
 			//wait all to finish
+			try {
+				initLock.acquire();
+			} catch (InterruptedException e1) {
+				e1.printStackTrace();
+			}
+			
+			if (DEBUG && logger.isDebugEnabled()) {
+              logger.debug("renew thread start");
+            }
+				
 			 synchronized (tempWritableChannels) {
 
 		      if (tempWritableChannels.size() != nprocs) {
@@ -570,9 +551,11 @@ public class ServerThread {
 			 }
 			 
 			 writableChannels.clear();
-			 writableChannels = tempReadableChannels;
+			 writableChannels = tempWritableChannels;
 		    
-		    System.out.println("r1");
+			 if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("writableChannels renewed");
+	            }
 
 		    /* This is for control-channels. */
 		    synchronized (tempReadableChannels) {
@@ -599,18 +582,17 @@ public class ServerThread {
 			readableChannels.clear();
 		    readableChannels = tempReadableChannels;
 		    
+		    if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("readableChannels renewed");
+	            }
+		    
 		    tempReadableChannels =  new Vector<SocketChannel> ();
 		    tempWritableChannels =  new Vector<SocketChannel> ();
-		    System.out.println("r2");
-		    
-		    
-		    
+		        
 		    /*
-		     * At this point, all-to-all connectivity has been acheived. 
+		     * At this point, all-to-all connectivity has been acheived.
+		     * renew the  worldWritableTable and worldReadableTable
 		     */
-    
-		    worldWritableTable.clear();
-		    worldReadableTable.clear();
 		    
 		    /*
 		     * non checkpoint server node send the rank, msb, lsb to the checkpoint server
@@ -630,7 +612,10 @@ public class ServerThread {
 		        }
 		      }
 		    } //end sync
-		    System.out.println("r3");
+		    
+		    if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("worldReadableTable renewed");
+	            }
 		    
 		    for (int i = 0; i < writableChannels.size(); i++) {
 		      SocketChannel socketChannel = writableChannels.get(i);
@@ -644,7 +629,7 @@ public class ServerThread {
 		    
 		    
 		    synchronized (worldWritableTable) {
-		      if ( (worldWritableTable.size() != nprocs - 1)) {
+		      if ( (worldWritableTable.size() != nprocs)) {
 		        try {
 		          worldWritableTable.wait();
 		        }
@@ -653,7 +638,14 @@ public class ServerThread {
 		        }
 		      }
 		    } //end sync
-		    System.out.println("r4");
+		    
+		    if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("worldWritableTable renewed");
+	            }
+		    
+		    initializing = false;
+		    
+		    initLock.signal();
 		  
 		}
 	};// end renew thread
@@ -662,6 +654,9 @@ public class ServerThread {
 	  private boolean doAccept(SelectableChannel keyChannel,
 				Vector<SocketChannel> channelCollection, boolean blocking) throws Exception {
 			
+		  	if (DEBUG && logger.isDebugEnabled()) {
+              logger.debug("---do accept---");
+            }
 			SocketChannel peerChannel = null;
 
 		    synchronized (channelCollection) {
@@ -709,7 +704,11 @@ public class ServerThread {
 	   */
 	  void doBarrierRead(SocketChannel socketChannel, Hashtable table, boolean
 	                     ignoreFirstFourBytes) throws Exception {
-
+		  
+		  if (DEBUG && logger.isDebugEnabled()) {
+              logger.debug("---do barrier read---");
+            }
+		  
 	    long lsb, msb;
 	    int read = 0, tempRead = 0, rank;
 	    UUID ruid = null;
@@ -734,12 +733,16 @@ public class ServerThread {
 	    }
 
 	    barrBuffer.flip();
+	    //barrBuffer.position(0);
 
 	    if (ignoreFirstFourBytes) {
 	      barrBuffer.getInt();
 	    }
 
 	    rank = barrBuffer.getInt();
+	    if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("receive rank:" + rank);
+          }
 	    msb = barrBuffer.getLong();
 	    lsb = barrBuffer.getLong();
 	    barrBuffer.clear();
@@ -750,11 +753,18 @@ public class ServerThread {
 
 	    synchronized (table) {
 	      table.put(ruid, socketChannel);
-
+	      
+	      if (DEBUG && logger.isDebugEnabled()) {
+              logger.debug("add rand" + rank + " to table:" + table);
+              logger.debug("table size:" + table.size());
+          }
 
 	      if ( (table.size() == nprocs )) {
 	        try {
 	          table.notify();
+	          if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("notify table");
+	          }
 	        }
 	        catch (Exception e) {
 	          throw new Exception(e);
@@ -770,10 +780,10 @@ public class ServerThread {
 	  private void doCheckpoint(SocketChannel socketChannel,
 				Hashtable<UUID, SocketChannel> worldWritableTable) throws Exception {
 			
-		  	ByteBuffer cMsgBuffer = ByteBuffer.allocate(12);	  
+		  	ByteBuffer cMsgBuffer = ByteBuffer.allocate(28);	  
 		  	ByteBuffer ackBuffer = ByteBuffer.allocate(4);
 		    
-		    cMsgBuffer.limit(12);
+		    cMsgBuffer.limit(28);
 		    cMsgBuffer.position(4);
 		    
 		    while (cMsgBuffer.hasRemaining()) {
@@ -788,15 +798,22 @@ public class ServerThread {
 		    }
 		    
 		    int rank;
+		    long msb,lsb;
+		    UUID ruid;
 		    cMsgBuffer.position(4);
-		    rank =cMsgBuffer.getInt();
-		    versionNum = cMsgBuffer.getInt();
+		    rank = cMsgBuffer.getInt();
+		    msb = cMsgBuffer.getLong();
+		    lsb = cMsgBuffer.getLong();
+		    ruid = new UUID(msb, lsb);
+		    versionNum = cMsgBuffer.getInt(); 
 		    
-		    UUID uid = pids[rank];
+		    if(initializing == true)
+		    	pids[rank]=ruid;
+		    
 		    
 		    ackBuffer.limit(4);
 		    ackBuffer.putInt(MARKER_ACK);
-		    SocketChannel c = worldWritableTable.get(uid);
+		    SocketChannel c = worldWritableTable.get(ruid);
 		    
 		    ackBuffer.flip();
 		    while(ackBuffer.hasRemaining()){	    	
@@ -812,15 +829,17 @@ public class ServerThread {
 		    }
 		    
 		    cMsgBuffer.position(0);
-		    cMsgBuffer.limit(12);
+		    cMsgBuffer.limit(28);
 		    cMsgBuffer.putInt(START_CHECKPOINT);
 		    cMsgBuffer.putInt(rank);
+		    cMsgBuffer.putLong(msb);
+		    cMsgBuffer.putLong(lsb);
 		    cMsgBuffer.putInt(versionNum);
 		    Iterator it = worldWritableTable.entrySet().iterator();
 		    SocketChannel other = null;
 		    while(it.hasNext()){
 		    	java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
-		    	if(((UUID)entry.getKey()).equals(uid))
+		    	if(((UUID)entry.getKey()).equals(ruid))
 		    		continue;
 		    	
 		    	cMsgBuffer.flip();
@@ -841,9 +860,14 @@ public class ServerThread {
 		}
 	  
 	  
-	  private void realFinish() {
+	  private void realFinish(SocketChannel socketChannel) {
 			// TODO Auto-generated method stub
-			
+			try {
+				socketChannel.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 	  
 	  class CustomSemaphore {
