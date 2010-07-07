@@ -27,12 +27,12 @@ callback(void *arg)
 	printf("C:In the call back1\n");
 	fflush(stdout);
 
-	jmethodID mid;
-	jclass cls = (*jenv)->GetObjectClass(jenv,jobj);
+	//jmethodID mid;
+	//jclass cls = (*jenv)->GetObjectClass(jenv,jobj);
 
 
-	mid = (*jenv)->GetMethodID(jenv,cls,"preProcess","()V");
-	(*jenv)->CallObjectMethod(jenv, jobj, mid);
+	//mid = (*jenv)->GetMethodID(jenv,cls,"preProcess","()V");
+	//(*jenv)->CallObjectMethod(jenv, jobj, mid);
 
 
     printf("C:In the call back2\n");
@@ -40,12 +40,12 @@ callback(void *arg)
     ret = cr_checkpoint(0);
     if (ret > 0) {
         printf("C:restart\n");
-        mid = (*jenv)->GetMethodID(jenv,cls,"processRestart","()V");
-        (*jenv)->CallObjectMethod(jenv, jobj, mid);
+        //mid = (*jenv)->GetMethodID(jenv,cls,"processRestart","()V");
+       // (*jenv)->CallObjectMethod(jenv, jobj, mid);
     } else if (ret == 0) {
         printf("C:continue\n");
-        mid = (*jenv)->GetMethodID(jenv,cls,"processContinue","()V");
-        (*jenv)->CallObjectMethod(jenv, jobj, mid);
+       // mid = (*jenv)->GetMethodID(jenv,cls,"processContinue","()V");
+       // (*jenv)->CallObjectMethod(jenv, jobj, mid);
     } else {
         printf("C:errno:%d\n",errno);
     }
