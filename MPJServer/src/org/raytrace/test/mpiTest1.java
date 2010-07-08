@@ -24,7 +24,7 @@ public class mpiTest1 {
 		String[] params=param.split(" ");
 		viewport.init(params);
 		try {
-			viewport.configureFromFile("08.xml");
+			viewport.configureFromFile("/usr/java/mpj-v0_36/08.xml");
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
