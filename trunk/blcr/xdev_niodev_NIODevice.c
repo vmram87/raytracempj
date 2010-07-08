@@ -12,7 +12,7 @@ JNIEnv* jenv;
 jobject jobj;
 
 
-static char context_filename[80];
+static char* context_filename;
 cr_checkpoint_handle_t crut_cr_handle;
 static char*  versionNum;
 
@@ -107,18 +107,19 @@ JNIEXPORT void JNICALL Java_xdev_niodev_NIODevice_setCallBack(JNIEnv * jEnv, job
 }
 
 
-JNIEXPORT jint JNICALL Java_xdev_niodev_NIODevice_checkpoint(JNIEnv * jEnv, jobject jObj, jstring versionId){
+JNIEXPORT jint JNICALL Java_xdev_niodev_NIODevice_checkpoint(JNIEnv * jEnv, jobject jObj,jstring filePath, jstring versionId){
 
 	jenv=jEnv;
 	jobj=jObj;
 
 	versionNum = jstringTostring(jenv, versionId);
 
-	init_context_filename();
+	//init_context_filename();
 
 	cr_checkpoint_args_t cr_args;
 
 	/* remove existing context file, if any */
+	context_filename= jstringTostring(jenv,filePath);
 	(void)unlink(context_filename);
 
 	/* open the context file */

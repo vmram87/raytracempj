@@ -27,7 +27,7 @@ JNIEXPORT void JNICALL Java_xdev_niodev_NIODevice_setCallBack
  * Signature: (Ljava/lang/String;)I
  */
 JNIEXPORT jint JNICALL Java_xdev_niodev_NIODevice_checkpoint
-  (JNIEnv *, jobject, jstring);
+  (JNIEnv *, jobject, jstring, jstring);
 
 #ifdef __cplusplus
 }
