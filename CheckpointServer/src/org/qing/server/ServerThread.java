@@ -152,7 +152,7 @@ public class ServerThread {
 		
 		  DailyRollingFileAppender fileAppender = null ;  	  
 	      Map<String,String> map = System.getenv() ;
-	      String mpjHomeDir = map.get("MPJ_HOME");
+	      mpjHomeDir = map.get("MPJ_HOME");
 	      
 	      if(logger == null && DEBUG ) {
 	        try {
@@ -207,7 +207,7 @@ public class ServerThread {
 		  ConfigReader reader = null;
 	  
 		    try {
-		      reader = new ConfigReader(args[1]); 
+		      reader = new ConfigReader(mpjHomeDir + "/.mpj/" + args[1]); 
 		      nprocs = (new Integer(reader.readNoOfProc())).intValue();
 		      psl = (new Integer(reader.readIntAsString())).intValue();
 		      if(psl < 12) {      
