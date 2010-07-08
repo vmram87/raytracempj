@@ -490,6 +490,8 @@ public class MPJDaemon {
 
   private void serverSocketInit() {
     ServerSocketChannel serverChannel;
+    ServerSocketChannel writableServerChannel;
+    ServerSocketChannel readableServerChannel;
     try {
       selector = Selector.open();
       serverChannel = ServerSocketChannel.open();
@@ -499,6 +501,24 @@ public class MPJDaemon {
       }
       serverChannel.socket().bind(new InetSocketAddress(D_SER_PORT));
       serverChannel.register(selector, SelectionKey.OP_ACCEPT);
+      
+      
+      writableServerChannel = ServerSocketChannel.open();
+      writableServerChannel.configureBlocking(false);
+      if(DEBUG && logger.isDebugEnabled()) { 
+          logger.debug ("Binding the writableServerChannel @" + (D_SER_PORT+1));
+      }
+      writableServerChannel.socket().bind(new InetSocketAddress(D_SER_PORT+1));
+      writableServerChannel.register(selector, SelectionKey.OP_ACCEPT);
+      
+      
+      readableServerChannel = ServerSocketChannel.open();
+      readableServerChannel.configureBlocking(false);
+      if(DEBUG && logger.isDebugEnabled()) { 
+          logger.debug ("Binding the readableServerChannel @" + (D_SER_PORT+2));
+      }
+      readableServerChannel.socket().bind(new InetSocketAddress(D_SER_PORT+2));
+      readableServerChannel.register(selector, SelectionKey.OP_ACCEPT);
     }
     catch (Exception cce) {
       cce.printStackTrace();
