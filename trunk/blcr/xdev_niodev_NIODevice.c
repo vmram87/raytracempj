@@ -70,7 +70,7 @@ init_context_filename(void)
         return NULL;
     }
 
-    sprintf(context_filename,"%s/context.%d", cwd, pid, versionNum);
+    sprintf(context_filename,"%s/context_%d_%s", cwd, pid, versionNum);
 
     return context_filename;
 }
