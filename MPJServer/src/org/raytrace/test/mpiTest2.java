@@ -20,7 +20,7 @@ public class mpiTest2 {
 		
 		IViewPort viewport=new MPIViewport(scene);
 		
-		String param="2 mpj.conf niodev";
+		String param="4 mpj.conf niodev";
 		String[] params=param.split(" ");
 		viewport.init(params);
 		try {
