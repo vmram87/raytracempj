@@ -57,6 +57,7 @@ import java.util.jar.Attributes ;
 import java.util.jar.JarFile ;
 
 import runtime.MPJRuntimeException ;  
+import xdev.XDevException;
 
 import java.util.concurrent.Semaphore ; 
 
@@ -313,6 +314,37 @@ public class MPJDaemon {
           logger.debug("started the process "); 
         }
       } //end for loop.
+      
+      //synchronize the size of the writable channels
+      synchronized (writableChannels) {
+
+	      if (writableChannels.size() != processes) {
+	        try {
+	          writableChannels.wait();
+	        }
+	        catch (Exception e) {
+	          throw new XDevException(e);
+	        }
+	      }
+
+	    } //end sync.
+      
+      
+      /* This is for readable-channels. */
+	    synchronized (readableChannels) {
+
+	      if (readableChannels.size() != processes) {
+	        try {
+	          readableChannels.wait();
+	        }
+	        catch (Exception e) {
+	          throw new XDevException(e);
+	        }
+	      }
+
+	    } //end sync.
+	    
+	    
 
       try { 
         bufferedReader.close() ; 
@@ -591,6 +623,67 @@ public class MPJDaemon {
     }
     catch (Exception e) {}
   }
+  
+  /* called from the selector thread, and accept the connections */
+  boolean doAccept(SelectableChannel keyChannel,
+                   Vector channelCollection, boolean blocking) 
+	                                             throws Exception {
+    SocketChannel peerChannel = null;
+
+    synchronized (channelCollection) {
+
+      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+        logger.debug("---doAccept---");
+      }
+
+      if(keyChannel.isOpen()) { 
+        peerChannel = ( (ServerSocketChannel) keyChannel).accept();
+      }
+      else { 
+        return false; 
+      }
+
+      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+        logger.debug("Added channel " + peerChannel);
+      }
+      channelCollection.add(peerChannel);
+      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+        logger.debug("Now the size is <" + channelCollection.size() + ">");
+      }
+
+      if (blocking == false) {
+        peerChannel.configureBlocking(blocking);
+        peerChannel.register(selector,
+                             SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+      }
+      else {
+        peerChannel.configureBlocking(blocking);
+      }
+
+      peerChannel.socket().setTcpNoDelay(true);
+
+         peerChannel.socket().setSendBufferSize(524288);
+         peerChannel.socket().setReceiveBufferSize(524288);
+
+      if (channelCollection.size() == processes) {
+        channelCollection.notify();
+        if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+          logger.debug(" notifying and returning true");
+        }
+        return true;
+      }
+
+    } //end sync.
+
+    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+      logger.debug("--doAccept ends--");
+    }
+    peerChannel = null;
+    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+      logger.debug(" returning false");
+    }
+    return false;
+  }
 
   Runnable selectorThread = new Runnable() {
 
@@ -632,7 +725,29 @@ public class MPJDaemon {
 	    }
 
             if (key.isAcceptable() && selectorAcceptConnect) {
-              doAccept(keyChannel);
+            	ServerSocketChannel sChannel =(ServerSocketChannel) keyChannel;
+            	
+            	if (sChannel.socket().getLocalPort() == D_SER_PORT) {
+                    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+                      logger.debug("selector calling doAccept (data-channel) ");
+                    }
+                    doAccept(keyChannel);
+                }
+                else if(sChannel.socket().getLocalPort() == D_SER_PORT +1 ) {
+                    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+                      logger.debug("selector calling doAccept (ctrl-channel) ");
+                    }
+                    
+                    doAccept(keyChannel, writableChannels, true);
+                }else{
+                	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+                        logger.debug("selector calling doAccept (ctrl-channel) ");
+                      }
+                      
+                      doAccept(keyChannel, writableChannels, true);
+                }
+                    
+              
             }
             else if (key.isConnectable()) {
 
