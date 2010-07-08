@@ -38,6 +38,7 @@
 
 package xdev.niodev;
 
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -647,13 +648,16 @@ public class NIODevice
   
   private int threadCounter = 1;
   
+  public static String MPJ_DIR_NAME = ".mpj" ;
+  public static String CONTEXT_DIR_NAME = ".context" ;
+  
 
   public NIODevice() {
     //this.deviceName = "niodev"; 
 	  pId = getPID();
 	  userName = System.getProperty("user.name");
-	  url1 = "/tmp/hsperfdata_"+userName+"/"+pId;
-	  url2 = "./"+pId;
+	  tempSrcFilePath = "/tmp/hsperfdata_" + userName + File.separator + pId;
+	  tempDstFilePath = "./"+pId;
 	  
 	  //checkpoint();
   }
@@ -710,6 +714,11 @@ public class NIODevice
     id = new ProcessID(myuuid); //, rank);
     Map<String,String> map = System.getenv() ;
     mpjHomeDir = map.get("MPJ_HOME");
+    
+    tempDstFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
+    			File.separator + pId + "_Rank_" + rank;
+    contextSrcFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
+    			File.separator + "context." + pId + "_Rank_" + rank;
 
     try {
 
@@ -730,6 +739,7 @@ public class NIODevice
 
     System.loadLibrary("cr");
     setCallBack();
+	
     socketInit();
     
     
@@ -752,7 +762,7 @@ public class NIODevice
 	  ConfigReader reader = null;
   
 	    try {
-	      reader = new ConfigReader(mpjHomeDir + "/.mpj/" +args[1]); 
+	      reader = new ConfigReader(mpjHomeDir + File.separator + MPJ_DIR_NAME + File.separator +args[1]); 
 	      nprocs = (new Integer(reader.readNoOfProc())).intValue();
 	      psl = (new Integer(reader.readIntAsString())).intValue();
 	      if(psl < 12) {
@@ -2896,8 +2906,7 @@ public class NIODevice
 	    rank = cMsgBuffer.getInt();
 	    msb = cMsgBuffer.getLong();
 	    lsb = cMsgBuffer.getLong();
-	    ruid = new UUID(msb, lsb);
-	    versionNum = cMsgBuffer.getInt(); 	    
+	    ruid = new UUID(msb, lsb);	    
 	    
 	    
 	    
@@ -2910,6 +2919,10 @@ public class NIODevice
 			markerMap.put(new Integer(rank), new Integer(versionNum));
 	    
 	    if(isCheckpointing == false){
+	    	//the version number will only be set for the first time, 
+	    	//and not change during the checkpoint period 
+	    	versionNum = cMsgBuffer.getInt(); 
+	    	
 	    	try {
 	    		System.out.println("acquire the checkpoint lock");
 				cLockRendezSend.acquire();
@@ -4155,7 +4168,7 @@ public class NIODevice
                 		  
                 		  	//checkpoint(new Integer(versionNum).toString());	
                 		    preProcess();
-                		    checkpoint(new Integer(versionNum).toString());	
+                		    checkpoint(contextSrcFilePath, new Integer(versionNum).toString());	
               	    		processContinue();
               	    	
               	    		cLockUserSend.signal();
@@ -4185,7 +4198,7 @@ public class NIODevice
                 	  if(markerMap.size() == (nprocs - 1)){
                 		  	//checkpoint(new Integer(versionNum).toString());	
                 		    preProcess();
-                		    checkpoint(new Integer(versionNum).toString());	
+                		    checkpoint(contextSrcFilePath, new Integer(versionNum).toString());	
                 		  	processContinue();
 	              	    	cLockUserSend.signal();
 	              	    	cLockRendezSend.signal();
@@ -4422,9 +4435,12 @@ public class NIODevice
   private String pId = null;
 	private String userName = null;
   // src directory
-  static String url1 = null;
+  static String tempSrcFilePath = null;
   // dst directory
-  static String url2 = "./";
+  static String tempDstFilePath = null;
+  
+  static String contextSrcFilePath = null;
+  static String contextDstFilePath = null;
 	
 	public static String getPID() {
 	    String processName =
@@ -4471,8 +4487,10 @@ public class NIODevice
 			writableChannels.clear();
 			readableChannels.clear();
 			selector.close();
-			File src = new File(url1);
-			File dst = new File(url2);
+			contextSrcFilePath = contextSrcFilePath + "_Ver_" + versionNum; 
+			tempDstFilePath = tempDstFilePath + "_Ver_" + versionNum; 
+			File src = new File(tempSrcFilePath);
+			File dst = new File(tempDstFilePath);
 			if(dst.exists())
 				dst.createNewFile();
 			
@@ -4492,6 +4510,7 @@ public class NIODevice
 		// TODO Auto-generated method stub
 		System.out.println("Enter Continue!");
 		isCheckpointing = true;
+		
 		socketInit();
 		/*
 		try {
@@ -4523,6 +4542,10 @@ public class NIODevice
 	}
 	  
 	public native  void setCallBack();
-	public native  int checkpoint(String versionId);
+	public native  int checkpoint(String filePath,String versionId);
 
+	
+	public void test(){
+		System.out.println("Hello");
+	}
 }
