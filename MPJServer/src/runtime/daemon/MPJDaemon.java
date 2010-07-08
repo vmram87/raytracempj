@@ -89,6 +89,18 @@ public class MPJDaemon {
   static Logger logger = null ; 
   private String mpjHomeDir = null ;  
   String configFileName = null ;
+  
+  Vector<SocketChannel> writableChannels = null;
+  Vector<SocketChannel> tempWritableChannels = new Vector<SocketChannel> ();
+
+  Vector<SocketChannel> readableChannels = null;
+  Vector<SocketChannel> tempReadableChannels = new Vector<SocketChannel> ();
+  
+  Hashtable<UUID, SocketChannel> worldWritableTable =
+		new Hashtable<UUID, SocketChannel> ();
+
+  Hashtable<UUID, SocketChannel> worldReadableTable =
+		new Hashtable<UUID, SocketChannel> ();
 
   public MPJDaemon(String args[]) throws Exception {
 	  
@@ -1008,6 +1020,25 @@ public class MPJDaemon {
   //"-DSIZE=1000", "-DITERATIONS=100",
   //"-Xdebug",
   //"-Xrunjdwp:transport=dt_socket,address=11000,server=y,suspend=n",
+  
+  class CustomSemaphore {
+
+	    private int s ;
+	    
+	    public CustomSemaphore(int s) {
+	      this.s = s ;
+	    }
+	    
+	    public synchronized void acquire() throws InterruptedException {
+	      while (s == 0) wait(0) ;
+	      s-- ;
+	    }
+	    
+	    public synchronized void signal() {
+	      s++ ;
+	      notify() ;
+	    }
+	  };
 }
 
 class OutputHandler extends Thread { 
