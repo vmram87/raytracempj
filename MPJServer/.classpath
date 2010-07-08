@@ -7,6 +7,5 @@
 	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/tools.jar"/>
 	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/wrapper.jar"/>
 	<classpathentry kind="lib" path="dom4j-1.6.1.jar"/>
-	<classpathentry kind="lib" path="cajo.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
