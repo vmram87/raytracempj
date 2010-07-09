@@ -278,9 +278,9 @@ public class MPJRun {
 	logger.debug("Sending to " + socketChannel);
 	byte[] tempArray = new byte[buffer.limit()];
 	buffer.get(tempArray,0,buffer.limit());
-	 String line = new String(tempArray);
-	 logger.debug("Sending Content: " + line);
-	 System.out.println(line);
+	// String line = new String(tempArray);
+	 logger.debug("Sending Content Buffer");
+	 //System.out.println(line);
 	 buffer.flip();
       }
       
@@ -670,6 +670,7 @@ if(DEBUG && logger.isDebugEnabled())
     PrintStream cout = null;
     int rank = 0;
     String name = null;
+    int port = MPJ_SERVER_PORT;
 
     try {
       cfos = new FileOutputStream(CONF_FILE);
@@ -704,8 +705,9 @@ if(DEBUG && logger.isDebugEnabled())
                                  new Integer(1));
 	 
 	if(deviceName.equals("niodev")) { 
-          cout.println(name + "@" + MPJ_SERVER_PORT +
+          cout.println(name + "@" + port +
                        "@" + (rank++));
+          port += 2;
 	} else if(deviceName.equals("mxdev")) { 
           cout.println(name + "@" + mxBoardNum+
                        "@" + (rank++));
@@ -754,7 +756,8 @@ if(DEBUG && logger.isDebugEnabled())
           for (int j = 0; j < (divisor + 1); j++) {
             if(deviceName.equals("niodev")) { 		  
               cout.println( (String) machineVector.get(i) + "@" +
-                           (MPJ_SERVER_PORT + (j * 2)) + "@" + (rank++));
+                           port + "@" + (rank++));
+              port += 2;
 	    } else if(deviceName.equals("mxdev")) { 
               cout.println( (String) machineVector.get(i) + "@" +
                            (mxBoardNum+j) + "@" + (rank++));
@@ -776,7 +779,8 @@ if(DEBUG && logger.isDebugEnabled())
           for (int j = 0; j < divisor; j++) {
             if(deviceName.equals("niodev")) { 		  
               cout.println( (String) machineVector.get(i) + "@" +
-                           (MPJ_SERVER_PORT + (j * 2)) + "@" + (rank++));
+                           port + "@" + (rank++));
+              port += 2;
 	    } else if(deviceName.equals("mxdev")) { 
               cout.println( (String) machineVector.get(i) + "@" +
                            (mxBoardNum+j) + "@" + (rank++));
@@ -798,8 +802,9 @@ if(DEBUG && logger.isDebugEnabled())
         procsPerMachineTable.put( (String) machineVector.get(i), 
                                   new Integer(1));
 	if(deviceName.equals("niodev")) { 
-          cout.println( (String) machineVector.get(i) + "@" + MPJ_SERVER_PORT +
+          cout.println( (String) machineVector.get(i) + "@" + port+
                        "@" + (rank++));
+          port += 2;
 	} else if(deviceName.equals("mxdev")) { 
           cout.println( (String) machineVector.get(i) + "@" +
                        (mxBoardNum) + "@" + (rank++));
