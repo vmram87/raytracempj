@@ -91,17 +91,23 @@ public class MPJDaemon {
   private String mpjHomeDir = null ;  
   String configFileName = null ;
   
-  Vector<SocketChannel> writableChannels = null;
-  Vector<SocketChannel> tempWritableChannels = new Vector<SocketChannel> ();
+  //Vector<SocketChannel> writableChannels = null;
+  //Vector<SocketChannel> tempWritableChannels = new Vector<SocketChannel> ();
 
-  Vector<SocketChannel> readableChannels = null;
-  Vector<SocketChannel> tempReadableChannels = new Vector<SocketChannel> ();
+  //Vector<SocketChannel> readableChannels = null;
+  //Vector<SocketChannel> tempReadableChannels = new Vector<SocketChannel> ();
+  Vector<SocketChannel> processChannels = new Vector<SocketChannel> ();
+  Vector<SocketChannel> tempProcessChannels = new Vector<SocketChannel> ();
   
-  Hashtable<UUID, SocketChannel> worldWritableTable =
+  Hashtable<UUID, SocketChannel> worldProcessTable =
 		new Hashtable<UUID, SocketChannel> ();
 
-  Hashtable<UUID, SocketChannel> worldReadableTable =
-		new Hashtable<UUID, SocketChannel> ();
+  
+  private boolean initializing = false;
+  private CustomSemaphore initLock = new CustomSemaphore(1); 
+  private Thread renewThreadStarter = null;
+  UUID[] pids = null;
+  
 
   public MPJDaemon(String args[]) throws Exception {
 	  
@@ -139,10 +145,17 @@ public class MPJDaemon {
     }
 
     selectorThreadStarter.start();
+    
+    
     int exit = 0;
 
     while (loop) {
-
+    	
+    	worldProcessTable.clear();
+    	if(DEBUG && logger.isDebugEnabled()) { 
+    	      logger.debug ("CLEAR TABLE");
+    	}
+    	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
       }
@@ -152,6 +165,9 @@ public class MPJDaemon {
         logger.debug("wdir "+wdir);
       }
       waitToStartExecution ();
+      
+      renewThreadStarter = new Thread(renewThread);
+      renewThreadStarter.start();
 
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("A client has connected");
@@ -177,7 +193,8 @@ public class MPJDaemon {
       bufferedReader = new BufferedReader(new InputStreamReader(in));
 
       OutputHandler [] outputThreads = new OutputHandler[processes] ;  
-      p = new Process[processes] ;  
+      p = new Process[processes];  
+      pids = new UUID[processes];
 
       for (int j = 0; j < processes; j++) {
 
@@ -185,6 +202,9 @@ public class MPJDaemon {
                    rank of processes */ 
         String line = null;
         String rank = null; 
+        
+        jvmArgs.add("-Djava.library.path=."+File.pathSeparator+"/usr/local/lib"+
+        		File.pathSeparator+"/root/C++Workspace/blcr/Debug");
 
         while((line = bufferedReader.readLine()) != null) {
 
@@ -223,10 +243,11 @@ public class MPJDaemon {
 	      
             cp = "."+File.pathSeparator+""+
                   mpjHomeDir+"/lib/loader1.jar"+
-                  File.pathSeparator+""+mpjHomeDir+"/lib/mpj.jar"+
                   File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
                   File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
                   File.pathSeparator+applicationClassPathEntry+
+                  File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
+                  File.pathSeparator+applicationClassPathEntry+"/bin"+
                   File.pathSeparator+cp;
 	      
             jvmArgs.add(e,cp);
@@ -243,13 +264,17 @@ public class MPJDaemon {
           jvmArgs.add("-cp");
 	  jvmArgs.add("."+File.pathSeparator+""
   	        +mpjHomeDir+"/lib/loader1.jar"+
-                File.pathSeparator+""+mpjHomeDir+"/lib/mpj.jar"+
                 File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
                 File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
-                File.pathSeparator+applicationClassPathEntry) ; 
+                File.pathSeparator+applicationClassPathEntry+
+                File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
+                File.pathSeparator+applicationClassPathEntry+"/bin") ; 
         }
+        
+        
 
         jArgs = jvmArgs.toArray(new String[0]);
+        jvmArgs.clear();
  
         for(int e=0 ; e<jArgs.length; e++) {
           if(DEBUG && logger.isDebugEnabled()) { 
@@ -313,38 +338,7 @@ public class MPJDaemon {
         if(DEBUG && logger.isDebugEnabled()) { 
           logger.debug("started the process "); 
         }
-      } //end for loop.
-      
-      //synchronize the size of the writable channels
-      synchronized (writableChannels) {
-
-	      if (writableChannels.size() != processes) {
-	        try {
-	          writableChannels.wait();
-	        }
-	        catch (Exception e) {
-	          throw new XDevException(e);
-	        }
-	      }
-
-	    } //end sync.
-      
-      
-      /* This is for readable-channels. */
-	    synchronized (readableChannels) {
-
-	      if (readableChannels.size() != processes) {
-	        try {
-	          readableChannels.wait();
-	        }
-	        catch (Exception e) {
-	          throw new XDevException(e);
-	        }
-	      }
-
-	    } //end sync.
-	    
-	    
+      } //end for.	    
 
       try { 
         bufferedReader.close() ; 
@@ -352,6 +346,10 @@ public class MPJDaemon {
       } catch(Exception e) { 
         e.printStackTrace() ; 
       } 
+      
+	  //wait for the init of the writable and readable channels
+      renewThreadStarter.join();
+      
 
       //Wait for the I/O threads to finish. They finish when 
       // their corresponding JVMs finish. 
@@ -410,7 +408,7 @@ public class MPJDaemon {
         logger.debug("\n\n ** .. execution ends .. ** \n\n");
       }
 
-    } //end while(true)
+    } //end while(loop)
   }
 
   private void restoreVariables() {
@@ -534,8 +532,7 @@ public class MPJDaemon {
 
   private void serverSocketInit() {
     ServerSocketChannel serverChannel;
-    ServerSocketChannel writableServerChannel;
-    ServerSocketChannel readableServerChannel;
+    ServerSocketChannel processServerChannel;
     try {
       selector = Selector.open();
       serverChannel = ServerSocketChannel.open();
@@ -547,22 +544,15 @@ public class MPJDaemon {
       serverChannel.register(selector, SelectionKey.OP_ACCEPT);
       
       
-      writableServerChannel = ServerSocketChannel.open();
-      writableServerChannel.configureBlocking(false);
+      processServerChannel = ServerSocketChannel.open();
+      processServerChannel.configureBlocking(false);
       if(DEBUG && logger.isDebugEnabled()) { 
           logger.debug ("Binding the writableServerChannel @" + (D_SER_PORT+1));
       }
-      writableServerChannel.socket().bind(new InetSocketAddress(D_SER_PORT+1));
-      writableServerChannel.register(selector, SelectionKey.OP_ACCEPT);
+      processServerChannel.socket().bind(new InetSocketAddress(D_SER_PORT+1));
+      processServerChannel.register(selector, SelectionKey.OP_ACCEPT);
       
-      
-      readableServerChannel = ServerSocketChannel.open();
-      readableServerChannel.configureBlocking(false);
-      if(DEBUG && logger.isDebugEnabled()) { 
-          logger.debug ("Binding the readableServerChannel @" + (D_SER_PORT+2));
-      }
-      readableServerChannel.socket().bind(new InetSocketAddress(D_SER_PORT+2));
-      readableServerChannel.register(selector, SelectionKey.OP_ACCEPT);
+
     }
     catch (Exception cce) {
       cce.printStackTrace();
@@ -626,7 +616,7 @@ public class MPJDaemon {
   
   /* called from the selector thread, and accept the connections */
   boolean doAccept(SelectableChannel keyChannel,
-                   Vector channelCollection, boolean blocking) 
+                   Vector channelCollection) 
 	                                             throws Exception {
     SocketChannel peerChannel = null;
 
@@ -651,14 +641,11 @@ public class MPJDaemon {
         logger.debug("Now the size is <" + channelCollection.size() + ">");
       }
 
-      if (blocking == false) {
-        peerChannel.configureBlocking(blocking);
-        peerChannel.register(selector,
-                             SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-      }
-      else {
-        peerChannel.configureBlocking(blocking);
-      }
+      peerChannel.configureBlocking(false);
+      peerChannel.register(selector,
+                          SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+  
+
 
       peerChannel.socket().setTcpNoDelay(true);
 
@@ -733,18 +720,12 @@ public class MPJDaemon {
                     }
                     doAccept(keyChannel);
                 }
-                else if(sChannel.socket().getLocalPort() == D_SER_PORT +1 ) {
+                else{
                     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
                       logger.debug("selector calling doAccept (ctrl-channel) ");
                     }
                     
-                    doAccept(keyChannel, writableChannels, true);
-                }else{
-                	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-                        logger.debug("selector calling doAccept (ctrl-channel) ");
-                      }
-                      
-                      doAccept(keyChannel, writableChannels, true);
+                    doAccept(keyChannel, tempProcessChannels);
                 }
                     
               
@@ -783,6 +764,7 @@ public class MPJDaemon {
               socketChannel = (SocketChannel) keyChannel;
 	      
               int readInt = -1 ; 
+              lilBuffer.position(0);
 	      
               if(DEBUG && logger.isDebugEnabled()) { 
                 logger.debug("lilBuffer "+ lilBuffer);         
@@ -841,6 +823,14 @@ public class MPJDaemon {
               if(DEBUG && logger.isDebugEnabled()) { 
                 logger.debug ("READ_EVENT (String)<" + read + ">");
 	      }
+              
+              //receive process info, map the uuid to the worldProcessTable
+              if(read.equals("pro-")){
+            	  doBarrierRead( ( (SocketChannel) keyChannel),
+                          worldProcessTable, false);
+              }
+              
+              
 
               if (read.equals("cpe-")) {
  	        if(DEBUG && logger.isDebugEnabled()) { 
@@ -1113,6 +1103,164 @@ public class MPJDaemon {
       }
     } //end run()
   }; //end selectorThread which is an inner class 
+  
+  
+  Runnable renewThread = new Runnable() {
+		
+		@Override
+		public void run() {
+			//wait all to finish
+			try {
+				initLock.acquire();
+			} catch (InterruptedException e1) {
+				e1.printStackTrace();
+			}
+			
+			if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("renew thread start");
+          }
+				
+			 synchronized (tempProcessChannels) {
+
+		      if (tempProcessChannels.size() != processes) {
+		        try {
+		        	tempProcessChannels.wait();
+		        }
+		        catch (Exception e) {
+		          e.printStackTrace();
+		        }
+		      }
+
+		    } //end sync.
+			 for(int i=0;i < processChannels.size();i++){
+				try {
+					processChannels.get(i).close();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			 }
+			 
+			 processChannels.clear();
+			 processChannels = tempProcessChannels;
+		    
+			 if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("processChannels renewed, processes:" + processes);
+	            }
+
+		   
+		    
+			tempProcessChannels =  new Vector<SocketChannel> ();
+		        
+		    /*
+		     * At this point, all-to-all connectivity has been acheived.
+		     * renew the  worldWritableTable and worldReadableTable
+		     */
+		    
+		    /*
+		     * non checkpoint server node send the rank, msb, lsb to the checkpoint server
+		     *  Do blocking-reads, record the every pair of <uuid, writableChannel>
+		     *  the pair of <uuid, readableChannel> left for the selecotr thread to record
+		     */
+		    
+		    /* worldTable is accessed from doBarrierRead or here, so their access
+		     * should be synchronized */
+		    synchronized (worldProcessTable) {
+		      if ( (worldProcessTable.size() != processes)) {
+		        try {
+		        	worldProcessTable.wait();
+		        }
+		        catch (Exception e) {
+		          e.printStackTrace();
+		        }
+		      }
+		    } //end sync
+		    
+		    if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("worldProcessTable renewed, processes:" + processes);
+	            }
+		    
+		    
+		    initializing = false;
+		    
+		    initLock.signal();
+		  
+		}
+	};// end renew thread
+	
+	/*
+	   * This method is used during initialization.
+	   */
+	  void doBarrierRead(SocketChannel socketChannel, Hashtable table, boolean
+	                     ignoreFirstFourBytes) throws Exception {
+		  
+		  if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("---do barrier read---");
+          }
+		  
+	    long lsb, msb;
+	    int read = 0, tempRead = 0, rank;
+	    UUID ruid = null;
+	    ByteBuffer barrBuffer = ByteBuffer.allocate(24); //changeallocate
+
+	    if (ignoreFirstFourBytes) {
+	      barrBuffer.limit(24);
+	    }
+	    else {
+	      barrBuffer.limit(20);
+	    }
+
+	    while (barrBuffer.hasRemaining()) {
+	      try {
+	        if (socketChannel.read(barrBuffer) == -1) {
+	          throw new Exception(new ClosedChannelException());
+	        }
+	      }
+	      catch (ClosedChannelException e) {
+	        return;
+	      }
+	    }
+
+	    barrBuffer.flip();
+	    //barrBuffer.position(0);
+
+	    if (ignoreFirstFourBytes) {
+	      barrBuffer.getInt();
+	    }
+
+	    rank = barrBuffer.getInt();
+	    if (DEBUG && logger.isDebugEnabled()) {
+          logger.debug("receive rank:" + rank);
+        }
+	    msb = barrBuffer.getLong();
+	    lsb = barrBuffer.getLong();
+	    barrBuffer.clear();
+	    ruid = new UUID(msb, lsb);
+	    pids[rank] = ruid; //, rank);
+
+
+	    synchronized (table) {
+	      table.put(ruid, socketChannel);
+	      
+	      if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("add rand" + rank + " to table:" + table);
+            logger.debug("table size:" + table.size());
+        }
+
+	      if ( (table.size() == processes )) {
+	        try {
+	          table.notify();
+	          if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("notify table");
+	          }
+	        }
+	        catch (Exception e) {
+	          throw new Exception(e);
+	        }
+	      }
+
+	    }
+
+	  }//end of do barrier read
 
   public static void main(String args[]) {
     try {
