@@ -41,10 +41,13 @@ package xdev.niodev;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.UnknownHostException;
@@ -634,11 +637,14 @@ public class NIODevice
   CustomSemaphore cLockUserSend = new CustomSemaphore(1);
   CustomSemaphore cLockSelector = new CustomSemaphore(1);
   CustomSemaphore markerLock = new CustomSemaphore(1);
+  boolean recvDeamonAck = false;
   boolean recvMarkerAck = false;
   Thread socketInitThreadStarter = null;
   
   SocketChannel readableCheckpointServer = null;
   SocketChannel writableCheckpointServer = null;
+  
+  SocketChannel daemonChannel= null;
 
   private String cp_host = null;
 
@@ -650,6 +656,7 @@ public class NIODevice
   
   public static String MPJ_DIR_NAME = ".mpj" ;
   public static String CONTEXT_DIR_NAME = ".context" ;
+  private boolean hasDaemon = true;
   
 
   public NIODevice() {
@@ -762,7 +769,7 @@ public class NIODevice
 	  ConfigReader reader = null;
   
 	    try {
-	      reader = new ConfigReader(mpjHomeDir + File.separator + MPJ_DIR_NAME + File.separator +args[1]); 
+	      reader = new ConfigReader(args[1]); 
 	      nprocs = (new Integer(reader.readNoOfProc())).intValue();
 	      psl = (new Integer(reader.readIntAsString())).intValue();
 	      if(psl < 12) {
@@ -940,24 +947,6 @@ public class NIODevice
 	            connected = rChannels[index].connect(
 	                new InetSocketAddress(nodeList[temp], pList[temp]));
 	          }
-	          catch (AlreadyConnectedException ace) {
-	            throw new XDevException(ace);
-	          }
-	          catch (ConnectionPendingException cpe) {
-	            throw new XDevException(cpe);
-	          }
-	          catch (ClosedChannelException cce) {
-	            throw new XDevException(cce);
-	          }
-	          catch (UnresolvedAddressException uae) {
-	            throw new XDevException(uae);
-	          }
-	          catch (UnsupportedAddressTypeException uate) {
-	            throw new XDevException(uate);
-	          }
-	          catch (SecurityException se) {
-	            throw new XDevException(se);
-	          }
 	          catch (IOException ioe) {
 	            // this is continuing coz process 1 alwayz connect to process 0
 	            // server socket. If process 0 is not up, then this exception
@@ -969,6 +958,9 @@ public class NIODevice
 
 	            continue;
 	          }
+	          catch (Exception e) {
+		            throw new XDevException(e);
+		      }
 
 	          try {
 	            rChannels[index].configureBlocking(false);
@@ -1053,35 +1045,20 @@ public class NIODevice
 	                new InetSocketAddress(nodeList[temp], (pList[temp] + 1)));
 
 	          }
-	          catch (AlreadyConnectedException ace) {
-	            throw new XDevException(ace);
-	          }
-	          catch (ConnectionPendingException cpe) {
-	            throw new XDevException(cpe);
-	          }
-	          catch (ClosedChannelException cce) {
-	            throw new XDevException(cce);
-	          }
-	          catch (UnresolvedAddressException uae) {
-	            throw new XDevException(uae);
-	          }
-	          catch (UnsupportedAddressTypeException uate) {
-	            throw new XDevException(uate);
-	          }
-	          catch (SecurityException se) {
-	            throw new XDevException(se);
-	          }
 	          catch (IOException ioe) {
-	            // this is continuing coz process 1 alwayz connect to process 0
-	            // server socket. If process 0 is not up, then this exception
-	            connected = false;
+		            // this is continuing coz process 1 alwayz connect to process 0
+		            // server socket. If process 0 is not up, then this exception
+		            connected = false;
 
-	            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	              logger.debug("connecting error ->" + ioe.getMessage());
-	            }
+		            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("connecting error ->" + ioe.getMessage());
+		            }
 
-	            continue;
+		            continue;
 	          }
+	          catch (Exception e) {
+		            throw new XDevException(e);
+		      }
 
 	          try {
 	            wChannels[index].configureBlocking(true);
@@ -1137,35 +1114,20 @@ public class NIODevice
             connected = readableCheckpointServer.connect(
                 new InetSocketAddress(cp_host, cp_port));
           }
-          catch (AlreadyConnectedException ace) {
-            throw new XDevException(ace);
-          }
-          catch (ConnectionPendingException cpe) {
-            throw new XDevException(cpe);
-          }
-          catch (ClosedChannelException cce) {
-            throw new XDevException(cce);
-          }
-          catch (UnresolvedAddressException uae) {
-            throw new XDevException(uae);
-          }
-          catch (UnsupportedAddressTypeException uate) {
-            throw new XDevException(uate);
-          }
-          catch (SecurityException se) {
-            throw new XDevException(se);
-          }
           catch (IOException ioe) {
-            // this is continuing coz process 1 alwayz connect to process 0
-            // server socket. If process 0 is not up, then this exception
-            connected = false;
-            
-            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	            // this is continuing coz process 1 alwayz connect to process 0
+	            // server socket. If process 0 is not up, then this exception
+	            connected = false;
+
+	            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("connecting error ->" + ioe.getMessage());
 	            }
 
-            continue;
-          }
+	            continue;
+	      }
+	      catch (Exception e) {
+		            throw new XDevException(e);
+		  }
 
           try {
         	  readableCheckpointServer.configureBlocking(false);
@@ -1204,35 +1166,20 @@ public class NIODevice
             connected = writableCheckpointServer.connect(
                 new InetSocketAddress(cp_host, cp_port+1));
           }
-          catch (AlreadyConnectedException ace) {
-            throw new XDevException(ace);
-          }
-          catch (ConnectionPendingException cpe) {
-            throw new XDevException(cpe);
-          }
-          catch (ClosedChannelException cce) {
-            throw new XDevException(cce);
-          }
-          catch (UnresolvedAddressException uae) {
-            throw new XDevException(uae);
-          }
-          catch (UnsupportedAddressTypeException uate) {
-            throw new XDevException(uate);
-          }
-          catch (SecurityException se) {
-            throw new XDevException(se);
-          }
           catch (IOException ioe) {
-            // this is continuing coz process 1 alwayz connect to process 0
-            // server socket. If process 0 is not up, then this exception
-            connected = false;
-            
-            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	            // this is continuing coz process 1 alwayz connect to process 0
+	            // server socket. If process 0 is not up, then this exception
+	            connected = false;
+
+	            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("connecting error ->" + ioe.getMessage());
 	            }
 
-            continue;
-          }
+	            continue;
+	      }
+	      catch (Exception e) {
+		            throw new XDevException(e);
+		  }
 
           try {
         	  writableCheckpointServer.configureBlocking(true);
@@ -1250,6 +1197,65 @@ public class NIODevice
     	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
             logger.debug("read and write checkpoint server channel connected!");
           }
+    	
+    	
+    	if(hasDaemon == true){
+	    	connected = false;
+	    	//conect the daemon channel
+	    	while (!connected) {
+	
+	          try {
+	            daemonChannel = SocketChannel.open();
+	            daemonChannel.configureBlocking(true);
+	            
+	            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("Connecting to localhost" +
+		                           "@" + (getPortFromWrapper()+1));
+		        }
+	          }
+	          catch (Exception e) {
+	            throw new XDevException(e);
+	          }
+	
+	          try {
+	            connected = daemonChannel.connect(
+	                new InetSocketAddress("localhost", getPortFromWrapper()+1));
+	          }
+	          catch (IOException ioe) {
+		            // this is continuing coz process 1 alwayz connect to process 0
+		            // server socket. If process 0 is not up, then this exception
+		            connected = false;
+	
+		            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("connecting error ->" + ioe.getMessage());
+		            }
+	
+		            continue;
+		      }
+		      catch (Exception e) {
+			            throw new XDevException(e);
+			  }
+	
+	          try {
+	        	  daemonChannel.configureBlocking(false);
+	        	  daemonChannel.socket().setTcpNoDelay(true);
+	        	  daemonChannel.register(selector,SelectionKey.OP_READ);
+		    //these are useful if running MPJ on gigabit ethernet.
+	        	  daemonChannel.socket().setSendBufferSize(524288);
+	        	  daemonChannel.socket().setReceiveBufferSize(524288);
+	          }
+	          catch (Exception e) {
+	            throw new XDevException(e);
+	          }
+	          connected = true;
+	        } //end while
+	    	
+	    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("daemonChannel connected!");
+	          }
+    	}//end if hasDaemon == true
+    	
+    	
     	
     	if(isCheckpointing == true){
     		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
@@ -1487,7 +1493,6 @@ public class NIODevice
 	      
 
 	      initMsgBuffer.flip();
-
 	      /* send the the readable checkpoint channel */
 	      while (initMsgBuffer.hasRemaining()) {
 	        try {
@@ -1502,6 +1507,34 @@ public class NIODevice
 	      
 	      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
  		      logger.debug("send checkpoint reconnect to readabel checkpoint server ");
+	      }
+	      
+	      
+	      /* send init info to the daemonchannel */
+	      if(hasDaemon == true){
+	    	  initMsgBuffer = ByteBuffer.allocate(28);;
+	    	  initMsgBuffer.put("pro-Init".getBytes());
+	    	  
+	    	  initMsgBuffer.putInt(rank);
+	  	      initMsgBuffer.putLong(msb);
+	  	      initMsgBuffer.putLong(lsb);
+		  	  
+	    	  initMsgBuffer.flip();
+		      
+		      while (initMsgBuffer.hasRemaining()) {
+		        try {
+		          if (daemonChannel.write(initMsgBuffer) == -1) {
+		            throw new XDevException(new ClosedChannelException());
+		          }
+		        }
+		        catch (Exception e) {
+		          throw new XDevException(e);
+		        }
+		      } //end while.
+		      
+		      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	 		      logger.debug("send checkpoint reconnect to readabel checkpoint server ");
+		      }
 	      }
 	    
 
@@ -4428,6 +4461,39 @@ public class NIODevice
       notify() ;
     }
     
+  }
+  
+  private static int getPortFromWrapper() {
+
+	    int port = 0;
+	    FileInputStream in = null;
+	    DataInputStream din = null;
+	    BufferedReader reader = null;
+	    String line = "";
+
+	    try {
+
+	      String path = System.getenv("MPJ_HOME")+"/conf/wrapper.conf";
+	      in = new FileInputStream(path);
+	      din = new DataInputStream(in);
+	      reader = new BufferedReader(new InputStreamReader(din));
+
+	      while ((line = reader.readLine()) != null)   {
+	        if(line.startsWith("wrapper.app.parameter.2")) {
+	          String trimmedLine=line.replaceAll("\\s+", "");
+	          port = Integer.parseInt(trimmedLine.substring(24));
+	          break;
+	        }
+	      }
+
+	      in.close();
+
+	    } catch (Exception e) {
+	      e.printStackTrace();
+	    }
+
+	    return port;
+
   }
 
   

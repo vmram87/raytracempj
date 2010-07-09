@@ -22,7 +22,7 @@ public class mpiTest {
 		
 		String param="0 mpj.conf niodev";
 		String[] params=param.split(" ");
-		viewport.init(params);
+		viewport.init(args);
 		try {
 			viewport.configureFromFile("/usr/java/mpj-v0_36/08.xml");
 		} catch (Exception e) {

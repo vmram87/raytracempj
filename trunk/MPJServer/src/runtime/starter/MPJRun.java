@@ -108,6 +108,11 @@ public class MPJRun {
   static final String VERSION = "0.36" ; 
   private static int RUNNING_JAR_FILE = 2 ; 
   private static int RUNNING_CLASS_FILE = 1 ; 
+  private SocketChannel checkpiontChannel = null;
+  private String checkpointHost = getCheckpointHost();
+  private int checkpointPort = getCheckpointPort();
+  
+  private final int NUM_OF_PROCCESSES = -42;
 
   /**
    * Every thing is being inside this constructor :-)
@@ -678,6 +683,9 @@ if(DEBUG && logger.isDebugEnabled())
     cout.println("# Protocol Switch Limit");
     cout.println(psl);
     cout.println("# Entry, HOST_NAME/IP@SERVERPORT@RANK");
+    
+    //have to modify later!!!!!
+    cout.println(checkpointHost + "$" + checkpointPort + "$0");
 
     if (nprocs < noOfMachines) {
 
@@ -942,6 +950,72 @@ if(DEBUG && logger.isDebugEnabled())
     return port;
 
   }
+  
+  private static int getCheckpointPort() {
+
+	    int port = 0;
+	    FileInputStream in = null;
+	    DataInputStream din = null;
+	    BufferedReader reader = null;
+	    String line = "";
+
+	    try {
+
+	      String path = System.getenv("MPJ_HOME")+"/conf/wrapper.conf";
+	      in = new FileInputStream(path);
+	      din = new DataInputStream(in);
+	      reader = new BufferedReader(new InputStreamReader(din));
+
+	      while ((line = reader.readLine()) != null)   {
+	        if(line.startsWith("wrapper.checkpointServer.port")) {
+	          String trimmedLine=line.replaceAll("\\s+", "");
+	          port = Integer.parseInt(trimmedLine.substring(30));
+	          break;
+	        }
+	      }
+
+	      in.close();
+
+	    } catch (Exception e) {
+	      e.printStackTrace();
+	    }
+
+	    return port;
+
+	  }
+  
+  private static String getCheckpointHost() {
+
+	    String host = null;
+	    FileInputStream in = null;
+	    DataInputStream din = null;
+	    BufferedReader reader = null;
+	    String line = "";
+
+	    try {
+
+	      String path = System.getenv("MPJ_HOME")+"/conf/wrapper.conf";
+	      in = new FileInputStream(path);
+	      din = new DataInputStream(in);
+	      reader = new BufferedReader(new InputStreamReader(din));
+
+	      while ((line = reader.readLine()) != null)   {
+	        if(line.startsWith("wrapper.checkpointServer.host")) {
+	          String trimmedLine=line.replaceAll("\\s+", "");
+	          host = trimmedLine.substring(30);
+	          break;
+	        }
+	      }
+
+	      in.close();
+
+	    } catch (Exception e) {
+	      e.printStackTrace();
+	    }
+
+	    return host;
+
+	  }
 
   private void clientSocketInit() throws Exception {
       	  
@@ -973,7 +1047,7 @@ if(DEBUG && logger.isDebugEnabled())
 			  "and running the daemon in 'sane' state"); 
 	}
 
-	doConnect(clientChannels[i]); 
+	doConnect(clientChannels[i], true); 
 	machineConnectedMap.put(daemon, true);
       }
       catch(IOException ioe) {
@@ -993,6 +1067,65 @@ if(DEBUG && logger.isDebugEnabled())
         throw ccn1;
       }
     }
+    
+    //connect to the checkpoint server
+    //in checkpoint server  original port for writable,original port+1 for readable, original port+2 for control
+    int port  = checkpointPort + 2;
+    try{
+    	checkpiontChannel = SocketChannel.open();
+    	checkpiontChannel.configureBlocking(true);
+    	boolean connected = checkpiontChannel.connect(new InetSocketAddress(checkpointHost, port ));
+    	if(connected == false){
+    		
+    		if(System.getProperty("os.name").startsWith("Windows")) {   
+                CONF_FILE.delete() ;
+            }
+    		
+    		throw new MPJRuntimeException("Cannot connect to the checpont server "+
+        			"at machine <"+checkpointHost+"> and port <"+
+        			port+">."+
+        			"Please make sure that the machine is reachable.");     		
+    	}
+    	
+    	//have connected so add to the selector
+    	doConnect(checkpiontChannel, false);
+    	ByteBuffer numBuffer = ByteBuffer.allocate(8);
+    	numBuffer.putInt(NUM_OF_PROCCESSES);
+    	numBuffer.putInt(nprocs);
+    	
+    	numBuffer.flip();
+    	
+    	while(numBuffer.hasRemaining()){
+    		try{
+    			if(checkpiontChannel.write(numBuffer) == -1)
+    				throw new ClosedChannelException();
+    		}
+    		catch(Exception e){
+    			throw e;
+    		}
+    	}
+    	
+    	numBuffer.clear();
+    	
+    }
+    catch(IOException ie){
+    	if(System.getProperty("os.name").startsWith("Windows")) {   
+            CONF_FILE.delete() ;
+        }
+    	throw new MPJRuntimeException("Cannot connect to the checpont server "+
+    			"at machine <"+checkpointHost+"> and port <"+
+    			port+">."+
+    			"Please make sure that the machine is reachable."); 
+    	
+    }
+    catch(Exception e){
+    	if(System.getProperty("os.name").startsWith("Windows")) {   
+            CONF_FILE.delete() ;
+        }
+    	e.printStackTrace();
+    	throw e;
+    }
+    
   }
 
   /**
@@ -1039,7 +1172,7 @@ if(DEBUG && logger.isDebugEnabled())
     }
   }
 
-  private void doConnect(SocketChannel peerChannel) {
+  private void doConnect(SocketChannel peerChannel, boolean isDeamonChannel) {
   if(DEBUG && logger.isDebugEnabled())
     logger.debug("---doConnect---");
     try {
@@ -1069,16 +1202,20 @@ if(DEBUG && logger.isDebugEnabled())
       peerChannel.socket().setTcpNoDelay(true);
     }
     catch (Exception e) {}
-    peerChannels.add(peerChannel);
-	if(DEBUG && logger.isDebugEnabled())
-	{
-    logger.debug("Adding the channel " + peerChannel + " to " + peerChannels);
-    logger.debug("Size of Peer Channels vector " + peerChannels.size());
+    
+    if(isDeamonChannel){
+    	peerChannels.add(peerChannel);
+    	if(DEBUG && logger.isDebugEnabled())
+    	{
+        logger.debug("Adding the channel " + peerChannel + " to " + peerChannels);
+        logger.debug("Size of Peer Channels vector " + peerChannels.size());
+        }
+    	peerChannel = null;
+        if (peerChannels.size() == machineVector.size()) {
+          Notify();
+        }
     }
-	peerChannel = null;
-    if (peerChannels.size() == machineVector.size()) {
-      Notify();
-    }
+    
   }
   
   /**
@@ -1170,7 +1307,7 @@ if(DEBUG && logger.isDebugEnabled())
                 }
               }
 
-              doConnect(socketChannel);
+              doConnect(socketChannel, true);
             }
 
             else if (key.isReadable()) { 
