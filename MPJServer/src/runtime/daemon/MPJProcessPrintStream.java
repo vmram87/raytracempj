@@ -51,7 +51,7 @@ public class MPJProcessPrintStream extends PrintStream {
   static PrintStream oldStdout;
   static PrintStream oldStderr;
   static SocketChannel socketChannel;
-  static ByteBuffer intBuffer = ByteBuffer.allocate(4);
+  static ByteBuffer intBuffer = ByteBuffer.allocate(8);
   static ByteBuffer buffer = ByteBuffer.allocate(1000);
 
   MPJProcessPrintStream (PrintStream ps) {
@@ -75,14 +75,15 @@ public class MPJProcessPrintStream extends PrintStream {
     System.setOut(oldStdout);
     System.setErr(oldStderr);
     try {
-      buffer.clear();
-      buffer.put("EXIT".getBytes(), 0, "EXIT".getBytes().length);
-      buffer.flip();
-      socketChannel.write(buffer);
-      int remaining=buffer.remaining();
-      while(remaining > 0)
-    	  remaining=buffer.remaining();
-      buffer.clear();
+    	intBuffer.clear();
+      //buffer.put("EXIT".getBytes(), 0, "EXIT".getBytes().length);
+    	intBuffer.putInt(MPJDaemon.DAEMON_EXIT);
+    	intBuffer.flip();
+    	while(intBuffer.hasRemaining()){
+    		socketChannel.write(intBuffer);
+    	}
+
+    	intBuffer.clear();
     }
     catch (Exception e) {
       e.printStackTrace();
@@ -93,10 +94,14 @@ public class MPJProcessPrintStream extends PrintStream {
   public void write(int b) {
 
     try {
-      intBuffer.putInt(b);
-      intBuffer.flip();
-      socketChannel.write(intBuffer);
-      intBuffer.clear();
+    	intBuffer.clear();
+    	intBuffer.putInt(MPJDaemon.LONG_MESSAGE);
+    	intBuffer.putInt(b);
+    	intBuffer.flip();
+    	while(intBuffer.hasRemaining())
+    		socketChannel.write(intBuffer);
+    	
+    	intBuffer.clear();
     }
     catch (Exception e) {
       e.printStackTrace();
@@ -110,9 +115,13 @@ public class MPJProcessPrintStream extends PrintStream {
 
     try {
       buffer.clear();
+      buffer.putInt(MPJDaemon.LONG_MESSAGE);
+      buffer.putInt(len);
       buffer.put(buf, off, len);
       buffer.flip();
-      socketChannel.write(buffer);
+      while(buffer.hasRemaining())
+    	  socketChannel.write(buffer);
+      
       buffer.clear();
     }
     catch (Exception e) {

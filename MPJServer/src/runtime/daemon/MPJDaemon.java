@@ -110,6 +110,10 @@ public class MPJDaemon {
   private Thread renewThreadStarter = null;
   UUID[] pids = null;
   
+  public static final int LONG_MESSAGE = -45;
+  public static final int DAEMON_EXIT = -46;
+  public static final int INT_MESSAGE = -47;
+  
 
   public MPJDaemon(String args[]) throws Exception {
 	  

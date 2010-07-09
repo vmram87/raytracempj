@@ -113,6 +113,10 @@ public class MPJRun {
   private int checkpointPort = getCheckpointPort();
   
   private final int NUM_OF_PROCCESSES = -42;
+  public static final int LONG_MESSAGE = -45;
+  public static final int DAEMON_EXIT = -46;
+  public static final int END_OF_STREAM = -14;
+  public static final int INT_MESSAGE = -47;
 
   /**
    * Every thing is being inside this constructor :-)
@@ -1278,6 +1282,7 @@ if(DEBUG && logger.isDebugEnabled())
 
           readyKeys = selector.selectedKeys();
           readyItor = readyKeys.iterator();
+          int read = 0;
 
           while (readyItor.hasNext()) {
 
@@ -1319,7 +1324,27 @@ if(DEBUG && logger.isDebugEnabled())
               //if(DEBUG && logger.isDebugEnabled())
               //logger.debug("READ_EVENT");
               socketChannel = (SocketChannel) keyChannel;
-              int read = socketChannel.read(bigBuffer);  
+              
+              lilBuffer.clear();
+              read = 0;
+              while(lilBuffer.hasRemaining()){
+            	  if((read = socketChannel.read(lilBuffer)) == -1 ){
+            		  break;
+            	  }
+              }
+              
+              if (read != -1) {
+                  lilBuffer.flip();
+                  read = lilBuffer.getInt();
+                  lilBuffer.clear();
+              }
+              else {
+            	  read = END_OF_STREAM;
+              }
+
+              if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+            	  logger.debug("---READ_EVENT---" + read );
+              }
 
               /* 
                * It would be ideal if this piece of code is called ...
@@ -1330,48 +1355,68 @@ if(DEBUG && logger.isDebugEnabled())
               if(DEBUG && logger.isDebugEnabled())
   				logger.debug("HostName: " + ias.getHostName() + " IP Adress: " + ias.getHostAddress()) ; 
 
-              if (read == -1) {
-            	if((Boolean)(machineConnectedMap.get(ias.getHostName()))==true){
-            		if(DEBUG && logger.isDebugEnabled())
-        				logger.debug("END_OF_STREAM signal at starter from "+
-                                     "channel "+socketChannel) ;  
-                        
-                    streamEndedCount ++ ; 
-                    machineConnectedMap.put(ias.getHostName(),false);
-                    socketChannel.close();
-                	logger.debug("streamEndedCount = "+streamEndedCount);  
+              switch(read){
+              	case END_OF_STREAM:
+              		if((Boolean)(machineConnectedMap.get(ias.getHostName()))==true){
+                		if(DEBUG && logger.isDebugEnabled())
+            				logger.debug("END_OF_STREAM signal at starter from "+
+                                         "channel "+socketChannel) ;  
+                            
+                        streamEndedCount ++ ; 
+                        machineConnectedMap.put(ias.getHostName(),false);
+                        socketChannel.close();
+                    	logger.debug("streamEndedCount = "+streamEndedCount);  
 
-                    if (streamEndedCount == machineVector.size()) {
-        				if(DEBUG && logger.isDebugEnabled())
-        				{
-        					logger.debug("The starter has received "+ 
-        	                               machineVector.size() +"signals"); 
-        	                logger.debug("This means its time to exit"); 
-        				}                 
-        				Notify();
-                    }
-            	}
-                
-                
-              } 
-
-              bigBuffer.flip();
-
-              if(read >= 0) { 
-                   	byte[] tempArray = new byte[read];
-			      //logger.debug("bigBuffer " + bigBuffer + "From :" + socketChannel);
-			      bigBuffer.get(tempArray, 0, read);
-			      String line = new String(tempArray);
-			      bigBuffer.clear();
-			      //RECEIVED
-					  if(DEBUG && logger.isDebugEnabled()){
-			      logger.debug("bigBuffer content : [" + line + "] Size:" + line.length() + "From :" + socketChannel);
-					  }
-			      //logger.debug("Does it endup with EXIT ? ==>" +
-			      //            line.endsWith("EXIT"));}
-	
-			      if (line.endsWith("EXIT")) {
-			        endCount++;
+                        if (streamEndedCount == machineVector.size()) {
+            				if(DEBUG && logger.isDebugEnabled())
+            				{
+            					logger.debug("The starter has received "+ 
+            	                               machineVector.size() +"signals"); 
+            	                logger.debug("This means its time to exit"); 
+            				}                 
+            				Notify();
+                        }
+                	}
+              		
+              		break;
+              		
+              	case LONG_MESSAGE:
+              		lilBuffer.clear();
+              		while(lilBuffer.hasRemaining())
+              			socketChannel.read(lilBuffer);
+              		
+              		lilBuffer.flip();
+              		int len = lilBuffer.getInt();
+              		ByteBuffer tempBuffer = ByteBuffer.allocate(len);
+              		
+              		while(tempBuffer.hasRemaining())
+              			socketChannel.read(tempBuffer);
+              		
+              	 	byte[] tempArray = new byte[len];
+              	 	//logger.debug("bigBuffer " + bigBuffer + "From :" + socketChannel);
+              	 	tempBuffer.flip();
+              	 	tempBuffer.get(tempArray, 0, len);
+              	 	String line = new String(tempArray);
+              	 	tempBuffer.clear();
+              	 	System.out.println(line);
+              	 	//RECEIVED
+  					  if(DEBUG && logger.isDebugEnabled()){
+  			      logger.debug("Buffer content , Size:" + line.length() + "From :" + socketChannel);
+  					 }
+              		
+              		break;
+              		
+              	case INT_MESSAGE:
+              		lilBuffer.clear();
+              		while(lilBuffer.hasRemaining())
+              			socketChannel.read(lilBuffer);
+              		
+              		int num = lilBuffer.getInt();
+              		
+              		break;
+              		
+              	case DAEMON_EXIT:
+              		endCount++;
 			        if(DEBUG && logger.isDebugEnabled())
 						{
 						logger.debug("endCount " + endCount);
@@ -1382,13 +1427,13 @@ if(DEBUG && logger.isDebugEnabled())
 						 logger.debug("Notify and exit"); 
 			          Notify();
 			        }
-			      } 
-			      else {
-			        System.out.print(line);
-			      }
-              }
-
-             
+			        
+              		break;
+              		
+            	
+              	default:
+              		System.out.println("Impossible");
+              }    
 
             } //end if key.isReadable()
 
