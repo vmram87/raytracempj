@@ -104,7 +104,9 @@ public class MPJDaemon {
 
   
   private boolean initializing = false;
+  private boolean isFinished = false;
   private CustomSemaphore initLock = new CustomSemaphore(1); 
+  private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
   private Thread renewThreadStarter = null;
   UUID[] pids = null;
   
@@ -1302,6 +1304,59 @@ public class MPJDaemon {
 	      notify() ;
 	    }
 	  };
+	  
+	  Runnable heartBeatThread = new Runnable() {
+		
+		@Override
+		public void run() {
+			if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("start heart beat thread");
+	        }
+			
+			while(!isFinished){
+				try {
+					heartBeatLock.acquire();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+					//if the lock is interrupted then exit the thread
+					break;
+				}
+				
+				ByteBuffer buf = ByteBuffer.allocate(1);
+				buf.put((byte) 1);
+				for(int i = 0; i < processChannels.size(); i++){
+					buf.flip();
+					try {
+						if(processChannels.get(i).write(buf) == -1){
+							throw new ClosedChannelException();
+						}
+					} catch (IOException e) {
+						if (DEBUG && logger.isDebugEnabled()) {
+				              logger.debug("Socket Channel:" + processChannels.get(i) + " is closed so notify the main host");
+				        }
+						
+						ByteBuffer msgBuffer = ByteBuffer.allocate(4);
+						
+					}
+				}
+				
+				
+				
+				try {
+					Thread.currentThread().sleep(5000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				heartBeatLock.signal();
+			
+			}
+			
+			
+			if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("exit heart beat thread");
+	        }
+		}
+	};
 }
 
 class OutputHandler extends Thread { 
