@@ -1,6 +1,10 @@
 package org.qing.server;
 
+import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
@@ -50,7 +54,7 @@ public class ServerThread {
 	private boolean isCheckpointing = false;
 	private int versionNum = 0;
 	private boolean initializing = false;
-	private CustomSemaphore initLock = new CustomSemaphore(1); 
+	private CustomSemaphore initLock = new CustomSemaphore(0); 
 	
 	String localHostName = null;
 	InetAddress localaddr = null;
@@ -60,6 +64,7 @@ public class ServerThread {
 	 /* Server Socket Channel */
 	  ServerSocketChannel writableServerChannel = null;
 	  ServerSocketChannel readableServerChannel = null;
+	  ServerSocketChannel controlServerChannel = null;
 	  
 	  
 	  
@@ -73,6 +78,8 @@ public class ServerThread {
 	  private final int CHECKPOINT_RECONNECT = -40;
 	  
 	  private final int MARKER_ACK = -41;
+	  
+	  private final int NUM_OF_PROCCESSES = -42;
 	
 	  private final int RENDEZ_CTRL_MSG_LENGTH = 4;
 	
@@ -130,6 +137,8 @@ public class ServerThread {
 
 	Hashtable<UUID, CustomSemaphore> writeLockTable =
 		new Hashtable<UUID, CustomSemaphore> ();
+	
+	SocketChannel controlChannel = null;
 	
 	
 	static Logger logger = null ;
@@ -204,67 +213,8 @@ public class ServerThread {
 	   * 
 	   */
 	  public void socketInit() throws Exception{
-		  ConfigReader reader = null;
-	  
-		    try {
-		      reader = new ConfigReader(mpjHomeDir + "/.mpj/" + args[1]); 
-		      nprocs = (new Integer(reader.readNoOfProc())).intValue();
-		      psl = (new Integer(reader.readIntAsString())).intValue();
-		      if(psl < 12) {      
-		        psl = 12;  	      
-		      }
-		    }
-		    catch (Exception config_error) {
-		      throw new Exception(config_error);
-		    }
-
-
-		    pids = new UUID [nprocs];
-
-		    String[] nodeList = new String[nprocs];
-		    int[] pList = new int[nprocs];
-		    int[] rankList = new int[nprocs];
-		    int count = 0;
-
-		    while (count < nprocs) {
-
-		      String line = null;
-
-		      try {
-		        line = reader.readLine();
-		      }
-		      catch (IOException ioe) {
-		        throw new Exception(ioe);
-		      }
-
-		      if (line == null || line.equals("") || line.startsWith("#")) {
-		        continue;
-		      }
-		      
-		      if(line.contains("$")){
-		    	  //checkpoint must be declare before the nodes
-		    	  line = line.trim();
-			      StringTokenizer tokenizer = new StringTokenizer(line, "$");
-			      server_host = tokenizer.nextToken();
-			      my_server_port = (new Integer(tokenizer.nextToken())).intValue();
-			      server_rank = (new Integer(tokenizer.nextToken())).intValue();
-		    	  
-		    	  continue;
-		      }
-
-		      line = line.trim();
-		      StringTokenizer tokenizer = new StringTokenizer(line, "@");
-		      nodeList[count] = tokenizer.nextToken();
-		      pList[count] = (new Integer(tokenizer.nextToken())).intValue();
-		      rankList[count] = (new Integer(tokenizer.nextToken())).intValue();
-		      count++;
-
-		    }
-
-		    reader.close();
-		    reader = null;
 		    
-		    
+		    my_server_port = getCheckpointPort();
 
 		    /* Open the selector */
 		    try {
@@ -274,9 +224,6 @@ public class ServerThread {
 		      throw new Exception(ioe);
 		    }
 		    
-		    /* Create control server socket */
-		    SocketChannel[] wChannels = new SocketChannel[nodeList.length ];
-
 		    
 		    /* Checking for the java.net.BindException. This
 		     * Exception is thrown when the port on which
@@ -309,13 +256,24 @@ public class ServerThread {
 			        readableServerChannel.register(selector, SelectionKey.OP_ACCEPT);
 			        
 			        if(DEBUG && logger.isDebugEnabled())  {
-				          logger.debug("Init readableServerChannel at port " + my_server_port) ;
+				          logger.debug("Init readableServerChannel at port " + (my_server_port+1)) ;
 				    }
+			        
+			        controlServerChannel = ServerSocketChannel.open();
+			        controlServerChannel.configureBlocking(false);
+			        controlServerChannel.socket().bind(
+			            new InetSocketAddress( (my_server_port + 2)));
+			        controlServerChannel.register(selector, SelectionKey.OP_ACCEPT);
+			        
+			        if(DEBUG && logger.isDebugEnabled())  {
+				          logger.debug("Init controlServerChannel at port " + (my_server_port+2)) ;
+				    }
+			        
 
 		      }
 		      catch (IOException ioe) {
 		        isError = true;
-		        try { Thread.sleep(500); } catch(Exception e){}
+		        try { Thread.sleep(500); } catch(Exception e){ e.printStackTrace();}
 		      }
 		      finally {
 		        if(isError == true)
@@ -409,8 +367,11 @@ public class ServerThread {
 	              if (sChannel.socket().getLocalPort() == my_server_port) {
 	            		  doAccept(keyChannel, tempWritableChannels, true);
 	              }
-	              else {
+	              else if(sChannel.socket().getLocalPort() == my_server_port + 1){
 	            		  doAccept(keyChannel, tempReadableChannels, false);
+	              }
+	              else{
+	            	  doAccept(keyChannel);
 	              }
 
 	            }
@@ -447,14 +408,17 @@ public class ServerThread {
 	                 * 
 	                 */
 	                switch (header) {
+	                  case NUM_OF_PROCCESSES:
+	                	doReceiveNumOfProc((SocketChannel) keyChannel);
+	                	break;
 	                
 	                  case INIT_MSG_HEADER_DATA_CHANNEL:
-	                    doBarrierRead( ( (SocketChannel) keyChannel),
+	                    doBarrierRead(  (SocketChannel) keyChannel,
 	                                  worldReadableTable, false);
 	                    break;
 	                    
 	                  case INIT_MSG_HEADER_CTRL_CHANNEL:	                	  
-	                      doBarrierRead( ( (SocketChannel) keyChannel),
+	                      doBarrierRead(  (SocketChannel) keyChannel,
 	                                    worldReadableTable, false);
 	                      break;
 
@@ -466,7 +430,7 @@ public class ServerThread {
 	                		  isCheckpointing = true;
 	                		  
 	                	  }
-	                    doBarrierRead( ( (SocketChannel) keyChannel),
+	                    doBarrierRead(  (SocketChannel) keyChannel,
 	                                  worldReadableTable, false);
 	                    break;
 	               
@@ -510,7 +474,6 @@ public class ServerThread {
 	    } //end run()
 
 		
-
 
 	  }; //end selectorThread which is an inner class
 	  
@@ -650,6 +613,35 @@ public class ServerThread {
 		}
 	};// end renew thread
 	
+	private void doReceiveNumOfProc(SocketChannel socketChannel) throws Exception {
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("--doReceiveNumOfProc--");
+          }
+		
+		 ByteBuffer numBuffer = ByteBuffer.allocate(4);
+		 
+		 while(numBuffer.hasRemaining()){
+			 try{
+				 if(socketChannel.read(numBuffer) == -1)
+					 throw new ClosedChannelException();
+			 }
+			 catch(Exception e){
+				 throw e;
+			 }
+		 }
+		 
+		 numBuffer.flip();
+		 nprocs = numBuffer.getInt();
+		 pids = new UUID[nprocs];
+		 
+		 if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("Num of Processes : "+ nprocs);
+	     }
+		 
+		 initLock.signal();
+		
+	}
+	
 	
 	  private boolean doAccept(SelectableChannel keyChannel,
 				Vector<SocketChannel> channelCollection, boolean blocking) throws Exception {
@@ -694,6 +686,32 @@ public class ServerThread {
 		    
 
 		   peerChannel = null;
+
+		   return false;
+		    
+	  }//end of doaccept
+	  
+	  private boolean doAccept(SelectableChannel keyChannel) throws Exception {
+			
+		  	if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("---do accept---");
+          }
+
+		  	if(keyChannel.isOpen()) { 
+		        controlChannel = ( (ServerSocketChannel) keyChannel).accept();
+		    }
+		    else { 
+		        return false; 
+		    }
+
+		  	controlChannel.configureBlocking(false);
+		  	controlChannel.register(selector,
+	                             SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+		  	
+		  	controlChannel.socket().setTcpNoDelay(true);
+
+		  	controlChannel.socket().setSendBufferSize(524288);
+		  	controlChannel.socket().setReceiveBufferSize(524288);
 
 		   return false;
 		    
@@ -774,6 +792,39 @@ public class ServerThread {
 	    }
 
 	  }//end of do barrier read
+	  
+	  private static int getCheckpointPort() {
+
+		    int port = 0;
+		    FileInputStream in = null;
+		    DataInputStream din = null;
+		    BufferedReader reader = null;
+		    String line = "";
+
+		    try {
+
+		      String path = System.getenv("MPJ_HOME")+"/conf/wrapper.conf";
+		      in = new FileInputStream(path);
+		      din = new DataInputStream(in);
+		      reader = new BufferedReader(new InputStreamReader(din));
+
+		      while ((line = reader.readLine()) != null)   {
+		        if(line.startsWith("wrapper.checkpointServer.port")) {
+		          String trimmedLine=line.replaceAll("\\s+", "");
+		          port = Integer.parseInt(trimmedLine.substring(30));
+		          break;
+		        }
+		      }
+
+		      in.close();
+
+		    } catch (Exception e) {
+		      e.printStackTrace();
+		    }
+
+		    return port;
+
+		  }
 	  
 	  
 	  
