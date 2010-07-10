@@ -2778,7 +2778,11 @@ public class NIODevice
     	}
     }
     
+    
+    exitBuffer.position(0);
+    exitBuffer.put("exit".getBytes());
     exitBuffer.flip();
+
     while(exitBuffer.hasRemaining()){
     	try{
     		if(daemonChannel.write(exitBuffer) == -1){
@@ -2794,13 +2798,12 @@ public class NIODevice
     	}
     }
     
-    synchronized (selectorFinishLock) {
-		try {
-			selectorFinishLock.wait();
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
+	try {
+		selectorFinishLock.wait();
+	} catch (InterruptedException e) {
+		e.printStackTrace();
 	}
+	
     
     
     selectorFlag = false;
@@ -4309,6 +4312,30 @@ public class NIODevice
                 	  markerLock.signal();
                 	  
                 	  break;
+                	  
+                  case DAEMON_EXIT_ACK:
+                	  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+            	    		logger.debug("receive finish ack from daemon, thread<" + threadNum + "> return!");
+                          
+                      }
+                	  recvDaemonFinishAck = true;
+                	  
+                	  if(recvDaemonFinishAck == true && recvServerFinishAck == true)
+                		  selectorFinishLock.notify();
+                	  
+                	  break;
+                	  
+                  case CPSERVER_EXIT_ACK:
+                	  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+          	    		logger.debug("receive finish ack from checkpoint server, thread<" + threadNum + "> return!");
+                        
+	                  }
+                	  recvServerFinishAck = true;
+	              	  
+	              	  if(recvDaemonFinishAck == true && recvServerFinishAck == true)
+	              		  selectorFinishLock.notify();
+	              	  
+	              	  break;
 
                   case END_OF_STREAM:
                     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
