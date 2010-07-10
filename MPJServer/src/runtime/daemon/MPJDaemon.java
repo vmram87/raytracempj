@@ -101,6 +101,8 @@ public class MPJDaemon {
   
   Hashtable<UUID, SocketChannel> worldProcessTable =
 		new Hashtable<UUID, SocketChannel> ();
+  
+  Hashtable<UUID, Boolean> processValidMap = new Hashtable<UUID, Boolean> ();
 
   
   private boolean initializing = false;
@@ -113,6 +115,9 @@ public class MPJDaemon {
   public static final int LONG_MESSAGE = -45;
   public static final int DAEMON_EXIT = -46;
   public static final int INT_MESSAGE = -47;
+  private final int DAEMON_MARKER_ACK = -35;
+  private final int DAEMON_EXIT_ACK = -36;
+  private final int REQUEST_RESTART = -70;
   
 
   public MPJDaemon(String args[]) throws Exception {
@@ -156,11 +161,12 @@ public class MPJDaemon {
     int exit = 0;
 
     while (loop) {
-    	
-    	worldProcessTable.clear();
+
     	if(DEBUG && logger.isDebugEnabled()) { 
     	      logger.debug ("CLEAR TABLE");
     	}
+    	worldProcessTable.clear();
+    	processValidMap.clear();
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
@@ -836,6 +842,11 @@ public class MPJDaemon {
                           worldProcessTable, false);
               }
               
+            //receive process exit, send exit ack back to the channel
+              if(read.equals("exit")){
+            	  doSendBackExitAck( ( (SocketChannel) keyChannel));
+              }
+              
               
 
               if (read.equals("cpe-")) {
@@ -1108,6 +1119,8 @@ public class MPJDaemon {
         //System.exit(0);
       }
     } //end run()
+
+	
   }; //end selectorThread which is an inner class 
   
   
@@ -1242,10 +1255,12 @@ public class MPJDaemon {
 	    barrBuffer.clear();
 	    ruid = new UUID(msb, lsb);
 	    pids[rank] = ruid; //, rank);
-
+   
 
 	    synchronized (table) {
 	      table.put(ruid, socketChannel);
+	      
+	      processValidMap.put(ruid, true);
 	      
 	      if (DEBUG && logger.isDebugEnabled()) {
             logger.debug("add rand" + rank + " to table:" + table);
@@ -1267,6 +1282,46 @@ public class MPJDaemon {
 	    }
 
 	  }//end of do barrier read
+	  
+	  private void doSendBackExitAck(SocketChannel socketChannel) throws IOException {
+		  	if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("---do SendBackExitAck---");
+	        }
+		  	
+		  	try {
+				heartBeatLock.acquire();
+			} catch (InterruptedException e1) {
+				e1.printStackTrace();
+			}
+			
+			long lsb, msb;
+			ByteBuffer uuidBuffer = ByteBuffer.allocate(16);
+			while(uuidBuffer.hasRemaining()){
+				
+				
+			}
+			
+		  	
+			ByteBuffer askBuffer = ByteBuffer.allocate(4);
+			askBuffer.putInt(DAEMON_EXIT_ACK);
+			
+			askBuffer.flip();
+			while(askBuffer.hasRemaining()){
+				try{
+					if(socketChannel.write(askBuffer) == -1)
+						throw new ClosedChannelException();
+				}
+				catch(IOException e){
+					e.printStackTrace();
+					heartBeatLock.signal();
+					throw e;
+				}
+			}
+			
+			heartBeatLock.signal();
+			
+			
+		}
 
   public static void main(String args[]) {
     try {
@@ -1328,24 +1383,56 @@ public class MPJDaemon {
 				
 				ByteBuffer buf = ByteBuffer.allocate(1);
 				buf.put((byte) 1);
-				for(int i = 0; i < processChannels.size(); i++){
-					buf.flip();
-					try {
-						if(processChannels.get(i).write(buf) == -1){
+				
+				
+				Iterator it = worldProcessTable.entrySet().iterator();
+				SocketChannel socketChannel = null;
+				while(it.hasNext()){
+					java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+					UUID ruid = (UUID)entry.getKey();
+			    	if(processValidMap.get(ruid) == false)
+			    		continue;
+			    	
+			    	buf.flip();
+			    	socketChannel = (SocketChannel)entry.getValue();
+			    	
+			    	try {
+						if(socketChannel.write(buf) == -1){
 							throw new ClosedChannelException();
 						}
 					} catch (IOException e) {
 						if (DEBUG && logger.isDebugEnabled()) {
-				              logger.debug("Socket Channel:" + processChannels.get(i) + " is closed so notify the main host");
+				              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host, exit heartbeat thread!");
 				        }
 						
 						ByteBuffer msgBuffer = ByteBuffer.allocate(4);
+						msgBuffer.putInt(REQUEST_RESTART);
+						msgBuffer.flip();
+						while(msgBuffer.hasRemaining()){
+							try{
+								if(peerChannel.write(msgBuffer) == -1)
+									throw new ClosedChannelException();
+							}
+							catch(IOException ioe){
+								ioe.printStackTrace();
+								System.out.println("You should ensure the MPJRun host is running!");
+								if (DEBUG && logger.isDebugEnabled()) {
+						              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+						        }
+								
+								heartBeatLock.signal();
+								return;
+							}
+						}
+						
+						heartBeatLock.signal();
+						return;
 						
 					}
+			    	
 				}
-				
-				
-				
+
+			
 				try {
 					Thread.currentThread().sleep(5000);
 				} catch (InterruptedException e) {
