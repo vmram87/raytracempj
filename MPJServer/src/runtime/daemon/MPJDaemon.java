@@ -338,7 +338,7 @@ public class MPJDaemon {
                    additional threads to handle I/O. Is it possible to 
                    get rid of this overhead?
                    */ 
-        outputThreads[j] = new OutputHandler(p[j]) ; 
+        outputThreads[j] = new OutputHandler(p[j], rank) ; 
         outputThreads[j].start();
 	  
         if(DEBUG && logger.isDebugEnabled()) { 
@@ -1364,11 +1364,12 @@ public class MPJDaemon {
 }
 
 class OutputHandler extends Thread { 
+	String rank;
+	Process p = null ; 
 
-  Process p = null ; 
-
-  public OutputHandler(Process p) { 
+  public OutputHandler(Process p, String rank) { 
     this.p = p; 
+    this.rank = rank;
   } 
 
   public void run() {
@@ -1387,7 +1388,7 @@ class OutputHandler extends Thread {
           line.trim(); 
  
           synchronized (this) {
-            System.out.println(line);
+            System.out.println("@Rank<" + this.rank + ">: " + line);
             //if(DEBUG && logger.isDebugEnabled()) { 
             //  logger.debug(line);
 	    //}
