@@ -110,6 +110,10 @@ public class ServerThread {
 	  private final int START_CHECKPOINT = -32;
 	  
 	  private final int FINISH_CHECKPOINT = -33;
+	  
+	  private final int EXIT_PROCESS = -34;
+	  
+	  private final int CPSERVER_EXIT_ACK = -37;
 	
 	  private final int SEND_ACK_TO_SENDER = -80;
 	
@@ -437,11 +441,16 @@ public class ServerThread {
 	                    
 	                  case START_CHECKPOINT:
 	                	  initLock.acquire();
-	                	  doCheckpoint( ( (SocketChannel) keyChannel),
+	                	  doCheckpoint( (SocketChannel) keyChannel,
 	                              worldWritableTable);
 	                	  
 	                	  System.out.println("out checkpoint");
 	                	  initLock.signal();
+	                	  break;
+	                	  
+	                  case EXIT_PROCESS:
+	                	  doSendBackAck((SocketChannel) keyChannel);
+	                	  
 	                	  break;
 	                	  
 	                  case END_OF_STREAM:
@@ -473,7 +482,7 @@ public class ServerThread {
 
 	    } //end run()
 
-		
+
 
 	  }; //end selectorThread which is an inner class
 	  
@@ -642,6 +651,26 @@ public class ServerThread {
 		
 	}
 	
+	private void doSendBackAck(SocketChannel socketChannel) throws IOException {
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("---doSendBackAck---");
+        }
+	  	
+		ByteBuffer askBuffer = ByteBuffer.allocate(4);
+		askBuffer.putInt(CPSERVER_EXIT_ACK);
+		
+		askBuffer.flip();
+		while(askBuffer.hasRemaining()){
+			try{
+				if(socketChannel.write(askBuffer) == -1)
+					throw new ClosedChannelException();
+			}
+			catch(IOException e){
+				e.printStackTrace();
+				throw e;
+			}
+		}		
+	}
 	
 	  private boolean doAccept(SelectableChannel keyChannel,
 				Vector<SocketChannel> channelCollection, boolean blocking) throws Exception {
