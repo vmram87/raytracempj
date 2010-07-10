@@ -1382,15 +1382,34 @@ if(DEBUG && logger.isDebugEnabled())
               		
               	case LONG_MESSAGE:
               		lilBuffer.clear();
-              		while(lilBuffer.hasRemaining())
-              			socketChannel.read(lilBuffer);
+              		while(lilBuffer.hasRemaining()){
+              			try{
+	              			if(socketChannel.read(lilBuffer) == -1){
+	              				throw new ClosedChannelException();
+	              			}
+              			}
+              			catch(IOException e){
+              				e.printStackTrace();
+              				break;
+              			}
+              		}
+              			
               		
               		lilBuffer.flip();
               		int len = lilBuffer.getInt();
               		ByteBuffer tempBuffer = ByteBuffer.allocate(len);
               		
-              		while(tempBuffer.hasRemaining())
-              			socketChannel.read(tempBuffer);
+              		while(tempBuffer.hasRemaining()){
+              			try{
+	              			if(socketChannel.read(tempBuffer) == -1){
+	              				throw new ClosedChannelException();
+	              			}
+              			}
+              			catch(IOException e){
+              				e.printStackTrace();
+              				break;
+              			}
+              		}
               		
               	 	byte[] tempArray = new byte[len];
               	 	//logger.debug("bigBuffer " + bigBuffer + "From :" + socketChannel);
@@ -1398,7 +1417,7 @@ if(DEBUG && logger.isDebugEnabled())
               	 	tempBuffer.get(tempArray, 0, len);
               	 	String line = new String(tempArray);
               	 	tempBuffer.clear();
-              	 	System.out.println(line);
+              	 	System.out.print(line);
               	 	//RECEIVED
   					  if(DEBUG && logger.isDebugEnabled()){
   			      logger.debug("Buffer content , Size:" + line.length() + "From :" + socketChannel);

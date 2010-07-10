@@ -95,7 +95,7 @@ public class MPJProcessPrintStream extends PrintStream {
 
     try {
     	intBuffer.clear();
-    	intBuffer.putInt(MPJDaemon.LONG_MESSAGE);
+    	intBuffer.putInt(MPJDaemon.INT_MESSAGE);
     	intBuffer.putInt(b);
     	intBuffer.flip();
     	while(intBuffer.hasRemaining())

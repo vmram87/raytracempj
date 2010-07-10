@@ -607,6 +607,14 @@ public class NIODevice
   private final int START_CHECKPOINT = -32;
   
   private final int FINISH_CHECKPOINT = -33;
+  
+  private final int EXIT_PROCESS = -34;
+  
+  private final int DAEMON_MARKER_ACK = -35;
+
+  private final int DAEMON_EXIT_ACK = -36;
+  
+  private final int CPSERVER_EXIT_ACK = -37;
 
   private final int SEND_ACK_TO_SENDER = -80;
 
@@ -637,8 +645,10 @@ public class NIODevice
   CustomSemaphore cLockUserSend = new CustomSemaphore(1);
   CustomSemaphore cLockSelector = new CustomSemaphore(1);
   CustomSemaphore markerLock = new CustomSemaphore(1);
-  boolean recvDeamonAck = false;
+  boolean recvDeamonCheckpointAck = false;
   boolean recvMarkerAck = false;
+  boolean recvDaemonFinishAck = false;
+  boolean recvServerFinishAck = false;
   Thread socketInitThreadStarter = null;
   
   SocketChannel readableCheckpointServer = null;
@@ -2646,6 +2656,7 @@ public class NIODevice
 	}
 
   private void realFinish() throws XDevException {
+  
     selectorFlag = false;
 
     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
@@ -2726,6 +2737,7 @@ public class NIODevice
   }
 
   Object finishLock = new Object();
+  Object selectorFinishLock = new Object();
 
   static final int SHUTDOWN_SIGNAL = -13;
   static final int END_OF_STREAM = -14;
@@ -2743,6 +2755,53 @@ public class NIODevice
         return;
       }
     }
+    
+    ByteBuffer exitBuffer = ByteBuffer.allocate(24);
+    exitBuffer.putInt(EXIT_PROCESS);
+    exitBuffer.putInt(this.rank);
+    exitBuffer.putLong(id.uuid().getMostSignificantBits());
+    exitBuffer.putLong(id.uuid().getLeastSignificantBits());
+    
+    exitBuffer.flip();
+    while(exitBuffer.hasRemaining()){
+    	try{
+    		if(writableCheckpointServer.write(exitBuffer) == -1){
+    			throw new ClosedChannelException();
+    		}
+    	}
+    	catch(IOException e){
+    		e.printStackTrace();
+    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+    		      logger.debug("Checkpoint close the channel, you should ensure the checkpoint server is running");
+    		}
+    		break;
+    	}
+    }
+    
+    exitBuffer.flip();
+    while(exitBuffer.hasRemaining()){
+    	try{
+    		if(daemonChannel.write(exitBuffer) == -1){
+    			throw new ClosedChannelException();
+    		}
+    	}
+    	catch(IOException e){
+    		e.printStackTrace();
+    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+    		      logger.debug("daemon close the channel, you should ensure the daemon is running");
+    		}
+    		break;
+    	}
+    }
+    
+    synchronized (selectorFinishLock) {
+		try {
+			selectorFinishLock.wait();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+    
     
     selectorFlag = false;
 
@@ -4197,7 +4256,7 @@ public class NIODevice
                 	  
                 	  markerLock.acquire();
                 	  
-                	  if(markerMap.size() == (nprocs - 1) && recvMarkerAck == true){
+                	  if(markerMap.size() == (nprocs - 1) && recvMarkerAck == true  ){
                 		  
                 		  	//checkpoint(new Integer(versionNum).toString());	
                 		    preProcess();
