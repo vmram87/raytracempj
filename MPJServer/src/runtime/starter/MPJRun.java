@@ -117,6 +117,13 @@ public class MPJRun {
   public static final int DAEMON_EXIT = -46;
   public static final int END_OF_STREAM = -14;
   public static final int INT_MESSAGE = -47;
+  private final int REQUEST_RESTART = -70;
+  private final int CHECK_VALID = -71;
+  
+  
+  private boolean isFinished = false;
+  private CustomSemaphore initLock = new CustomSemaphore(1); 
+  private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
 
   /**
    * Every thing is being inside this constructor :-)
@@ -825,6 +832,14 @@ if(DEBUG && logger.isDebugEnabled())
     cfos.close(); 
 
   }
+  
+  
+  //assign tasks after restart
+  private void assignRestartTasks() throws Exception {
+		throw new Exception("Not Implemented!");
+		
+  }
+  
 
   private void machinesSanityCheck() throws Exception {
 	  
@@ -1449,6 +1464,16 @@ if(DEBUG && logger.isDebugEnabled())
 			        
               		break;
               		
+              	case REQUEST_RESTART:
+              		//retrive the database and assign job and version number
+              		assignRestartTasks();
+              		//send "kill" to the daemon
+              		
+              		//pack and send the command like before
+              		
+              		
+              		break;
+              		
             	
               	default:
               		System.out.println("Impossible");
@@ -1474,5 +1499,96 @@ if(DEBUG && logger.isDebugEnabled())
 	  if(DEBUG && logger.isDebugEnabled())
       logger.debug("Thread getting out");
     }
+
   };
+  
+  
+  Runnable heartBeatThread = new Runnable() {
+		
+		@Override
+		public void run() {
+			if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("start heart beat thread");
+	        }
+			
+			while(!isFinished){
+				try {
+					heartBeatLock.acquire();
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+					//if the lock is interrupted then exit the thread
+					break;
+				}
+				
+				ByteBuffer buf = ByteBuffer.allocate(4);
+				buf.putInt(CHECK_VALID);
+				
+				for(int i = 0; i < peerChannels.size(); i++){
+					buf.flip();
+					while(buf.hasRemaining()){
+						try{
+							if(peerChannels.get(i).write(buf) == -1)
+								throw new ClosedChannelException();
+						}
+						catch(IOException ioe){
+							ioe.printStackTrace();
+							System.out.println("Some daemon has been down! So Restart");
+							if (DEBUG && logger.isDebugEnabled()) {
+					              logger.debug("Some daemon has been down! So Restart");
+					        }
+							
+							heartBeatLock.signal();
+							
+							doRestart();
+							return;
+						}
+					}
+				}
+
+					
+				
+
+			
+				try {
+					Thread.currentThread().sleep(5000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				heartBeatLock.signal();
+			
+			}//end while isFinished
+			
+			
+			if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("exit heart beat thread");
+	        }
+		}//end run
+
+		
+	};
+	
+	private void doRestart() {
+		// TODO Auto-generated method stub
+		
+	}
+	
+	  class CustomSemaphore {
+
+		    private int s ;
+		    
+		    public CustomSemaphore(int s) {
+		      this.s = s ;
+		    }
+		    
+		    public synchronized void acquire() throws InterruptedException {
+		      while (s == 0) wait(0) ;
+		      s-- ;
+		    }
+		    
+		    public synchronized void signal() {
+		      s++ ;
+		      notify() ;
+		    }
+		    
+		  }
 }
