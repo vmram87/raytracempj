@@ -1297,27 +1297,48 @@ public class MPJDaemon {
 			long lsb, msb;
 			ByteBuffer uuidBuffer = ByteBuffer.allocate(16);
 			while(uuidBuffer.hasRemaining()){
-				
-				
-			}
-			
-		  	
-			ByteBuffer askBuffer = ByteBuffer.allocate(4);
-			askBuffer.putInt(DAEMON_EXIT_ACK);
-			
-			askBuffer.flip();
-			while(askBuffer.hasRemaining()){
 				try{
-					if(socketChannel.write(askBuffer) == -1)
+					if(socketChannel.write(uuidBuffer) == -1)
 						throw new ClosedChannelException();
 				}
 				catch(IOException e){
 					e.printStackTrace();
+					if (DEBUG && logger.isDebugEnabled()) {
+			            logger.debug("read channel close, return");
+			        }
 					heartBeatLock.signal();
-					throw e;
+					return;
+				}
+				
+			}
+			
+			uuidBuffer.flip();
+			msb = uuidBuffer.getLong();
+			lsb = uuidBuffer.getLong();
+			UUID ruid = new UUID(msb, lsb);
+		  	
+			ByteBuffer askBuffer = ByteBuffer.allocate(4);
+			askBuffer.putInt(DAEMON_EXIT_ACK);
+			
+			SocketChannel c = worldProcessTable.get(ruid);
+			
+			askBuffer.flip();
+			while(askBuffer.hasRemaining()){
+				try{
+					if(c.write(askBuffer) == -1)
+						throw new ClosedChannelException();
+				}
+				catch(IOException e){
+					e.printStackTrace();
+					if (DEBUG && logger.isDebugEnabled()) {
+			            logger.debug("write channel close, return");
+			        }
+					heartBeatLock.signal();
+					return;
 				}
 			}
 			
+			processValidMap.put(ruid, false);
 			heartBeatLock.signal();
 			
 			
@@ -1430,7 +1451,7 @@ public class MPJDaemon {
 						
 					}
 			    	
-				}
+				}//end iterator
 
 			
 				try {
@@ -1440,13 +1461,13 @@ public class MPJDaemon {
 				}
 				heartBeatLock.signal();
 			
-			}
+			}//end while isFinished
 			
 			
 			if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("exit heart beat thread");
 	        }
-		}
+		}//end run
 	};
 }
 

@@ -4259,7 +4259,7 @@ public class NIODevice
                 	  
                 	  markerLock.acquire();
                 	  
-                	  if(markerMap.size() == (nprocs - 1) && recvMarkerAck == true  ){
+                	  if(markerMap.size() == (nprocs - 1) && recvMarkerAck == true  && recvDeamonCheckpointAck == true){
                 		  
                 		  	//checkpoint(new Integer(versionNum).toString());	
                 		    preProcess();
@@ -4288,9 +4288,9 @@ public class NIODevice
                 	  markerLock.acquire();
                 	  
                 	  recvMarkerAck = true;
-                	  System.out.println("receive marker ack");                	  
+                	  System.out.println("receive marker ack from checkpoint server");                	  
                 	  
-                	  if(markerMap.size() == (nprocs - 1)){
+                	  if(markerMap.size() == (nprocs - 1) && recvDeamonCheckpointAck == true){
                 		  	//checkpoint(new Integer(versionNum).toString());	
                 		    preProcess();
                 		    checkpoint(contextSrcFilePath, new Integer(versionNum).toString());	
@@ -4298,6 +4298,7 @@ public class NIODevice
 	              	    	cLockUserSend.signal();
 	              	    	cLockRendezSend.signal();
 	              	    	recvMarkerAck = false;
+	              	    	recvDeamonCheckpointAck = false;
 	              	    	isFinished = true;
 	              	    	markerMap.clear();
 	              	    	System.out.println("checkpoint finished");
@@ -4312,6 +4313,37 @@ public class NIODevice
                 	  markerLock.signal();
                 	  
                 	  break;
+                
+                  case DAEMON_MARKER_ACK:
+                	  markerLock.acquire();
+            	  
+                	  recvDeamonCheckpointAck = true;
+	            	  System.out.println("receive marker ack from daemon");                	  
+	            	  
+	            	  if(markerMap.size() == (nprocs - 1) && recvMarkerAck == true){
+	            		  	//checkpoint(new Integer(versionNum).toString());	
+	            		    preProcess();
+	            		    checkpoint(contextSrcFilePath, new Integer(versionNum).toString());	
+	            		  	processContinue();
+	              	    	cLockUserSend.signal();
+	              	    	cLockRendezSend.signal();
+	              	    	recvMarkerAck = false;
+	              	    	recvDeamonCheckpointAck = false;
+	              	    	isFinished = true;
+	              	    	markerMap.clear();
+	              	    	System.out.println("checkpoint finished");
+	              	    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	              	    		logger.debug("checkpoint finished, thread<" + threadNum + "> return!");
+	                            
+	                        }
+	              	    	
+	              	    	markerLock.signal();
+	              	    	return;
+	            	  }
+	            	  markerLock.signal();
+	            	  
+                	  break;
+                  
                 	  
                   case DAEMON_EXIT_ACK:
                 	  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
