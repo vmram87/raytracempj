@@ -615,6 +615,8 @@ public class NIODevice
   private final int DAEMON_EXIT_ACK = -36;
   
   private final int CPSERVER_EXIT_ACK = -37;
+  
+  private final int CHECK_VALID = -71;
 
   private final int SEND_ACK_TO_SENDER = -80;
 
@@ -1373,7 +1375,8 @@ public class NIODevice
 	    
 
 	    SocketChannel socketChannel = null;
-	    ByteBuffer initMsgBuffer = ByteBuffer.allocate(24);
+	    ByteBuffer initMsgBuffer = ByteBuffer.allocate(32);
+	    initMsgBuffer.limit(24);
 	    long msb = id.uuid().getMostSignificantBits();
 	    long lsb = id.uuid().getLeastSignificantBits();
 	    initMsgBuffer.putInt(INIT_MSG_HEADER_DATA_CHANNEL);
@@ -1482,7 +1485,10 @@ public class NIODevice
 	    pids[rank] = id;
 	    
 	      
-	     
+	    initMsgBuffer.limit(32);
+	    initMsgBuffer.position(24);
+	    initMsgBuffer.putInt(Integer.parseInt(pId));
+	    initMsgBuffer.putInt(versionNum);
 
 	      initMsgBuffer.flip();
 	      /* send the the writable checkpoint channel */
@@ -1502,6 +1508,7 @@ public class NIODevice
 	      }
 	      
 
+	      initMsgBuffer.limit(24);
 	      initMsgBuffer.flip();
 	      /* send the the readable checkpoint channel */
 	      while (initMsgBuffer.hasRemaining()) {
@@ -2762,6 +2769,7 @@ public class NIODevice
     exitBuffer.putLong(id.uuid().getMostSignificantBits());
     exitBuffer.putLong(id.uuid().getLeastSignificantBits());
     
+    //send exit request to the checkpoint server
     exitBuffer.flip();
     while(exitBuffer.hasRemaining()){
     	try{
@@ -2779,6 +2787,7 @@ public class NIODevice
     }
     
     
+    //send exit request to the daemon
     exitBuffer.position(0);
     exitBuffer.put("exit".getBytes());
     exitBuffer.flip();
@@ -3064,10 +3073,24 @@ public class NIODevice
     	
       cMsgBuffer.flip();
 
-	  /* Do we need to iterate here? */
+	  /* send marker to the checkpoint server */
 	  while (cMsgBuffer.hasRemaining()) {
 	    try {
 	      if (writableCheckpointServer.write(cMsgBuffer) == -1) {
+	        throw new XDevException(new ClosedChannelException());
+	      }
+	    }
+	    catch (Exception e) {
+	      throw new XDevException(e);
+	    }
+	  } //end while.
+	  
+	  cMsgBuffer.flip();
+
+	  /* send marker to the daemon*/
+	  while (cMsgBuffer.hasRemaining()) {
+	    try {
+	      if (daemonChannel.write(cMsgBuffer) == -1) {
 	        throw new XDevException(new ClosedChannelException());
 	      }
 	    }

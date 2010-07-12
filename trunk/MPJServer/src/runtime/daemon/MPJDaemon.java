@@ -118,6 +118,7 @@ public class MPJDaemon {
   private final int DAEMON_MARKER_ACK = -35;
   private final int DAEMON_EXIT_ACK = -36;
   private final int REQUEST_RESTART = -70;
+  private final int CHECK_VALID = -71;
   
 
   public MPJDaemon(String args[]) throws Exception {
@@ -177,9 +178,6 @@ public class MPJDaemon {
         logger.debug("wdir "+wdir);
       }
       waitToStartExecution ();
-      
-      renewThreadStarter = new Thread(renewThread);
-      renewThreadStarter.start();
 
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("A client has connected");
@@ -360,7 +358,7 @@ public class MPJDaemon {
       } 
       
 	  //wait for the init of the writable and readable channels
-      renewThreadStarter.join();
+      //renewThreadStarter.join();
       
 
       //Wait for the I/O threads to finish. They finish when 
@@ -726,6 +724,25 @@ public class MPJDaemon {
             if (key.isAcceptable() && selectorAcceptConnect) {
             	ServerSocketChannel sChannel =(ServerSocketChannel) keyChannel;
             	
+            	//if it should be initialed 
+            	if(initializing == false){
+            		if (DEBUG && logger.isDebugEnabled()) {
+			                logger.debug("---CLEAR TABLES---");
+			              }
+	            	  
+	            	  for(int i = 0; i < processChannels.size(); i++){
+	            		  if(processChannels.get(i).isOpen())
+	            			  processChannels.get(i).close();
+	            	  }
+	            	  processChannels.clear();
+          		  
+          		  
+	            	  worldProcessTable.clear();
+	            	  initializing = true;
+          		  
+	            	  (new Thread(renewThread)).start();
+            	}
+            	
             	if (sChannel.socket().getLocalPort() == D_SER_PORT) {
                     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
                       logger.debug("selector calling doAccept (data-channel) ");
@@ -844,7 +861,12 @@ public class MPJDaemon {
               
             //receive process exit, send exit ack back to the channel
               if(read.equals("exit")){
-            	  doSendBackExitAck( ( (SocketChannel) keyChannel));
+            	  doSendBackExitAck( (SocketChannel) keyChannel);
+              }
+              
+              //receive process checkpoint, send check cehckpoint ack back to the channel
+              if(read.equals("che-")){
+            	  doSendBackCheckpointAck((SocketChannel) keyChannel);
               }
               
               
@@ -1120,6 +1142,7 @@ public class MPJDaemon {
       }
     } //end run()
 
+
 	
   }; //end selectorThread which is an inner class 
   
@@ -1184,7 +1207,7 @@ public class MPJDaemon {
 		    /* worldTable is accessed from doBarrierRead or here, so their access
 		     * should be synchronized */
 		    synchronized (worldProcessTable) {
-		      if ( (worldProcessTable.size() != processes)) {
+		      if ( (worldProcessTable.size() != processes) || processValidMap.containsValue(false)) {
 		        try {
 		        	worldProcessTable.wait();
 		        }
@@ -1210,7 +1233,8 @@ public class MPJDaemon {
 	   * This method is used during initialization.
 	   */
 	  void doBarrierRead(SocketChannel socketChannel, Hashtable table, boolean
-	                     ignoreFirstFourBytes) throws Exception {
+				
+          ignoreFirstFourBytes) throws Exception {
 		  
 		  if (DEBUG && logger.isDebugEnabled()) {
             logger.debug("---do barrier read---");
@@ -1258,8 +1282,7 @@ public class MPJDaemon {
    
 
 	    synchronized (table) {
-	      table.put(ruid, socketChannel);
-	      
+	      table.put(ruid, socketChannel);	      
 	      processValidMap.put(ruid, true);
 	      
 	      if (DEBUG && logger.isDebugEnabled()) {
@@ -1267,7 +1290,7 @@ public class MPJDaemon {
             logger.debug("table size:" + table.size());
         }
 
-	      if ( (table.size() == processes )) {
+	      if ( (table.size() == processes ) && (!processValidMap.containsValue(false))) {
 	        try {
 	          table.notify();
 	          if (DEBUG && logger.isDebugEnabled()) {
@@ -1288,8 +1311,9 @@ public class MPJDaemon {
 	            logger.debug("---do SendBackExitAck---");
 	        }
 		  	
+		  	//while in the channel and table initial period, can't send ack
 		  	try {
-				heartBeatLock.acquire();
+				initLock.acquire();
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
 			}
@@ -1306,7 +1330,7 @@ public class MPJDaemon {
 					if (DEBUG && logger.isDebugEnabled()) {
 			            logger.debug("read channel close, return");
 			        }
-					heartBeatLock.signal();
+					initLock.signal();
 					return;
 				}
 				
@@ -1333,14 +1357,75 @@ public class MPJDaemon {
 					if (DEBUG && logger.isDebugEnabled()) {
 			            logger.debug("write channel close, return");
 			        }
-					heartBeatLock.signal();
+					initLock.signal();
 					return;
 				}
 			}
 			
 			processValidMap.put(ruid, false);
-			heartBeatLock.signal();
+			initLock.signal();
 			
+			
+		}
+	  
+	  private void doSendBackCheckpointAck(SocketChannel socketChannel) {
+		  if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("---do SendBackCheckpointAck---");
+	        }
+		  	
+		//while in the channel and table initial period, can't send ack
+		  	try {
+				initLock.acquire();
+			} catch (InterruptedException e1) {
+				e1.printStackTrace();
+			}
+			
+			long lsb, msb;
+			ByteBuffer uuidBuffer = ByteBuffer.allocate(16);
+			while(uuidBuffer.hasRemaining()){
+				try{
+					if(socketChannel.write(uuidBuffer) == -1)
+						throw new ClosedChannelException();
+				}
+				catch(IOException e){
+					e.printStackTrace();
+					if (DEBUG && logger.isDebugEnabled()) {
+			            logger.debug("read channel close, return");
+			        }
+					initLock.signal();
+					return;
+				}
+				
+			}
+			
+			uuidBuffer.flip();
+			msb = uuidBuffer.getLong();
+			lsb = uuidBuffer.getLong();
+			UUID ruid = new UUID(msb, lsb);
+		  	
+			ByteBuffer askBuffer = ByteBuffer.allocate(4);
+			askBuffer.putInt(DAEMON_MARKER_ACK);
+			
+			SocketChannel c = worldProcessTable.get(ruid);
+			
+			askBuffer.flip();
+			while(askBuffer.hasRemaining()){
+				try{
+					if(c.write(askBuffer) == -1)
+						throw new ClosedChannelException();
+				}
+				catch(IOException e){
+					e.printStackTrace();
+					if (DEBUG && logger.isDebugEnabled()) {
+			            logger.debug("write channel close, return");
+			        }
+					initLock.signal();
+					return;
+				}
+			}
+			
+			processValidMap.put(ruid, false);				
+			initLock.signal();
 			
 		}
 
@@ -1402,8 +1487,8 @@ public class MPJDaemon {
 					break;
 				}
 				
-				ByteBuffer buf = ByteBuffer.allocate(1);
-				buf.put((byte) 1);
+				ByteBuffer buf = ByteBuffer.allocate(4);
+				buf.putInt(CHECK_VALID);
 				
 				
 				Iterator it = worldProcessTable.entrySet().iterator();
