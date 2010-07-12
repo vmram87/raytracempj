@@ -359,8 +359,19 @@ public class ServerThread {
 	            	  if (DEBUG && logger.isDebugEnabled()) {
 			                logger.debug("---CLEAR TABLES---");
 			              }
+	            	  
+	            	  for(int i = 0; i < readableChannels.size(); i++){
+	            		  if(readableChannels.get(i).isOpen())
+	            			  readableChannels.get(i).close();
+	            	  }
             		  readableChannels.clear();
+            		  
+            		  for(int i = 0; i < writableChannels.size(); i++){
+	            		  if(writableChannels.get(i).isOpen())
+	            			  writableChannels.get(i).close();
+	            	  }
             		  writableChannels.clear();
+            		  
             		  worldReadableTable.clear();
             		  worldWritableTable.clear();
             		  initializing = true;
@@ -369,10 +380,10 @@ public class ServerThread {
             	  }
 	              
 	              if (sChannel.socket().getLocalPort() == my_server_port) {
-	            		  doAccept(keyChannel, tempWritableChannels, true);
+	            		  doAccept(keyChannel, writableChannels, true);
 	              }
 	              else if(sChannel.socket().getLocalPort() == my_server_port + 1){
-	            		  doAccept(keyChannel, tempReadableChannels, false);
+	            		  doAccept(keyChannel, readableChannels, false);
 	              }
 	              else{
 	            	  doAccept(keyChannel);
@@ -418,24 +429,20 @@ public class ServerThread {
 	                
 	                  case INIT_MSG_HEADER_DATA_CHANNEL:
 	                    doBarrierRead(  (SocketChannel) keyChannel,
-	                                  worldReadableTable, false);
+	                                  worldReadableTable, false, false);
 	                    break;
 	                    
 	                  case INIT_MSG_HEADER_CTRL_CHANNEL:	                	  
 	                      doBarrierRead(  (SocketChannel) keyChannel,
-	                                    worldReadableTable, false);
+	                                    worldReadableTable, false, false);
 	                      break;
 
 	                  case CHECKPOINT_RECONNECT:
 	                	  if (DEBUG && logger.isDebugEnabled()) {
 	  		                logger.debug("receive chepoint reconnect quest");
 	  		              }
-	                	  if(isCheckpointing == false){
-	                		  isCheckpointing = true;
-	                		  
-	                	  }
 	                    doBarrierRead(  (SocketChannel) keyChannel,
-	                                  worldReadableTable, false);
+	                                  worldReadableTable, false, true);
 	                    break;
 	               
 	                    
@@ -502,11 +509,11 @@ public class ServerThread {
               logger.debug("renew thread start");
             }
 				
-			 synchronized (tempWritableChannels) {
+			 synchronized (writableChannels) {
 
-		      if (tempWritableChannels.size() != nprocs) {
+		      if (writableChannels.size() != nprocs) {
 		        try {
-		        	tempWritableChannels.wait();
+		        	writableChannels.wait();
 		        }
 		        catch (Exception e) {
 		          e.printStackTrace();
@@ -521,20 +528,17 @@ public class ServerThread {
 					e.printStackTrace();
 				}
 			 }
-			 
-			 writableChannels.clear();
-			 writableChannels = tempWritableChannels;
 		    
 			 if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("writableChannels renewed");
 	            }
 
 		    /* This is for control-channels. */
-		    synchronized (tempReadableChannels) {
+		    synchronized (readableChannels) {
 
-		      if (tempReadableChannels.size() != nprocs) {
+		      if (readableChannels.size() != nprocs) {
 		        try {
-		        	tempReadableChannels.wait();
+		        	readableChannels.wait();
 		        }
 		        catch (Exception e) {
 		        	e.printStackTrace();
@@ -543,23 +547,10 @@ public class ServerThread {
 
 		    } //end sync.
 		    
-		    for(int i=0;i < readableChannels.size();i++){
-				try {
-					readableChannels.get(i).close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-		    }
-			 
-			readableChannels.clear();
-		    readableChannels = tempReadableChannels;
 		    
 		    if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("readableChannels renewed");
 	            }
-		    
-		    tempReadableChannels =  new Vector<SocketChannel> ();
-		    tempWritableChannels =  new Vector<SocketChannel> ();
 		        
 		    /*
 		     * At this point, all-to-all connectivity has been acheived.
@@ -592,7 +583,7 @@ public class ServerThread {
 		    for (int i = 0; i < writableChannels.size(); i++) {
 		      SocketChannel socketChannel = writableChannels.get(i);
 		      try {
-		        doBarrierRead(socketChannel, worldWritableTable, true);
+		        doBarrierRead(socketChannel, worldWritableTable, true, false);
 		      }
 		      catch (Exception xde) {
 		    	  xde.printStackTrace();
@@ -750,7 +741,7 @@ public class ServerThread {
 	   * This method is used during initialization.
 	   */
 	  void doBarrierRead(SocketChannel socketChannel, Hashtable table, boolean
-	                     ignoreFirstFourBytes) throws Exception {
+	                     ignoreFirstFourBytes, boolean hasCheckpointInfo) throws Exception {
 		  
 		  if (DEBUG && logger.isDebugEnabled()) {
               logger.debug("---do barrier read---");
@@ -796,6 +787,31 @@ public class ServerThread {
 	    ruid = new UUID(msb, lsb);
 	    pids[rank] = ruid; //, rank);
 	    size = nprocs;
+	    
+	    //if has already checkpointed, write to database 
+	    if(hasCheckpointInfo){
+	    	barrBuffer.position(0);
+	    	barrBuffer.limit(8);
+	    	while(barrBuffer.hasRemaining()){
+	    		try{
+	    			if(socketChannel.read(barrBuffer) == -1)
+	    				throw new ClosedChannelException();
+	    		}
+	    		catch(IOException e){
+	    			e.printStackTrace();
+	    			if (DEBUG && logger.isDebugEnabled()) {
+	    	            logger.debug("reading not complete, this should not happen!");
+	    	        }
+	    			return;
+	    		}
+	    	}
+	    	int processId =  barrBuffer.getInt();
+	    	int verNum = barrBuffer.getInt();
+	    	
+	    	addItemToDatabase(rank, processId, verNum);
+	    }
+	    
+	    
 
 
 	    synchronized (table) {
@@ -822,7 +838,13 @@ public class ServerThread {
 
 	  }//end of do barrier read
 	  
-	  private static int getCheckpointPort() {
+	  private void addItemToDatabase(int rank, int processId, int verNum) {
+		// TODO Auto-generated method stub
+		
+		  
+	  }
+
+	private static int getCheckpointPort() {
 
 		    int port = 0;
 		    FileInputStream in = null;

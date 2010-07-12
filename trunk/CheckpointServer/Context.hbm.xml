@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+	"-//Hibernate/Hibernate Mapping DTD//EN"
+	"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+
+<hibernate-mapping package="org.qing.object">
+	<class name="Context" table="context">
+
+		<id	name="id" type="integer" column="advid">
+			<generator class="identity"/>
+		</id>
+
+		<property name="title" column="title"	type="string" not-null="true" length="40" />
+		<property name="introduction" column="introduction" type="string" length="300" not-null="false"/>
+		<property name="content" column="content" type="text" not-null="false"/>
+		<property name="money" column="money"	type="integer" not-null="false"/>
+		<property name="location" column="location"	type="integer" not-null="true"/>
+		<property name="beginTime" column="beginTime"	type="date" not-null="false" />
+		<property name="endTime" column="endTime"	type="date" not-null="false" />
+		<property name="updateTime" column="updatetime"	type="timestamp" not-null="true" />
+		<property name="link" column="link"	type="string" not-null="false" length="200" />
+		<property name="page" column="page"	type="integer" not-null="true"/>
+		<property name="shown" column="shown" type="boolean" not-null="true"/>
+		<property name="VIP" column="VIP" type="boolean" not-null="true"/>
+		
+		
+		<many-to-one name="photo" column="photoid" />
+
+
+	</class>	
+</hibernate-mapping> 
