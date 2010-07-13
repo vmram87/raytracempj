@@ -4,5 +4,15 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
 	<classpathentry kind="lib" path="/usr/java/mpj-v0_36/lib/log4j-1.2.11.jar"/>
 	<classpathentry kind="lib" path="hibernate3.jar"/>
+	<classpathentry kind="lib" path="dom4j-1.6.1.jar"/>
+	<classpathentry kind="lib" path="slf4j-api-1.5.10.jar"/>
+	<classpathentry kind="lib" path="slf4j-jcl-1.5.10.jar"/>
+	<classpathentry kind="lib" path="commons-logging.jar"/>
+	<classpathentry kind="lib" path="src/hibernate.cfg.xml"/>
+	<classpathentry kind="lib" path="mysql-connector-java-5.1.9-bin.jar"/>
+	<classpathentry kind="lib" path="commons-collections-3.2.jar"/>
+	<classpathentry kind="lib" path="javassist-3.9.0.GA.jar"/>
+	<classpathentry kind="lib" path="jta.jar"/>
+	<classpathentry kind="lib" path="antlr-2.7.6.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>
