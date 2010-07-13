@@ -2,39 +2,36 @@ package org.qing.server;
 
 import java.io.BufferedReader;
 import java.io.DataInputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
-import java.nio.channels.AlreadyConnectedException;
 import java.nio.channels.ClosedChannelException;
-import java.nio.channels.ConnectionPendingException;
 import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.channels.UnresolvedAddressException;
-import java.nio.channels.UnsupportedAddressTypeException;
 import java.util.Hashtable;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.StringTokenizer;
 import java.util.UUID;
 import java.util.Vector;
-import java.util.concurrent.Semaphore;
-
 
 import org.apache.log4j.DailyRollingFileAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.apache.log4j.spi.LoggerRepository;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.cfg.Configuration;
 
 
 
@@ -147,6 +144,7 @@ public class ServerThread {
 	
 	static Logger logger = null ;
 	public static final boolean DEBUG = true; 
+	public static String CONTEXT_DIR_NAME = ".context" ;
 	
 	public ServerThread(){
 		
@@ -840,6 +838,11 @@ public class ServerThread {
 	  
 	  private void addItemToDatabase(int rank, int processId, int verNum) {
 		// TODO Auto-generated method stub
+		String contextFilePath =  mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
+		File.separator + "context." + processId + "_Rank_" + rank + "_Ver_" + verNum;
+		String tempFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
+		File.separator + processId + "_Rank_" + rank + "_Ver_" + verNum;
+		
 		
 		  
 	  }
@@ -990,4 +993,16 @@ public class ServerThread {
 	      notify() ;
 	    }
 	  };
+	  
+	  
+	  public static void main(String[] args){
+		  SessionFactory sessionFactory = new Configuration().configure().buildSessionFactory();
+		  Session session = sessionFactory.getCurrentSession();
+		  session.beginTransaction();
+		  
+		  List result = session.createQuery("from Context").list();
+		  
+		  session.getTransaction().commit();
+		  
+	  }
 }
