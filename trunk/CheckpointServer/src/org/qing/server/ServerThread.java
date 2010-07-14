@@ -29,9 +29,9 @@ import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.apache.log4j.spi.LoggerRepository;
-import org.hibernate.Session;
-import org.hibernate.SessionFactory;
-import org.hibernate.cfg.Configuration;
+import org.qing.dao.ContextDao;
+import org.qing.factory.ContextFactory;
+import org.qing.object.Context;
 
 
 
@@ -788,6 +788,10 @@ public class ServerThread {
 	    
 	    //if has already checkpointed, write to database 
 	    if(hasCheckpointInfo){
+	    	
+	    	if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("--checkpointed--");
+	        }
 	    	barrBuffer.position(0);
 	    	barrBuffer.limit(8);
 	    	while(barrBuffer.hasRemaining()){
@@ -807,6 +811,7 @@ public class ServerThread {
 	    	int verNum = barrBuffer.getInt();
 	    	
 	    	addItemToDatabase(rank, processId, verNum);
+	    	updateContextDatabase();
 	    }
 	    
 	    
@@ -836,14 +841,70 @@ public class ServerThread {
 
 	  }//end of do barrier read
 	  
-	  private void addItemToDatabase(int rank, int processId, int verNum) {
+	  private void updateContextDatabase() {
+		  
+		  if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("update context file and database");
+	      }
+		  
+		  ContextDao dao = ContextFactory.getContextDao();
+		  
+		  Integer latestVer = dao.getLatestVersionId();
+		  
+		  if(latestVer == null)
+			  return;
+		  
+		  List contextList = dao.getContextsByVersion(latestVer);
+		  if(contextList.size() < nprocs){
+			  return;
+		  }
+		  else if(contextList.size() == nprocs){
+			  Integer nextVer = dao.getNextLatestVersionId(latestVer);
+			  if(nextVer == null)
+				  return;
+			  
+			  contextList = dao.getAllPrevContextsByVersion(latestVer);
+			  for(int i = 0; i < contextList.size(); i++){
+				  Context c = (Context)contextList.get(i);
+				  File file = new File(c.getContextFilePath());
+				  if(file.exists())
+					  file.delete();
+				  
+				  file = new File(c.getTempFilePath());
+				  if(file.exists())
+					  file.delete();
+			  }
+			  
+			  dao.delAllPrevContextsByVersion(latestVer);
+			  
+			  
+		  }
+		  else{
+			  System.out.println("Version number error, Impossible!");
+		  }
+			  
+	  }
+
+	private void addItemToDatabase(int rank, int processId, int verNum) {
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("add to database, rank:" + rank + " processId:" + processId +
+            		" versionId:" + verNum);
+      }
 		// TODO Auto-generated method stub
 		String contextFilePath =  mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
 		File.separator + "context." + processId + "_Rank_" + rank + "_Ver_" + verNum;
 		String tempFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
 		File.separator + processId + "_Rank_" + rank + "_Ver_" + verNum;
 		
+		Context c = new Context();
+		c.setRank(rank);
+		c.setProcessId(processId);
+		c.setVersionId(verNum);
+		c.setContextFilePath(contextFilePath);
+		c.setTempFilePath(tempFilePath);
 		
+		ContextDao dao = ContextFactory.getContextDao();
+		dao.save(c);
 		  
 	  }
 
@@ -996,13 +1057,18 @@ public class ServerThread {
 	  
 	  
 	  public static void main(String[] args){
-		  SessionFactory sessionFactory = new Configuration().configure().buildSessionFactory();
-		  Session session = sessionFactory.getCurrentSession();
-		  session.beginTransaction();
+		  Context c = new Context();
+		  c.setProcessId(10000);
+		  c.setRank(0);
+		  c.setVersionId(2);
+		  c.setContextFilePath("context.10000_Rank_0_Ver_1");
+		  c.setTempFilePath("10000_Rank_0_Ver_1");
 		  
-		  List result = session.createQuery("from Context").list();
-		  
-		  session.getTransaction().commit();
-		  
+
+		  ContextDao dao = ContextFactory.getContextDao();
+		  dao.save(c);
+		  System.out.println(dao.getContextsByVersion(1).size());
+		  System.out.println(dao.getLatestVersionId());
+		  System.out.println(dao.getNextLatestVersionId(dao.getLatestVersionId()));
 	  }
 }
