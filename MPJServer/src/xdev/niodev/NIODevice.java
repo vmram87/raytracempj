@@ -1484,11 +1484,15 @@ public class NIODevice
 	    //readableServerChannel.close();
 	    pids[rank] = id;
 	    
-	      
-	    initMsgBuffer.limit(32);
-	    initMsgBuffer.position(24);
-	    initMsgBuffer.putInt(Integer.parseInt(pId));
-	    initMsgBuffer.putInt(versionNum);
+	    if(isCheckpointing == true){
+	    	initMsgBuffer.limit(32);
+		    initMsgBuffer.position(0);
+		    initMsgBuffer.putInt(CHECKPOINT_RECONNECT);
+		    initMsgBuffer.position(24);
+		    initMsgBuffer.putInt(Integer.parseInt(pId));
+		    initMsgBuffer.putInt(versionNum);
+	    }
+	    
 
 	      initMsgBuffer.flip();
 	      /* send the the writable checkpoint channel */
