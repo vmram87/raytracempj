@@ -519,13 +519,6 @@ public class ServerThread {
 		      }
 
 		    } //end sync.
-			 for(int i=0;i < writableChannels.size();i++){
-				try {
-					writableChannels.get(i).close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			 }
 		    
 			 if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("writableChannels renewed");
@@ -764,7 +757,8 @@ public class ServerThread {
 	        }
 	      }
 	      catch (ClosedChannelException e) {
-	        return;
+	    	  e.printStackTrace();
+	    	  return;
 	      }
 	    }
 
