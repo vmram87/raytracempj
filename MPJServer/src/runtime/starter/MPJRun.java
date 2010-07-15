@@ -88,6 +88,7 @@ public class MPJRun {
   private Thread selectorThreadStarter = null;
   private Vector machineVector = new Vector();
   private Map machineConnectedMap=new HashMap();
+  private HashMap<String, SocketChannel> machineChannelMap = new HashMap<String, SocketChannel>();
   int nprocs = Runtime.getRuntime().availableProcessors() ; 
   String spmdClass = null;
   String deviceName = "multicore";
@@ -117,6 +118,7 @@ public class MPJRun {
   public static final int DAEMON_EXIT = -46;
   public static final int END_OF_STREAM = -14;
   public static final int INT_MESSAGE = -47;
+  public static final int END_APP = -48;
   private final int REQUEST_RESTART = -70;
   private final int CHECK_VALID = -71;
   
@@ -835,13 +837,75 @@ if(DEBUG && logger.isDebugEnabled())
   
   
   //assign tasks after restart
-  private void assignRestartTasks() throws Exception {
-		throw new Exception("Not Implemented!");
+  private void restartTasks() throws Exception {
+		boolean finished = false;
+		while(!finished){
+			ByteBuffer killMsg = ByteBuffer.allocate(4);
+			killMsg.put("kill".getBytes());
+				
+		    SocketChannel socketChannel = null;
+		    machineVector.clear();
+		    machineConnectedMap.clear();
+		    readMachineFile();
+		    ArrayList<String> validMachines = new ArrayList<String>();
+		    
+		    for(int i = 0; i < machineVector.size(); i++){
+		    	String daemon = (String) machineVector.get(i);
+		    	socketChannel = machineChannelMap.get(daemon);
+		    	if(socketChannel == null || !(socketChannel.isOpen() && socketChannel.isConnected())){
+		    		socketChannel = SocketChannel.open();
+		    		socketChannel.configureBlocking(true);
+		    		
+		    		if(true == socketChannel.connect(new InetSocketAddress(daemon, D_SER_PORT))){
+		    			doConnect(socketChannel, true);
+		    			machineConnectedMap.put(daemon, true);
+		    			machineChannelMap.put(daemon, socketChannel);
+		    			validMachines.add(daemon);
+		    		}else if(machineChannelMap.get(daemon) != null){
+		    			machineChannelMap.remove(daemon);
+		    		}
+		    	}
+		    	else{
+		    		killMsg.flip();
+		    		int s = 0;
+		    		int w = 0;
+		    		while(killMsg.hasRemaining()){
+		    			try{
+		    				if((w = socketChannel.write(killMsg)) == -1)
+		    					throw new ClosedChannelException();
+		    			}
+		    			catch(IOException e){
+		    				machineChannelMap.remove(daemon);
+		    				break;
+		    			}	    
+		    			s += w;
+		    		}
+		    		if(s == 4){
+		    			machineConnectedMap.put(daemon, true);
+		    			validMachines.add(daemon);	
+		    		}
+		    		
+		    	}
+		    }
+		    
+		    
+		    finished  = assignRestartTasks(validMachines);
+		    
+		    
+		}
 		
   }
   
 
-  private void machinesSanityCheck() throws Exception {
+  private boolean assignRestartTasks(ArrayList<String> validMachines) {
+	    
+		//access database
+	  
+	  return true;
+		
+	}
+
+private void machinesSanityCheck() throws Exception {
 	  
     for(int i=0 ; i<machineVector.size() ; i++) {
 	    
@@ -1073,6 +1137,8 @@ if(DEBUG && logger.isDebugEnabled())
 
 	doConnect(clientChannels[i], true); 
 	machineConnectedMap.put(daemon, true);
+	machineChannelMap.put(daemon, clientChannels[i]);
+	
       }
       catch(IOException ioe) {
         if(System.getProperty("os.name").startsWith("Windows")) {   
@@ -1461,14 +1527,35 @@ if(DEBUG && logger.isDebugEnabled())
 			        if (endCount == machineVector.size()) {
 						if(DEBUG && logger.isDebugEnabled())
 						 logger.debug("Notify and exit"); 
-			          Notify();
+						
+						ByteBuffer endMsg = ByteBuffer.allocate(4);
+						endMsg.putInt(END_APP);
+						endMsg.flip();
+						while(endMsg.hasRemaining()){
+							try{
+								if(checkpiontChannel.write(endMsg) == -1)
+									throw new ClosedChannelException();
+							}
+							catch(IOException e){
+								e.printStackTrace();
+								if(DEBUG && logger.isDebugEnabled())
+								{
+									logger.debug("the checkpiont channel is close, this should not happen!");
+								}								
+							}
+						}
+						if(DEBUG && logger.isDebugEnabled())
+						{
+							logger.debug("finish send END_APP to the checkpiont server");
+						}	
+						Notify();
 			        }
 			        
               		break;
               		
               	case REQUEST_RESTART:
               		//retrive the database and assign job and version number
-              		assignRestartTasks();
+              		restartTasks();
               		//send "kill" to the daemon
               		
               		//pack and send the command like before
