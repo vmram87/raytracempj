@@ -4418,6 +4418,10 @@ public class NIODevice
 	              		  
 	              	  
 	              	  break;
+	              
+                  case CHECK_VALID:
+                	                  	  
+                	  break;
 
                   case END_OF_STREAM:
                     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {

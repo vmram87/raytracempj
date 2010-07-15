@@ -1556,6 +1556,9 @@ public class MPJDaemon {
 						}
 						
 						heartBeatLock.signal();
+						if (DEBUG && logger.isDebugEnabled()) {
+				              logger.debug("after notify the MPJRun, exit heartbeat thread!");
+				        }
 						return;
 						
 					}
