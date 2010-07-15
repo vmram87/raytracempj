@@ -1488,7 +1488,9 @@ public class NIODevice
 	    	initMsgBuffer.limit(32);
 		    initMsgBuffer.position(0);
 		    initMsgBuffer.putInt(CHECKPOINT_RECONNECT);
-		    initMsgBuffer.position(24);
+		    initMsgBuffer.putInt(rank);
+		    initMsgBuffer.putLong(msb);
+		    initMsgBuffer.putLong(lsb);
 		    initMsgBuffer.putInt(Integer.parseInt(pId));
 		    initMsgBuffer.putInt(versionNum);
 	    }
@@ -1554,7 +1556,7 @@ public class NIODevice
 		      } //end while.
 		      
 		      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	 		      logger.debug("send checkpoint reconnect to readabel checkpoint server ");
+	 		      logger.debug("send process init info to daemon ");
 		      }
 	      }
 	    
@@ -2794,6 +2796,9 @@ public class NIODevice
     //send exit request to the daemon
     exitBuffer.position(0);
     exitBuffer.put("exit".getBytes());
+    exitBuffer.putInt(this.rank);
+    exitBuffer.putLong(id.uuid().getMostSignificantBits());
+    exitBuffer.putLong(id.uuid().getLeastSignificantBits());
     exitBuffer.flip();
 
     while(exitBuffer.hasRemaining()){
@@ -2811,12 +2816,17 @@ public class NIODevice
     	}
     }
     
-	try {
-		selectorFinishLock.wait();
-	} catch (InterruptedException e) {
-		e.printStackTrace();
+    synchronized (selectorFinishLock) {
+    	try {
+    		selectorFinishLock.wait();
+    	} catch (InterruptedException e) {
+    		e.printStackTrace();
+    	}
 	}
 	
+    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	      logger.debug("wake up the selectorFinishLock");
+	}
     
     
     selectorFlag = false;
@@ -3089,6 +3099,12 @@ public class NIODevice
 	    }
 	  } //end while.
 	  
+	  cMsgBuffer.position(0);
+	  cMsgBuffer.put("che-".getBytes());
+	  cMsgBuffer.putInt(this.rank);    
+	  cMsgBuffer.putLong(id.uuid().getMostSignificantBits());
+	  cMsgBuffer.putLong(id.uuid().getLeastSignificantBits());
+	  cMsgBuffer.putInt(versionNum); 
 	  cMsgBuffer.flip();
 
 	  /* send marker to the daemon*/
@@ -3998,7 +4014,7 @@ public class NIODevice
 	    		startCheckpoint = false;
 	    		isCheckpointing = true;
 	
-	    		versionNum = 1;	    		
+	    		versionNum = 8;	    		
 	    		
 	    		sendMarkers();
 	    		
@@ -4379,8 +4395,11 @@ public class NIODevice
                       }
                 	  recvDaemonFinishAck = true;
                 	  
-                	  if(recvDaemonFinishAck == true && recvServerFinishAck == true)
-                		  selectorFinishLock.notify();
+                	  if(recvDaemonFinishAck == true && recvServerFinishAck == true){
+  	              		synchronized (selectorFinishLock) {
+  	              			selectorFinishLock.notify();
+  	              		}
+  	              	  }
                 	  
                 	  break;
                 	  
@@ -4391,8 +4410,12 @@ public class NIODevice
 	                  }
                 	  recvServerFinishAck = true;
 	              	  
-	              	  if(recvDaemonFinishAck == true && recvServerFinishAck == true)
-	              		  selectorFinishLock.notify();
+	              	  if(recvDaemonFinishAck == true && recvServerFinishAck == true){
+	              		synchronized (selectorFinishLock) {
+	              			selectorFinishLock.notify();
+	              		}
+	              	  }
+	              		  
 	              	  
 	              	  break;
 

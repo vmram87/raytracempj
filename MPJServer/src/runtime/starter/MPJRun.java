@@ -1376,12 +1376,13 @@ if(DEBUG && logger.isDebugEnabled())
                 		if(DEBUG && logger.isDebugEnabled())
             				logger.debug("END_OF_STREAM signal at starter from "+
                                          "channel "+socketChannel) ;  
-                            
+                           
                         streamEndedCount ++ ; 
                         machineConnectedMap.put(ias.getHostName(),false);
                         socketChannel.close();
                     	logger.debug("streamEndedCount = "+streamEndedCount);  
 
+                    	/*
                         if (streamEndedCount == machineVector.size()) {
             				if(DEBUG && logger.isDebugEnabled())
             				{
@@ -1391,6 +1392,7 @@ if(DEBUG && logger.isDebugEnabled())
             				}                 
             				Notify();
                         }
+                        */
                 	}
               		
               		break;
