@@ -793,7 +793,8 @@ public class MPJDaemon {
               socketChannel = (SocketChannel) keyChannel;
 	      
               int readInt = -1 ; 
-              lilBuffer.position(0);
+              lilBuffer.clear();
+              
 	      
               if(DEBUG && logger.isDebugEnabled()) { 
                 logger.debug("lilBuffer "+ lilBuffer);         
@@ -1225,6 +1226,10 @@ public class MPJDaemon {
 		    initializing = false;
 		    
 		    initLock.signal();
+		    
+		    if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("initLock release");
+	            }
 		  
 		}
 	};// end renew thread
@@ -1286,8 +1291,9 @@ public class MPJDaemon {
 	      processValidMap.put(ruid, true);
 	      
 	      if (DEBUG && logger.isDebugEnabled()) {
-            logger.debug("add rand" + rank + " to table:" + table);
+            logger.debug("added rand" + rank + " to table:" + table);
             logger.debug("table size:" + table.size());
+            logger.debug("processValidMap size:" + processValidMap.size());
         }
 
 	      if ( (table.size() == processes ) && (!processValidMap.containsValue(false))) {
@@ -1318,11 +1324,15 @@ public class MPJDaemon {
 				e1.printStackTrace();
 			}
 			
+			if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("acquire initLock");
+	        }
+			
 			long lsb, msb;
 			ByteBuffer uuidBuffer = ByteBuffer.allocate(16);
 			while(uuidBuffer.hasRemaining()){
 				try{
-					if(socketChannel.write(uuidBuffer) == -1)
+					if(socketChannel.read(uuidBuffer) == -1)
 						throw new ClosedChannelException();
 				}
 				catch(IOException e){
@@ -1336,20 +1346,23 @@ public class MPJDaemon {
 				
 			}
 			
+			if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("finish reading uuidBuffer:");
+	        }
+			
 			uuidBuffer.flip();
 			msb = uuidBuffer.getLong();
 			lsb = uuidBuffer.getLong();
 			UUID ruid = new UUID(msb, lsb);
 		  	
-			ByteBuffer askBuffer = ByteBuffer.allocate(4);
-			askBuffer.putInt(DAEMON_EXIT_ACK);
+			ByteBuffer ackBuffer = ByteBuffer.allocate(4);
+			ackBuffer.putInt(DAEMON_EXIT_ACK);
 			
-			SocketChannel c = worldProcessTable.get(ruid);
 			
-			askBuffer.flip();
-			while(askBuffer.hasRemaining()){
+			ackBuffer.flip();
+			while(ackBuffer.hasRemaining()){
 				try{
-					if(c.write(askBuffer) == -1)
+					if(socketChannel.write(ackBuffer) == -1)
 						throw new ClosedChannelException();
 				}
 				catch(IOException e){
@@ -1362,8 +1375,16 @@ public class MPJDaemon {
 				}
 			}
 			
+			if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("finish write back exit ack!");
+	        }
+			
 			processValidMap.put(ruid, false);
 			initLock.signal();
+			
+			if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("---finish do SendBackExitAck---");
+	        }
 			
 			
 		}
@@ -1380,11 +1401,11 @@ public class MPJDaemon {
 				e1.printStackTrace();
 			}
 			
-			long lsb, msb;
-			ByteBuffer uuidBuffer = ByteBuffer.allocate(16);
+			long lsb, msb, versionNum;
+			ByteBuffer uuidBuffer = ByteBuffer.allocate(20);
 			while(uuidBuffer.hasRemaining()){
 				try{
-					if(socketChannel.write(uuidBuffer) == -1)
+					if(socketChannel.read(uuidBuffer) == -1)
 						throw new ClosedChannelException();
 				}
 				catch(IOException e){
@@ -1401,17 +1422,17 @@ public class MPJDaemon {
 			uuidBuffer.flip();
 			msb = uuidBuffer.getLong();
 			lsb = uuidBuffer.getLong();
+			versionNum = uuidBuffer.getInt();
 			UUID ruid = new UUID(msb, lsb);
 		  	
-			ByteBuffer askBuffer = ByteBuffer.allocate(4);
-			askBuffer.putInt(DAEMON_MARKER_ACK);
 			
-			SocketChannel c = worldProcessTable.get(ruid);
+			ByteBuffer ackBuffer = ByteBuffer.allocate(4);
+			ackBuffer.putInt(DAEMON_MARKER_ACK);
 			
-			askBuffer.flip();
-			while(askBuffer.hasRemaining()){
+			ackBuffer.flip();
+			while(ackBuffer.hasRemaining()){
 				try{
-					if(c.write(askBuffer) == -1)
+					if(socketChannel.write(ackBuffer) == -1)
 						throw new ClosedChannelException();
 				}
 				catch(IOException e){
@@ -1424,7 +1445,10 @@ public class MPJDaemon {
 				}
 			}
 			
-			processValidMap.put(ruid, false);				
+			processValidMap.put(ruid, false);
+			if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("processValidMap size:" + processValidMap.size());
+	        }
 			initLock.signal();
 			
 		}
