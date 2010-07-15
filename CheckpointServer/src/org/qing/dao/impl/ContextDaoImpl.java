@@ -94,9 +94,13 @@ public class ContextDaoImpl implements ContextDao {
 	public void delAllPrevContextsByVersion(int versionId) {
 		Session session = sessionFactory.openSession();
 		Transaction t =session.beginTransaction();
-		  
-		session.createQuery("delete from Context c where c.versionId<?")
-			.setInteger(0, versionId);
+		
+		List<Context> l = session.createQuery("from Context c where c.versionId<?")
+			.setInteger(0, versionId).list();
+		
+		for(int i = 0; i < l.size(); i++){
+			session.delete(l.get(i));
+		}
 		  
 		t.commit();
 		session.close();

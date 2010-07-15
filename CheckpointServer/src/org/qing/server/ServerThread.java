@@ -390,9 +390,7 @@ public class ServerThread {
 	            }
 	            else if (key.isValid() && key.isReadable()) {
 	            	
-	            	if (DEBUG && logger.isDebugEnabled()) {
-		                logger.debug("---READ EVENT---");
-		              }
+	            	
 
 	              socketChannel = (SocketChannel) keyChannel;
 
@@ -415,6 +413,10 @@ public class ServerThread {
 	                else {
 	                  header = END_OF_STREAM;
 	                }
+	                
+	                if (DEBUG && logger.isDebugEnabled()) {
+		                logger.debug("---READ EVENT---" + header);
+		              }
 
 	                /**
 	                 * 
@@ -637,21 +639,44 @@ public class ServerThread {
 		if (DEBUG && logger.isDebugEnabled()) {
             logger.debug("---doSendBackAck---");
         }
+		
+		ByteBuffer exitBuffer = ByteBuffer.allocate(20);
+		while(exitBuffer.hasRemaining()){
+			try{
+				if(socketChannel.read(exitBuffer) == -1){
+					throw new ClosedChannelException();
+				}
+			}
+			catch(IOException e){
+				e.printStackTrace();
+				throw e;
+			}
+		}
+		exitBuffer.flip();
+		int rank = exitBuffer.getInt();
+		long msb = exitBuffer.getLong();
+		long lsb = exitBuffer.getLong();
+		UUID ruid = new UUID(msb, lsb);
 	  	
 		ByteBuffer askBuffer = ByteBuffer.allocate(4);
 		askBuffer.putInt(CPSERVER_EXIT_ACK);
 		
+		SocketChannel c = worldWritableTable.get(ruid);
 		askBuffer.flip();
 		while(askBuffer.hasRemaining()){
 			try{
-				if(socketChannel.write(askBuffer) == -1)
+				if(c.write(askBuffer) == -1)
 					throw new ClosedChannelException();
 			}
 			catch(IOException e){
 				e.printStackTrace();
 				throw e;
 			}
-		}		
+		}
+		
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("---finish doSendBackAck---");
+        }
 	}
 	
 	  private boolean doAccept(SelectableChannel keyChannel,
@@ -801,6 +826,7 @@ public class ServerThread {
 	    			return;
 	    		}
 	    	}
+	    	barrBuffer.flip();
 	    	int processId =  barrBuffer.getInt();
 	    	int verNum = barrBuffer.getInt();
 	    	
