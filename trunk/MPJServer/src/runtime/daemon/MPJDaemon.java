@@ -157,7 +157,7 @@ public class MPJDaemon {
     }
 
     selectorThreadStarter.start();
-    
+    (new Thread(heartBeatThread)).start();
     
     int exit = 0;
 
