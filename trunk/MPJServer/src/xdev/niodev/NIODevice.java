@@ -2817,10 +2817,12 @@ public class NIODevice
     }
     
     synchronized (selectorFinishLock) {
-    	try {
-    		selectorFinishLock.wait();
-    	} catch (InterruptedException e) {
-    		e.printStackTrace();
+    	while(!(recvDaemonFinishAck == true && recvServerFinishAck == true)){
+	    	try {
+	    		selectorFinishLock.wait();
+	    	} catch (InterruptedException e) {
+	    		e.printStackTrace();
+	    	}
     	}
 	}
 	
@@ -2854,6 +2856,11 @@ public class NIODevice
     }
 
     if (procTree.isRoot) {
+    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+  	      logger.debug("procTree is root");
+  	    logger.debug("procTree.child.length: " + procTree.child.length);
+  	  logger.debug("procTree.child[0] : " + procTree.child[0]) ;
+    	}
       for (int i = 0; i < procTree.child.length; i++) {
         if (procTree.child[i] != -1) {
           recv(rbuf, pids[procTree.child[i]], btag, context);
@@ -4393,13 +4400,13 @@ public class NIODevice
             	    		logger.debug("receive finish ack from daemon, thread<" + threadNum + "> return!");
                           
                       }
-                	  recvDaemonFinishAck = true;
-                	  
-                	  if(recvDaemonFinishAck == true && recvServerFinishAck == true){
-  	              		synchronized (selectorFinishLock) {
-  	              			selectorFinishLock.notify();
-  	              		}
-  	              	  }
+                	  synchronized (selectorFinishLock) {
+                		  recvDaemonFinishAck = true;
+		              	  
+		              	  if(recvServerFinishAck == true){	              		
+		              			selectorFinishLock.notify();
+		              	  }
+	              	  }
                 	  
                 	  break;
                 	  
@@ -4408,15 +4415,15 @@ public class NIODevice
           	    		logger.debug("receive finish ack from checkpoint server, thread<" + threadNum + "> return!");
                         
 	                  }
-                	  recvServerFinishAck = true;
-	              	  
-	              	  if(recvDaemonFinishAck == true && recvServerFinishAck == true){
-	              		synchronized (selectorFinishLock) {
-	              			selectorFinishLock.notify();
-	              		}
+                	  
+                	  synchronized (selectorFinishLock) {
+	                	  recvServerFinishAck = true;
+		              	  
+		              	  if(recvDaemonFinishAck == true ){		              		
+		              			selectorFinishLock.notify();
+		              	  }
 	              	  }
-	              		  
-	              	  
+              	              		 	              	  
 	              	  break;
 	              
                   case CHECK_VALID:
