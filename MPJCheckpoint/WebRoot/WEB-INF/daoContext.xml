@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<bean id="daoTemplate" abstract="true">
+		<property name="sessionFactory" ref="sessionFactory"/>
+	</bean>
+
+
+	<bean id="userDao" class="org.health.dao.impl.UserDaoImpl"
+		parent="daoTemplate"/>
+		
+	<bean id="photoDao" class="org.health.dao.impl.PhotoDaoImpl"
+		parent="daoTemplate"/>
+
+	<bean id="houseDao" class="org.health.dao.impl.HouseDaoImpl" parent="daoTemplate"/>
+	
+	<bean id="districtDao" class="org.health.dao.impl.DistrictDaoImpl" parent="daoTemplate"/>
+	
+	<bean id="expertDao" class="org.health.dao.impl.ExpertDaoImpl" parent="daoTemplate"/>
+	
+	<bean id="passageDao" class="org.health.dao.impl.PassageDaoImpl" parent="daoTemplate"/>
+	
+	<bean id="advDao" class="org.health.dao.impl.AdvDaoImpl" parent="daoTemplate"/>
+</beans>

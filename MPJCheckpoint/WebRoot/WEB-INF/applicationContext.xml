@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+	<!-- 定义数据源Bean，使用C3P0数据源实现 -->
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+		<!-- 指定连接数据库的驱动 -->
+		<property name="driverClassName" value="com.mysql.jdbc.Driver"/>
+		<!-- 指定连接数据库的URL -->
+		<property name="url" value="jdbc:mysql://localhost:3306/healthinformation?useUnicode=true&amp;characterEncoding=utf-8"/>
+		<!-- 指定连接数据库的用户名 -->
+		<property name="username" value="root"/>
+		<!-- 指定连接数据库的密码 -->
+		<property name="password" value="root"/>
+
+	</bean>
+
+    <!--定义了Hibernate的SessionFactory -->
+    <bean id="sessionFactory" class="org.springframework.orm.hibernate3.LocalSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="mappingResources">
+            <list>
+				<value>Photo.hbm.xml</value>
+				<value>User.hbm.xml</value>
+				<value>House.hbm.xml</value>
+				<value>District.hbm.xml</value>
+				<value>Expert.hbm.xml</value>
+				<value>Passage.hbm.xml</value>
+				<value>Adv.hbm.xml</value>
+            </list>
+        </property>
+        <property name="hibernateProperties">
+            <props>
+                <prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect</prop>
+                <prop key="show_sql">true</prop>
+                <prop key="hibernate.hbm2ddl.auto">update</prop>
+                <prop key="hibernate.jdbc.batch_size">20</prop> 
+            </props>
+        </property>
+    </bean>
+
+    <bean id="transactionManager" class="org.springframework.orm.hibernate3.HibernateTransactionManager">
+        <property name="sessionFactory" ref="sessionFactory"/>
+    </bean>
+
+
+    <bean id="transactionInterceptor" class="org.springframework.transaction.interceptor.TransactionInterceptor">
+	    <!--  事务拦截器bean需要依赖注入一个事务管理器 -->
+        <property name="transactionManager" ref="transactionManager"/>
+    	<property name="transactionAttributes">
+		    <!--  下面定义事务传播属性-->
+		    <props>
+			    <prop key="get*">PROPAGATION_REQUIRED,readOnly</prop>
+		    	<prop key="*">PROPAGATION_REQUIRED</prop>
+		    </props>
+	    </property>
+	</bean>
+
+    <!-- 定义BeanNameAutoProxyCreator-->
+    <bean class="org.springframework.aop.framework.autoproxy.BeanNameAutoProxyCreator">
+	    <!--  指定对满足哪些bean name的bean自动生成业务代理 -->
+	    <property name="beanNames">
+            <!--  下面是所有需要自动创建事务代理的bean-->
+            <list>
+                <value>mgr</value>
+                <value>*Mgr</value>
+            </list>
+            <!--  此处可增加其他需要自动创建事务代理的bean-->
+	    </property>
+        <!--  下面定义BeanNameAutoProxyCreator所需的事务拦截器-->
+        <property name="interceptorNames">
+            <list>
+                <!-- 此处可增加其他新的Interceptor -->
+                <value>transactionInterceptor</value> 
+            </list>
+        </property>
+    </bean>
+    
+    <bean id="mgr" class="org.health.service.impl.PhotoManagerImpl">
+        <property name="photoDao" ref="photoDao"/>
+        <property name="saveBigPath"><value>/upload</value></property>
+        <property name="saveSmallPath"><value>/upload</value></property>
+    </bean>
+    
+    <bean id="userMgr" class="org.health.service.impl.UserManagerImpl">
+        <property name="userDao" ref="userDao"/>
+    </bean>
+    
+    <bean id="houseMgr" class="org.health.service.impl.HouseManagerImpl">
+        <property name="houseDao" ref="houseDao"/>
+        <property name="districtDao" ref="districtDao"/>
+        <property name="photoDao" ref="photoDao"/>
+    </bean>
+
+	<bean id="passageMgr" class="org.health.service.impl.PassageManagerImpl">
+        <property name="expertDao" ref="expertDao"/>
+        <property name="photoDao" ref="photoDao"/>
+        <property name="passageDao" ref="passageDao"/>
+    </bean>
+    
+    <bean id="advMgr" class="org.health.service.impl.AdvManagerImpl">
+        <property name="photoDao" ref="photoDao"/>
+        <property name="advDao" ref="advDao"/>
+    </bean>
+    
+    <bean id="pageMgr" class="org.health.service.impl.PageManagerImpl">
+        <property name="houseDao" ref="houseDao"/>
+        <property name="passageDao" ref="passageDao"/>
+        <property name="advDao" ref="advDao"/>
+        <property name="districtDao" ref="districtDao"/>
+    </bean>
+
+</beans>

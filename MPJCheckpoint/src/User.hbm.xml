@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+	"-//Hibernate/Hibernate Mapping DTD//EN"
+	"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+
+<hibernate-mapping package="org.health.object">
+	<class	name="User"	table="user">
+
+		<id	name="id" type="integer" column="userid">
+			<generator class="identity"/>
+		</id>
+
+		<property name="username" column="username"	type="string" not-null="true" length="40" unique="true"/>
+		<property name="userpass" column="userpass"	type="string" not-null="true" length="40"/>
+
+	</class>	
+</hibernate-mapping>
