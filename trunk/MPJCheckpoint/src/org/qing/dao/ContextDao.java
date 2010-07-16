@@ -18,6 +18,5 @@ public interface ContextDao {
 	Context getContext(int rank, int processId, int versionId);
 	List<Context> getContextsByVersion(int versionId);
 	List<Context> getAllPrevContextsByVersion(int versionId);
-	void delAllPrevContextsByVersion(int versionId);
 	
 }

@@ -9,69 +9,73 @@ import org.springframework.orm.hibernate3.support.HibernateDaoSupport;
 public class ContextDaoImpl extends HibernateDaoSupport implements ContextDao {
 
 	@Override
-	public void delAllPrevContextsByVersion(int versionId) {
-		// TODO Auto-generated method stub
-
-	}
-
-	@Override
 	public void delete(int id) {
-		// TODO Auto-generated method stub
+		getHibernateTemplate().delete(get(id));
 
 	}
 
 	@Override
 	public void delete(Context context) {
-		// TODO Auto-generated method stub
+		getHibernateTemplate().delete(context);
 
 	}
 
 	@Override
 	public Context get(int id) {
-		// TODO Auto-generated method stub
-		return null;
+		return (Context)getHibernateTemplate().get(Context.class, id);
 	}
 
 	@Override
 	public List<Context> getAllPrevContextsByVersion(int versionId) {
-		// TODO Auto-generated method stub
-		return null;
+		return getHibernateTemplate().find("from Context c where c.versionId<?",versionId);
 	}
 
 	@Override
 	public Context getContext(int rank, int processId, int versionId) {
-		// TODO Auto-generated method stub
-		return null;
+		Object args[] = { rank, processId, versionId };
+		List ul= getHibernateTemplate().find("from Context c where c.rank=? and c.processId=? and c.versionId=?",args);
+		if( ul== null || ul.size() == 0)
+			return null;
+		else if(ul.size() == 1)
+			return (Context)ul.get(0);
+		else{
+			System.out.println("Impossible");
+			return null;
+		}
+			
 	}
 
 	@Override
 	public List<Context> getContextsByVersion(int versionId) {
-		// TODO Auto-generated method stub
-		return null;
+		return getHibernateTemplate().find("from Context c where c.versionId=?",versionId);
 	}
 
 	@Override
 	public Integer getLatestVersionId() {
-		// TODO Auto-generated method stub
-		return null;
+		List ul = getHibernateTemplate().find("select max(c.versionId) from Context c");
+		if(ul == null || ul.size() == 0)
+			return null;
+		else 
+			return (Integer)ul.get(0);
 	}
 
 	@Override
 	public Integer getNextLatestVersionId(int versionId) {
-		// TODO Auto-generated method stub
-		return null;
+		List ul = getHibernateTemplate().find("select max(c.versionId) from Context c where c.versionId<", versionId);
+		if(ul == null || ul.size() == 0)
+			return null;
+		else 
+			return (Integer)ul.get(0);
 	}
 
 	@Override
 	public void save(Context context) {
-		// TODO Auto-generated method stub
-
+		getHibernateTemplate().save(context);
 	}
 
 	@Override
 	public void saveOrUpdate(Context context) {
-		// TODO Auto-generated method stub
-
+		getHibernateTemplate().saveOrUpdate(context);
 	}
 
 }
