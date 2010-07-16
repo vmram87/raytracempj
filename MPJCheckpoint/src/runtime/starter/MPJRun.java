@@ -157,6 +157,9 @@ public class MPJRun {
     }
 
     processInput(args);
+  }
+  
+  public void start() throws Exception{
 
     if(deviceName.equals("multicore")) {
        
@@ -1315,6 +1318,7 @@ private void machinesSanityCheck() throws Exception {
 
     try {
       MPJRun client = new MPJRun(args);
+      client.start();
     }
     catch (Exception e) {
       throw e;

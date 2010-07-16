@@ -4,7 +4,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>Fault Tolerance Java Parralel Computing System</title>
+<title>Fault Tolerance Java Parrallel Computing System</title>
 </head>
 <body>
 

@@ -3,6 +3,8 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
+	<bean id="SpringContextUtil " class="org.qing.service.SpringContextUtil"  />
+	
 	<!-- 定义数据源Bean，使用dbcp数据源实现 -->
 	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
 		<!-- 指定连接数据库的驱动 -->
