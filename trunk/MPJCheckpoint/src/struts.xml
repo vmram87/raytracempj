@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE struts PUBLIC
+        "-//Apache Software Foundation//DTD Struts Configuration 2.0//EN"
+        "http://struts.apache.org/dtds/struts-2.0.dtd">
+<struts>
+	<constant name="struts.custom.i18n.resources" value="messageResource"/>
+	<constant name="struts.i18n.encoding" value="UTF-8"/>
+	<constant name="struts.multipart.maxSize" value="6291456"/>
+	<constant name="struts.ognl.allowStaticMethodAccess" value="true"/>
+
+    <package name="backStage" extends="struts-default" namespace="/admin">
+
+		<interceptors>
+            <interceptor name="authority" class="org.health.action.admin.interceptor.AuthorityInterceptor"/>
+            <interceptor-stack name="authorityStack">
+                <interceptor-ref name="defaultStack"/>
+                <interceptor-ref name="authority"/>
+            </interceptor-stack>
+		</interceptors>
+		<default-interceptor-ref name="authorityStack"/>
+
+		<global-results>
+			<!-- 下面定义的结果对所有的Action都有效 -->
+			<result name="login" type="redirect">/healthlinklogin.jsp</result>
+			<result name="exception">/error.jsp</result>
+		</global-results>
+		
+
+        <!-- photo admin -->
+        <action name="photoAdmin" class="org.health.action.admin.PhotoAdminAction"> 
+            <result name="success">/WEB-INF/admin/photoAdmin.jsp</result>
+            <result name="input">/WEB-INF/admin/photoInfo.jsp</result>
+        </action>
+        
+        <action name="photoUpload" class="org.health.action.admin.GetSubjectAction"> 
+            <result name="success">/WEB-INF/admin/photoUpload.jsp</result>
+        </action>
+        
+        <action name="processUpload" class="org.health.action.admin.PhotoUploadAction"> 
+        	<interceptor-ref name="fileUpload">  
+               <!-- 配置允许上传的文件类型  -->  
+               <param name="allowedTypes">  
+                   image/bmp,image/png,image/gif,image/jpeg,image/pjpeg,image/x-png,application/x-shockwave-flash   
+               </param>  
+               <!-- 配置允许上传的文件大小  -->  
+               <param name="maximumSize">6291456</param>  
+               <!-- 6M=6*1024*1024 byte-->  
+            </interceptor-ref>  
+            <interceptor-ref name="authorityStack" /> 
+            <!--  <interceptor-ref name="defaultStack"/>  -->
+            
+            <result name="success">/WEB-INF/admin/photoInfo.jsp</result>
+            <result name="input" type="chain">photoUpload</result>
+        </action>   
+        
+     	<action name="dataImport"  class="org.health.action.admin.DataImportAction">
+     		<result>/Msg.jsp</result>
+     	</action>     
+        
+        <action name="updatePhoto" class="org.health.action.admin.UpdatePhotoAction">
+        	<result name="input" type="chain">
+        		<param name="actionName">photoAdmin</param>
+        		<param name="method">showPhotoInfo</param>
+			</result>
+        	<result name="success">/WEB-INF/admin/photoInfo.jsp</result>
+        </action>
+        
+        <action name="deletePhoto" class="org.health.action.admin.UpdatePhotoAction" method="delete">
+        	<result name="success">/WEB-INF/admin/showMessage.jsp</result>
+        </action>
+        
+        <action name="searchPhoto" class="org.health.action.admin.PhotoAdminAction" method="search">
+        	<result name="success">/WEB-INF/admin/photoAdmin.jsp</result>
+        	<result name="failure">/WEB-INF/admin/photoAdmin.jsp</result>
+        </action>
+        
+        
+        <!-- user admin -->
+		 <action name="processLogin" class="org.health.action.admin.LoginAction">
+            <result name="input">/WEB-INF/admin/login.jsp</result>    
+            <result name="success" type="redirect">photoAdmin.action</result>
+            <result name="failure">/WEB-INF/admin/login.jsp</result>
+            <interceptor-ref name="defaultStack"/>
+        </action>
+        
+        <action name="login" >  
+            <result name="success">/WEB-INF/admin/login.jsp</result>
+            <interceptor-ref name="defaultStack"/>
+        </action>
+        
+        <action name="logout" class="org.health.action.admin.LogoutAction"> 
+            <result name="success" type="redirect">/healthlinklogin.jsp</result>
+        </action>
+        
+        <action name="pwdAdmin">
+        	<result>/WEB-INF/admin/modifyPwd.jsp</result>
+        </action>
+        
+        <action name="modifyPwd" class="org.health.action.admin.ModifyPwdAction">
+        	<result name="input">/WEB-INF/admin/modifyPwd.jsp</result>
+        	<result name="success">/WEB-INF/admin/modifyPwd.jsp</result>
+        </action>
+        
+        <!-- house admin -->
+        <action name="districtAdmin" class="org.health.action.admin.DistrictAdminAction">
+        	<result name="success">/WEB-INF/admin/districtAdmin.jsp</result>
+        </action>
+        <action name="addOrUpdateDistrict" class="org.health.action.admin.DistrictAddOrUpdateAction" >
+        	<result name="success" type="chain">
+        		<param name="actionName">districtAdmin</param>
+        	</result>
+        	<result name="input" type="chain">
+        		<param name="actionName">districtAdmin</param>
+        	</result>
+        </action>
+
+        
+        <action name="houseAdmin" class="org.health.action.admin.HouseAdminAction">
+        	<result name="success">/WEB-INF/admin/houseAdmin.jsp</result>
+        	<result name="input">/WEB-INF/admin/houseInfo.jsp</result>
+        	
+        </action>
+        
+        <action name="addOrUpdateHouse" class="org.health.action.admin.HouseAddOrUpdateAction" >
+        	<result name="success">/WEB-INF/admin/houseInfo.jsp</result>
+        	<result name="input" type="chain">
+        		<param name="actionName">houseAdmin</param>
+        		<param name="method">addPage</param>
+    		</result>
+        	<result name="save" type="chain">
+        		<param name="actionName">houseAdmin</param>
+        		<param name="method">addPage</param>
+        	</result>
+        	<result name="saveReturn" type="redirect-action">
+        		<param name="actionName">houseAdmin</param>
+        	</result>
+        </action>
+        
+        <action name="singleSelectPhoto" class="org.health.action.admin.PhotoAdminAction">
+        	<result name="success">/WEB-INF/admin/singleSelect.jsp</result>
+        </action>
+        
+        <action name="singleSearchPhoto" class="org.health.action.admin.PhotoAdminAction" method="search">
+        	<result name="success">/WEB-INF/admin/singleSelect.jsp</result>
+        </action>
+        
+        <action name="multipleSelectPhoto" class="org.health.action.admin.PhotoAdminAction">
+        	<result name="success">/WEB-INF/admin/multipleSelect.jsp</result>
+        </action>
+        
+        <action name="multipleSearchPhoto" class="org.health.action.admin.PhotoAdminAction" method="search">
+        	<result name="success">/WEB-INF/admin/multipleSelect.jsp</result>
+        </action>
+        
+        <action name="singleInsertPhoto" class="org.health.action.admin.PhotoAdminAction">
+        	<result name="success">/WEB-INF/admin/popups/insert_image.jsp</result>
+        </action>
+        <action name="singleInsertSearchPhoto" class="org.health.action.admin.PhotoAdminAction" method="search">
+        	<result name="success">/WEB-INF/admin/popups/insert_image.jsp</result>
+        </action>
+        
+        
+        <!-- expert admin -->
+        <action name="expertAdmin" class="org.health.action.admin.ExpertAdminAction">
+        	<result name="success">/WEB-INF/admin/expertAdmin.jsp</result>
+        	<result name="input">/WEB-INF/admin/expertInfo.jsp</result>
+        </action>
+        
+        <action name="addOrUpdateExpert" class="org.health.action.admin.ExpertAddOrUpdateAction" >
+        	<result name="success">/WEB-INF/admin/expertAdmin.jsp</result>
+        	<result name="input" type="chain">
+        		<param name="actionName">expertAdmin</param>
+        		<param name="method">addPage</param>
+    		</result>
+        	<result name="save" type="chain">
+        		<param name="actionName">expertAdmin</param>
+        		<param name="method">addPage</param>
+        	</result>
+        	<result name="saveReturn" type="chain">
+        		<param name="actionName">expertAdmin</param>
+        	</result>
+        </action>
+        
+        <!-- passage admin -->
+        <action name="passageAdmin" class="org.health.action.admin.PassageAdminAction">
+        	<result name="success">/WEB-INF/admin/passageAdmin.jsp</result>
+        	<result name="input">/WEB-INF/admin/passageInfo.jsp</result>
+        </action>        
+        <action name="addOrUpdatePassage" class="org.health.action.admin.PassageAddOrUpdateAction" >
+        	<result name="success">/WEB-INF/admin/passageAdmin.jsp</result>
+        	<result name="input" type="chain">
+        		<param name="actionName">passageAdmin</param>
+        		<param name="method">addPage</param>
+    		</result>
+        	<result name="save" type="chain">
+        		<param name="actionName">passageAdmin</param>
+        		<param name="method">addPage</param>
+        	</result>
+        	<result name="saveReturn" type="chain">
+        		<param name="actionName">passageAdmin</param>
+        	</result>
+        </action>
+        
+        <action name="singleSelectExpert" class="org.health.action.admin.ExpertAdminAction">
+        	<result>/WEB-INF/admin/selectExpert.jsp</result>
+        </action>
+         <action name="singleSearchExpert" class="org.health.action.admin.ExpertAdminAction">
+        	<result>/WEB-INF/admin/selectExpert.jsp</result>
+        </action>
+        
+        <!-- adv admin -->
+        <action name="advAdmin" class="org.health.action.admin.AdvAdminAction">
+        	<result name="success">/WEB-INF/admin/advAdmin.jsp</result>
+        	<result name="input">/WEB-INF/admin/advInfo.jsp</result>
+        </action>        
+        <action name="addOrUpdateAdv" class="org.health.action.admin.AdvAddOrUpdateAction" >
+        	<result name="success">/WEB-INF/admin/advAdmin.jsp</result>
+        	<result name="input" type="chain">
+        		<param name="actionName">advAdmin</param>
+        		<param name="method">addPage</param>
+    		</result>
+        	<result name="save" type="chain">
+        		<param name="actionName">advAdmin</param>
+        		<param name="method">addPage</param>
+        	</result>
+        	<result name="saveReturn" type="chain">
+        		<param name="actionName">advAdmin</param>
+        	</result>
+        </action>
+        
+       
+    </package> 
+    
+    
+    <package name="JSONPackage" extends="json-default" namespace="/admin">
+    	<interceptors>
+            <interceptor name="authority" class="org.health.action.admin.interceptor.AuthorityInterceptor"/>
+            <interceptor-stack name="authorityStack">
+                <interceptor-ref name="defaultStack"/>
+                <interceptor-ref name="authority"/>
+            </interceptor-stack>
+		</interceptors>
+		<default-interceptor-ref name="authorityStack"/>
+    
+    	<action name="searchPhotoJSON" class="org.health.action.admin.SearhPhotoJSONAction">
+    		<result type="json">
+    			<param name="excludeProperties">
+    				subject,title,beginTime,endTime
+    			</param>
+    		</result>
+    	</action>
+    </package>
+    
+    
+    <package name="fontStage" extends="struts-default" namespace="/">
+
+		<global-results>
+			<!-- 下面定义的结果对所有的Action都有效 -->
+			<result name="login" type="redirect">/healthlinklogin.jsp</result>
+			<result name="exception">/error.jsp</result>
+		</global-results>
+		
+		<!-- 
+		<global-exception-mappings>
+		
+			<exception-mapping exception="org.health.exception.SystemException" result="exception"/>
+			
+			<exception-mapping exception="java.lang.Exception" result="exception"/>
+		</global-exception-mappings>
+		 -->
+		
+		<action name="homePage" class="org.health.action.PageAction">
+			<param name="page">1</param>
+			<result name="success">/front/homePage.jsp</result>
+		</action>
+		
+		<action name="oldManHealth" class="org.health.action.PageAction">
+			<param name="page">2</param>
+			<result name="success">/front/homePage.jsp</result>
+		</action>
+		
+		<action name="childHealth" class="org.health.action.PageAction">
+			<param name="page">3</param>
+			<result name="success">/front/homePage.jsp</result>
+		</action>
+		
+		<action name="ladyHealth" class="org.health.action.PageAction">
+			<param name="page">4</param>
+			<result name="success">/front/homePage.jsp</result>
+		</action>
+		
+		<action name="manHealth" class="org.health.action.PageAction">
+			<param name="page">5</param>
+			<result name="success">/front/homePage.jsp</result>
+		</action>
+		
+		<action name="healthNews" class="org.health.action.PageAction">
+			<param name="page">6</param>
+			<result name="success">/front/newsInfoPage.jsp</result>
+		</action>
+		
+		<action name="healthInfo" class="org.health.action.PageAction">
+			<param name="page">7</param>
+			<result name="success">/front/newsInfoPage.jsp</result>
+		</action>
+		
+		<action name="aboutUs" class="org.health.action.PageAction">
+			<param name="page">8</param>
+			<result name="success">/front/newsInfoPage.jsp</result>
+		</action>
+		
+		<action name="passage" class="org.health.action.PageAction">
+			<result name="success">/front/passage.jsp</result>
+			<result name="vip">/front/VIP.jsp</result>
+		</action>
+		
+		<action name="houseSearch" class="org.health.action.SearchHouseAction">
+			<result name="success">/front/houseSearch.jsp</result>
+		</action>
+		
+		<action name="passage" class="org.health.action.PageAction" method="passage">
+			<result name="success">/front/passagePage.jsp</result>
+			<result name="vip">/front/VIP.jsp</result>
+		</action>
+		
+		<action name="adv" class="org.health.action.PageAction" method="passage">
+			<result name="success">/front/passagePage.jsp</result>
+		</action>
+		
+		<action name="showHouse" class="org.health.action.SearchHouseAction" method="house">
+			<result>/front/housePage.jsp</result>
+		</action>
+		
+		<action name="searchNews" class="org.health.action.SearchPassageAction">
+			<param name="page">6</param>
+			<result name="success">/front/newsInfoPage.jsp</result>
+		</action>
+		
+		<action name="searchInfo" class="org.health.action.SearchPassageAction">
+			<param name="page">7</param>
+			<result name="success">/front/newsInfoPage.jsp</result>
+		</action>
+    
+ 	</package>
+
+</struts>
