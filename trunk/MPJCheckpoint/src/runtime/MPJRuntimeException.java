@@ -36,8 +36,6 @@
 
 package runtime ; 
 
-import mpjdev.MPJDevException; 
-
 public class MPJRuntimeException extends RuntimeException {
 
   public MPJRuntimeException() {

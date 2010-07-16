@@ -1423,7 +1423,7 @@ if(DEBUG && logger.isDebugEnabled())
             	  read = END_OF_STREAM;
               }
 
-              if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+              if (DEBUG && logger.isDebugEnabled()) {
             	  logger.debug("---READ_EVENT---" + read );
               }
 
