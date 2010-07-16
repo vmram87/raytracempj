@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+	"-//Hibernate/Hibernate Mapping DTD//EN"
+	"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+
+<hibernate-mapping package="org.qing.object">
+	<class name="Context" table="context">
+
+		<id	name="id" type="integer" column="context_id">
+			<generator class="identity"/>
+		</id>
+
+		<property name="rank" column="rank"	type="integer" not-null="true"/>
+		<property name="processId" column="processId"	type="integer" not-null="true"/>
+		<property name="versionId" column="versionId"	type="integer" not-null="true"/>
+
+
+		<property name="contextFilePath" column="contextFilePath"	type="string" not-null="true" length="200" />
+		<property name="tempFilePath" column="tempFilePath" type="string" length="200" not-null="true"/>
+		
+
+	</class>	
+</hibernate-mapping> 
