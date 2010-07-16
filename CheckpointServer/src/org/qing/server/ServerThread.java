@@ -76,6 +76,8 @@ public class ServerThread {
 	  
 	  private final int MARKER_ACK = -41;
 	  
+	  public static final int END_APP = -48;
+	  
 	  private final int NUM_OF_PROCCESSES = -42;
 	
 	  private final int RENDEZ_CTRL_MSG_LENGTH = 4;
@@ -465,6 +467,10 @@ public class ServerThread {
 	                      realFinish((SocketChannel) keyChannel);
 
 	                      break;
+	                    
+	                  case END_APP:
+	                	  clearContextFileAndDatabase();
+	                	  break;
 
 	                  default:
 
@@ -489,9 +495,13 @@ public class ServerThread {
 
 	    } //end run()
 
+		
+
 
 
 	  }; //end selectorThread which is an inner class
+	  
+	  
 	  
 	  
 	  Runnable renewThread = new Runnable() {
@@ -903,6 +913,25 @@ public class ServerThread {
 			  System.out.println("Version number error, Impossible!");
 		  }
 			  
+	  }
+	  
+	  private void clearContextFileAndDatabase() {
+			ContextDao dao = ContextFactory.getContextDao();
+			Integer latestVer = dao.getLatestVersionId();
+			List contextList = dao.getAllPrevContextsByVersion(latestVer + 1 );
+			  for(int i = 0; i < contextList.size(); i++){
+				  Context c = (Context)contextList.get(i);
+				  File file = new File(c.getContextFilePath());
+				  if(file.exists())
+					  file.delete();
+				  
+				  file = new File(c.getTempFilePath());
+				  if(file.exists())
+					  file.delete();
+			  }
+			  
+			  dao.delAllPrevContextsByVersion(latestVer + 1);				
+		
 	  }
 
 	private void addItemToDatabase(int rank, int processId, int verNum) {
