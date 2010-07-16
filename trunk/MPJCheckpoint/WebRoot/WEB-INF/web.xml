@@ -1,12 +1,68 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<web-app id="WebApp_ID" version="2.4" xmlns="http://java.sun.com/xml/ns/j2ee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee http://java.sun.com/xml/ns/j2ee/web-app_2_4.xsd">
-	<display-name>MPJCheckpoint</display-name>
-	<welcome-file-list>
-		<welcome-file>index.html</welcome-file>
-		<welcome-file>index.htm</welcome-file>
-		<welcome-file>index.jsp</welcome-file>
-		<welcome-file>default.html</welcome-file>
-		<welcome-file>default.htm</welcome-file>
-		<welcome-file>default.jsp</welcome-file>
-	</welcome-file-list>
+<web-app xmlns="http://java.sun.com/xml/ns/j2ee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee http://java.sun.com/xml/ns/j2ee/web-app_2_4.xsd"
+version="2.4">
+  <display-name>health</display-name>
+  <welcome-file-list>
+  	<welcome-file>index.jsp</welcome-file>
+  </welcome-file-list>
+  <session-config>
+    <session-timeout>30</session-timeout>
+  </session-config> 
+  	<context-param>
+		<param-name>contextConfigLocation</param-name>
+		<param-value>/WEB-INF/daoContext.xml,/WEB-INF/applicationContext.xml</param-value>
+	</context-param>
+
+
+	<!-- 用于初始化Spring容器的Listener -->
+    <listener>
+        <listener-class>org.springframework.web.context.ContextLoaderListener</listener-class>
+    </listener>
+    
+  <!-- 定义整合SiteMesh必须的ActionContextCleanUp Filter -->
+	<filter>
+		<filter-name>struts-cleanup</filter-name>
+		<filter-class>org.apache.struts2.dispatcher.ActionContextCleanUp</filter-class>
+	</filter>
+	<!-- 定义整合SiteMesh和核心 Filter -->
+	<filter>
+		<filter-name>sitemesh</filter-name>
+		<filter-class>com.opensymphony.module.sitemesh.filter.PageFilter</filter-class>
+	</filter>
+	
+	 <!-- 解决延迟加载的问题 -->
+	 <filter>
+	  <filter-name>hibernateFilter</filter-name>
+	  <filter-class>
+	   org.springframework.orm.hibernate3.support.OpenSessionInViewFilter
+	  </filter-class>
+	 </filter>
+  
+  <filter>
+  	<filter-name>Struts2</filter-name>
+  	<filter-class>org.apache.struts2.dispatcher.FilterDispatcher</filter-class>
+  </filter>
+  
+  <filter-mapping>
+        <filter-name>struts-cleanup</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    
+    <filter-mapping>
+        <filter-name>sitemesh</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+    
+  <filter-mapping>
+ 	 <filter-name>hibernateFilter</filter-name>
+ 	 <url-pattern>/*</url-pattern>
+  </filter-mapping>
+ 
+  <filter-mapping>
+  	<filter-name>Struts2</filter-name>
+  	<url-pattern>/*</url-pattern>
+  </filter-mapping>
+  
+
 </web-app>

@@ -8,19 +8,8 @@
 	</bean>
 
 
-	<bean id="userDao" class="org.health.dao.impl.UserDaoImpl"
+	<bean id="contextDao" class="org.qing.dao.impl.ContextDaoImpl"
 		parent="daoTemplate"/>
 		
-	<bean id="photoDao" class="org.health.dao.impl.PhotoDaoImpl"
-		parent="daoTemplate"/>
 
-	<bean id="houseDao" class="org.health.dao.impl.HouseDaoImpl" parent="daoTemplate"/>
-	
-	<bean id="districtDao" class="org.health.dao.impl.DistrictDaoImpl" parent="daoTemplate"/>
-	
-	<bean id="expertDao" class="org.health.dao.impl.ExpertDaoImpl" parent="daoTemplate"/>
-	
-	<bean id="passageDao" class="org.health.dao.impl.PassageDaoImpl" parent="daoTemplate"/>
-	
-	<bean id="advDao" class="org.health.dao.impl.AdvDaoImpl" parent="daoTemplate"/>
 </beans>
