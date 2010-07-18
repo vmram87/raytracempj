@@ -26,4 +26,9 @@ public class StartAction extends BaseActionInterface {
 		mgr.startMPJRun(argv); 
 		return SUCCESS;
 	}
+	
+	public String kill() throws Exception{
+		mgr.killProccesses(); 
+		return SUCCESS;
+	}
 }

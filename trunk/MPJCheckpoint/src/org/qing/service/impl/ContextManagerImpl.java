@@ -67,6 +67,13 @@ public class ContextManagerImpl implements ContextManager {
 	}
 
 
+	@Override
+	public void killProccesses() throws Exception {
+		client.killProccesses();
+		
+	}
+
+
 	Runnable MPJRunThread = new Runnable() {
 		
 		@Override
