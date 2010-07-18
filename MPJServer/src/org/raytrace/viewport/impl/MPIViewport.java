@@ -68,6 +68,9 @@ public class MPIViewport extends AbstractViewPort {
 		
 		this.datasize = this.width * this.locHeight; 
 		
+		
+		
+		
 		//checkpoint
 		if(this.rank == 0){
 			
@@ -82,10 +85,18 @@ public class MPIViewport extends AbstractViewPort {
 			
 		}
 		
+		
+		
+		
+		
 		System.out.println("before dataSizeCollection");
 		//send and receieve the data size
 		if(!dataSizeCollection())
 			return false;
+		
+		//test error
+		if(rank == 1)
+			System.exit(1);
 		
 		System.out.println("after dataSizeCollection");
 		
@@ -181,6 +192,7 @@ public class MPIViewport extends AbstractViewPort {
 		Status status;
 
 		bitval = 1;
+
 
 		while (bitval < size)
 		{
