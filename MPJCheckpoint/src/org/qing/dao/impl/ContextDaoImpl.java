@@ -61,7 +61,7 @@ public class ContextDaoImpl extends HibernateDaoSupport implements ContextDao {
 
 	@Override
 	public Integer getNextLatestVersionId(int versionId) {
-		List ul = getHibernateTemplate().find("select max(c.versionId) from Context c where c.versionId<", versionId);
+		List ul = getHibernateTemplate().find("select max(c.versionId) from Context c where c.versionId<?", versionId);
 		if(ul == null || ul.size() == 0)
 			return null;
 		else 

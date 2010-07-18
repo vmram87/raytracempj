@@ -8,6 +8,12 @@
 </head>
 <body>
 
-	<p>Hello!</p>
+	<p align="center">
+		<form action="start.action" method="post">
+			<p>Input the arguments:<input type="text" style="width:300px" name="args" value="${args }"></input></p>
+			<p><input type="submit"></input></p>
+		</form>
+		 
+	</p>
 </body>
 </html>
