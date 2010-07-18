@@ -1536,7 +1536,10 @@ public class NIODevice
 	      /* send init info to the daemonchannel */
 	      if(hasDaemon == true){
 	    	  initMsgBuffer = ByteBuffer.allocate(28);;
-	    	  initMsgBuffer.put("pro-Init".getBytes());
+	    	  if(isCheckpointing == false)
+	    		  initMsgBuffer.put("pro-Init".getBytes());
+	    	  else
+	    		  initMsgBuffer.put("rcn-Init".getBytes());
 	    	  
 	    	  initMsgBuffer.putInt(rank);
 	  	      initMsgBuffer.putLong(msb);
@@ -2943,7 +2946,8 @@ public class NIODevice
         }
       }
       catch (Exception e) {
-        throw new XDevException(e);
+        e.printStackTrace();
+        return;
       }
     }
 
@@ -4397,7 +4401,7 @@ public class NIODevice
                 	  
                   case DAEMON_EXIT_ACK:
                 	  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-            	    		logger.debug("receive finish ack from daemon, thread<" + threadNum + "> return!");
+            	    		logger.debug("receive finish ack from daemon, thread<" + threadNum + "> ");
                           
                       }
                 	  synchronized (selectorFinishLock) {
@@ -4412,7 +4416,7 @@ public class NIODevice
                 	  
                   case CPSERVER_EXIT_ACK:
                 	  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-          	    		logger.debug("receive finish ack from checkpoint server, thread<" + threadNum + "> return!");
+          	    		logger.debug("receive finish ack from checkpoint server, thread<" + threadNum + "> ");
                         
 	                  }
                 	  

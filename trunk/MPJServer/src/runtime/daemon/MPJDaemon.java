@@ -57,6 +57,7 @@ import java.util.jar.Attributes ;
 import java.util.jar.JarFile ;
 
 import runtime.MPJRuntimeException ;  
+import sun.nio.cs.ext.MacHebrew;
 import xdev.XDevException;
 
 import java.util.concurrent.Semaphore ; 
@@ -102,14 +103,21 @@ public class MPJDaemon {
   Hashtable<UUID, SocketChannel> worldProcessTable =
 		new Hashtable<UUID, SocketChannel> ();
   
+  Hashtable<UUID, Integer> checkpointingProcessTable = new Hashtable<UUID, Integer> ();
+  
   Hashtable<UUID, Boolean> processValidMap = new Hashtable<UUID, Boolean> ();
+  Hashtable<UUID, Boolean> processFinishMap = new Hashtable<UUID, Boolean> ();
 
   
   private boolean initializing = false;
   private boolean isFinished = false;
+  private boolean isRestarting = false;
   private CustomSemaphore initLock = new CustomSemaphore(1); 
+  private CustomSemaphore finishLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
+  private CustomSemaphore heartBeatBeginLock = new CustomSemaphore(1); 
   private Thread renewThreadStarter = null;
+  private Thread heartBeatStarter = null;
   UUID[] pids = null;
   
   public static final int LONG_MESSAGE = -45;
@@ -119,6 +127,10 @@ public class MPJDaemon {
   private final int DAEMON_EXIT_ACK = -36;
   private final int REQUEST_RESTART = -70;
   private final int CHECK_VALID = -71;
+  
+  private final int MAX_CHECKPOINT_INVALID_TIME = 2;
+  private boolean isRestartFromCheckpoint = false;
+  private static String JAVA_TEMP_FILE_DIRECTORY = "/temp/hsperfdata_" + System.getProperty("user.name") + "/";
   
 
   public MPJDaemon(String args[]) throws Exception {
@@ -157,17 +169,12 @@ public class MPJDaemon {
     }
 
     selectorThreadStarter.start();
-    (new Thread(heartBeatThread)).start();
     
     int exit = 0;
 
     while (loop) {
-
-    	if(DEBUG && logger.isDebugEnabled()) { 
-    	      logger.debug ("CLEAR TABLE");
-    	}
-    	worldProcessTable.clear();
-    	processValidMap.clear();
+    	
+    	isRestarting = false;
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
@@ -178,6 +185,7 @@ public class MPJDaemon {
         logger.debug("wdir "+wdir);
       }
       waitToStartExecution ();
+
 
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("A client has connected");
@@ -213,13 +221,15 @@ public class MPJDaemon {
         String line = null;
         String rank = null; 
         
-        jvmArgs.add("-Djava.library.path=."+File.pathSeparator+"/usr/local/lib"+
+        if(isRestartFromCheckpoint == false){
+        	jvmArgs.add("-Djava.library.path=."+File.pathSeparator+"/usr/local/lib"+
         		File.pathSeparator+"/root/C++Workspace/blcr/Debug");
+        }
 
         while((line = bufferedReader.readLine()) != null) {
 
           if(DEBUG && logger.isDebugEnabled()) { 
-            logger.debug ("line ="+line);
+            //logger.debug ("line ="+line);
           }
 
           if(MPJDaemon.matchMe(line) ) {
@@ -239,96 +249,142 @@ public class MPJDaemon {
         /* Step 2: Argument Processing */ 
 
         String[] jArgs = jvmArgs.toArray(new String[0]); 
-        boolean now = false;
-        boolean noSwitch = true ;
-
-        for(int e=0 ; e<jArgs.length; e++) {
-
-          if(DEBUG && logger.isDebugEnabled()) { 
-            logger.debug("jArgs["+e+"]="+jArgs[e]);
-	  }
-
-          if(now) {
-            String cp = jvmArgs.remove(e);
-	      
-            cp = "."+File.pathSeparator+""+
-                  mpjHomeDir+"/lib/loader1.jar"+
-                  File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
-                  File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
-                  File.pathSeparator+applicationClassPathEntry+
-                  File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
-                  File.pathSeparator+applicationClassPathEntry+"/bin"+
-                  File.pathSeparator+cp;
-	      
-            jvmArgs.add(e,cp);
-            now = false;
-          }
-
-          if(jArgs[e].equals("-cp")) {
-            now = true;
-            noSwitch = false;
-          }
-        }
-
-        if(noSwitch) {
-          jvmArgs.add("-cp");
-	  jvmArgs.add("."+File.pathSeparator+""
-  	        +mpjHomeDir+"/lib/loader1.jar"+
-                File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
-                File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
-                File.pathSeparator+applicationClassPathEntry+
-                File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
-                File.pathSeparator+applicationClassPathEntry+"/bin") ; 
-        }
+        ProcessBuilder pb = null;
+        
+        if(isRestartFromCheckpoint == false){
+        	
+	        boolean now = false;
+	        boolean noSwitch = true ;
+	
+	        for(int e=0 ; e<jArgs.length; e++) {
+	
+	          if(DEBUG && logger.isDebugEnabled()) { 
+	            logger.debug("jArgs["+e+"]="+jArgs[e]);
+		  }
+	
+	          if(now) {
+	            String cp = jvmArgs.remove(e);
+		      
+	            cp = "."+File.pathSeparator+""+
+	                  mpjHomeDir+"/lib/loader1.jar"+
+	                  File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
+	                  File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
+	                  File.pathSeparator+applicationClassPathEntry+
+	                  File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
+	                  File.pathSeparator+applicationClassPathEntry+"/bin"+
+	                  File.pathSeparator+cp;
+		      
+	            jvmArgs.add(e,cp);
+	            now = false;
+	          }
+	
+	          if(jArgs[e].equals("-cp")) {
+	            now = true;
+	            noSwitch = false;
+	          }
+	        }
+	
+	        if(noSwitch) {
+	          jvmArgs.add("-cp");
+		  jvmArgs.add("."+File.pathSeparator+""
+	  	        +mpjHomeDir+"/lib/loader1.jar"+
+	                File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
+	                File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
+	                File.pathSeparator+applicationClassPathEntry+
+	                File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
+	                File.pathSeparator+applicationClassPathEntry+"/bin") ; 
+	        }
+	        
+	        
+	
+	        jArgs = jvmArgs.toArray(new String[0]);
         
         
-
-        jArgs = jvmArgs.toArray(new String[0]);
-        jvmArgs.clear();
- 
-        for(int e=0 ; e<jArgs.length; e++) {
-          if(DEBUG && logger.isDebugEnabled()) { 
-            logger.debug("modified: jArgs["+e+"]="+jArgs[e]);
-	  }
-        }
-	  
-        String[] aArgs = appArgs.toArray(new String[0]); 
-
-        int N_ARG_COUNT = 7 ; 
-	  
-        String[] ex = new String[(N_ARG_COUNT+jArgs.length+aArgs.length)]; 
-        ex[0] = "java";
-
-        //System.arraycopy ... can be used ..here ...
-        for(int i=0 ; i<jArgs.length ; i++) { 
-          ex[i+1] = jArgs[i]; 	
-        }
-
-        int indx = jArgs.length+1; 
+	        jvmArgs.clear();
+	 
+	        for(int e=0 ; e<jArgs.length; e++) {
+	          if(DEBUG && logger.isDebugEnabled()) { 
+	            //logger.debug("modified: jArgs["+e+"]="+jArgs[e]);
+		  }
+	        }
+		  
+	        String[] aArgs = appArgs.toArray(new String[0]); 
 	
-        ex[indx] = "runtime.daemon.Wrapper" ; indx++ ;
-        ex[indx] = configFileName; indx++ ; 
-        ex[indx] = Integer.toString(processes); indx++ ; 
-        ex[indx] = deviceName; indx++ ; 
-        ex[indx] = rank; indx++ ; 
-        ex[indx] = className ; 
-	  
-        //System.arraycopy ... can be used ..here ...
-        for(int i=0 ; i< aArgs.length ; i++) { 
-          ex[i+N_ARG_COUNT+jArgs.length] = aArgs[i]; 	
-        }
-
-        if(DEBUG && logger.isDebugEnabled()) { 
-          for (int i = 0; i < ex.length; i++) {
-            logger.debug(i+": "+ ex[i]);
-          }  
+	        int N_ARG_COUNT = 7 ; 
+		  
+	        String[] ex = new String[(N_ARG_COUNT+jArgs.length+aArgs.length)]; 
+	        ex[0] = "java";
+	
+	        //System.arraycopy ... can be used ..here ...
+	        for(int i=0 ; i<jArgs.length ; i++) { 
+	          ex[i+1] = jArgs[i]; 	
+	        }
+	
+	        int indx = jArgs.length+1; 
+		
+	        ex[indx] = "runtime.daemon.Wrapper" ; indx++ ;
+	        ex[indx] = configFileName; indx++ ; 
+	        ex[indx] = Integer.toString(processes); indx++ ; 
+	        ex[indx] = deviceName; indx++ ; 
+	        ex[indx] = rank; indx++ ; 
+	        ex[indx] = className ; 
+		  
+	        //System.arraycopy ... can be used ..here ...
+	        for(int i=0 ; i< aArgs.length ; i++) { 
+	          ex[i+N_ARG_COUNT+jArgs.length] = aArgs[i]; 	
+	        }
+	
+	        if(DEBUG && logger.isDebugEnabled()) { 
+	          for (int i = 0; i < ex.length; i++) {
+	            //logger.debug(i+": "+ ex[i]);
+	          }  
+	        }
+	        
+	        
+	        /* Step 3: Now start a new JVM */ 
+	        pb = new ProcessBuilder(ex);
+	        pb.directory(new File(wdir)) ;
+	        pb.redirectErrorStream(true); 
+        
+        }//end  of if isRestartFromCheckpoint == false
+        else{
+        	if(DEBUG && logger.isDebugEnabled()) { 
+                logger.debug("process restart args");
+            }
+        	
+        	String contextFilePath = jArgs[j*2];
+        	String tempFilePath = jArgs[j*2 + 1];
+        	
+        	if(DEBUG && logger.isDebugEnabled()) { 
+                logger.debug("contextFilePath:" + contextFilePath);
+                logger.debug("tempFilePath:" + tempFilePath);
+            }
+        	
+        	String[] pathArg = tempFilePath.split("_");
+        	String processId = pathArg[0];
+        	
+        	String dstTempFilePath = JAVA_TEMP_FILE_DIRECTORY + processId;
+        	File srcTempFile = new File(tempFilePath);
+        	File dstTempFile = new File(dstTempFilePath);
+        	if(dstTempFile.exists())
+        		dstTempFile.delete();
+        	
+        	if(DEBUG && logger.isDebugEnabled()) { 
+                logger.debug("copy the temp file");
+            }
+        	copyFile(srcTempFile, dstTempFile);
+        	
+        	String[] ex = new String[2];
+        	ex[0] = "cr_restart";
+        	ex[1] = contextFilePath;
+        	
+        	/* Step 3: Now start a new JVM */ 
+	        pb = new ProcessBuilder(ex);
+	        pb.directory(new File(wdir)) ;
+	        pb.redirectErrorStream(true); 
         }
 	
-        /* Step 3: Now start a new JVM */ 
-        ProcessBuilder pb = new ProcessBuilder(ex);
-        pb.directory(new File(wdir)) ;
-        pb.redirectErrorStream(true); 
-
+       
         if(DEBUG && logger.isDebugEnabled()) { 
           logger.debug("starting the process ");
         }
@@ -348,7 +404,9 @@ public class MPJDaemon {
         if(DEBUG && logger.isDebugEnabled()) { 
           logger.debug("started the process "); 
         }
-      } //end for.	    
+      } //end for.	
+      
+
 
       try { 
         bufferedReader.close() ; 
@@ -359,6 +417,7 @@ public class MPJDaemon {
       
 	  //wait for the init of the writable and readable channels
       //renewThreadStarter.join();
+    	
       
 
       //Wait for the I/O threads to finish. They finish when 
@@ -366,53 +425,79 @@ public class MPJDaemon {
       for (int j = 0; j < processes; j++) {
         outputThreads[j].join();
       }
+      
+      //if process finish before the heartbeat thread start, then check the 
+      //processFinishmap to see if they are normal finish or not, 
+      if(processFinishMap.size() != processes){
+    	  isRestarting = true;
+    	  //need to be fix latter
+    	  //sendRestartReqestToMainHost();
+      }
+    	 
 
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("Stopping the output");
+        logger.debug("renewThreadStarter state:" + renewThreadStarter.getState());
       }
-
-      MPJProcessPrintStream.stop();
-
-      // Its important to kill all JVMs that we started ... 
+      
+      if(renewThreadStarter.getState().equals(Thread.State.BLOCKED) || 
+    		  renewThreadStarter.getState().equals(Thread.State.WAITING))
+    	  renewThreadStarter.interrupt();
+      
+      isFinished = true;
+      heartBeatStarter.join();
+      
+   // Its important to kill all JVMs that we started ... 
       synchronized (p) {
         for(int i=0 ; i<processes ; i++) 
           p[i].destroy();
         kill_signal = false;
       }
+      
+      if(isRestarting == false){
 
-      try {
-        if(DEBUG && logger.isDebugEnabled()) { 
-          logger.debug ("Checking whether peerChannel is closed or what ?" +
-                    peerChannel.isOpen());
-	}
-        
-        while(peerChannel.isConnected()){
-        	/*
-        	if(DEBUG && logger.isDebugEnabled()) { 
-                logger.debug ("channel connected");
-        	}
-        	*/
-        }
-        
-        if (peerChannel.isOpen()) {
-            if(DEBUG && logger.isDebugEnabled()) { 
-              logger.debug ("Closing it ..."+peerChannel );
-  	  }
-            //peerChannel.close();
-          }
-        	
-        peerChannel.close();
-
-        if(DEBUG && logger.isDebugEnabled()) { 
-          logger.debug("Was already closed, or i closed it");
-	}
+	      MPJProcessPrintStream.stop();
+	
+	      
+	
+	      try {
+	        if(DEBUG && logger.isDebugEnabled()) { 
+	          logger.debug ("Checking whether peerChannel is closed or what ?" +
+	                    peerChannel.isOpen());
+		}
+	        
+	        while(peerChannel.isConnected()){
+	        	/*
+	        	if(DEBUG && logger.isDebugEnabled()) { 
+	                logger.debug ("channel connected");
+	        	}
+	        	*/
+	        }
+	        
+	        if (peerChannel.isOpen()) {
+	            if(DEBUG && logger.isDebugEnabled()) { 
+	              logger.debug ("Closing it ..."+peerChannel );
+	  	  }
+	            //peerChannel.close();
+	          }
+	        	
+	        peerChannel.close();
+	
+	        if(DEBUG && logger.isDebugEnabled()) { 
+	          logger.debug("Was already closed, or i closed it");
+		}
+	      }
+	      catch (Exception e) { 
+	        e.printStackTrace() ; 
+	        //continue;
+	      }
+      }// if isRestarting == false
+      else{
+    	  restoreVariables() ; 
+    	  finishLock.signal();
       }
-      catch (Exception e) { 
-        e.printStackTrace() ; 
-        //continue;
-      }
 
-      restoreVariables() ; 
+      
 
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug("\n\n ** .. execution ends .. ** \n\n");
@@ -421,7 +506,30 @@ public class MPJDaemon {
     } //end while(loop)
   }
 
-  private void restoreVariables() {
+  private void sendRestartReqestToMainHost() {
+	  
+	  ByteBuffer msgBuffer = ByteBuffer.allocate(4);
+		msgBuffer.putInt(REQUEST_RESTART);
+		msgBuffer.flip();
+		while(msgBuffer.hasRemaining()){
+			try{
+				if(peerChannel.write(msgBuffer) == -1)
+					throw new ClosedChannelException();
+			}
+			catch(IOException ioe){
+				ioe.printStackTrace();
+				System.out.println("You should ensure the MPJRun host is running!");
+				if (DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+		        }
+				break;
+			}
+		}
+	
+}
+
+private void restoreVariables() {
+	isRestartFromCheckpoint = false;
     jvmArgs.clear();
     appArgs.clear(); 
     wdir = null ; 
@@ -684,7 +792,8 @@ public class MPJDaemon {
 
   Runnable selectorThread = new Runnable() {
 
-    /* This is selector thread */
+
+	/* This is selector thread */
     public void run() {
 
       if(DEBUG && logger.isDebugEnabled()) { 
@@ -724,35 +833,48 @@ public class MPJDaemon {
             if (key.isAcceptable() && selectorAcceptConnect) {
             	ServerSocketChannel sChannel =(ServerSocketChannel) keyChannel;
             	
-            	//if it should be initialed 
-            	if(initializing == false){
-            		if (DEBUG && logger.isDebugEnabled()) {
-			                logger.debug("---CLEAR TABLES---");
-			              }
-	            	  
-	            	  for(int i = 0; i < processChannels.size(); i++){
-	            		  if(processChannels.get(i).isOpen())
-	            			  processChannels.get(i).close();
-	            	  }
-	            	  processChannels.clear();
-          		  
-          		  
-	            	  worldProcessTable.clear();
-	            	  initializing = true;
-          		  
-	            	  (new Thread(renewThread)).start();
-            	}
             	
             	if (sChannel.socket().getLocalPort() == D_SER_PORT) {
                     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-                      logger.debug("selector calling doAccept (data-channel) ");
+                      logger.debug("selector calling doAccept (host-channel) ");
                     }
                     doAccept(keyChannel);
                 }
                 else{
                     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-                      logger.debug("selector calling doAccept (ctrl-channel) ");
+                      logger.debug("selector calling doAccept (process-channel) ");
                     }
+                    
+                    //if it should be initialed 
+                	if(initializing == false){
+                		
+                		finishLock.acquire();
+                		finishLock.signal();
+                		
+                		if (DEBUG && logger.isDebugEnabled()) {
+    			                logger.debug("---CLEAR TABLES---");
+    			              }
+    	            	  
+    	            	  for(int i = 0; i < processChannels.size(); i++){
+    	            		  if(processChannels.get(i).isOpen())
+    	            			  processChannels.get(i).close();
+    	            	  }
+    	            	  processChannels.clear();     		           		  
+    	            	  worldProcessTable.clear();
+    	            	  processValidMap.clear();
+    	            	  processFinishMap.clear();
+    	            	  initializing = true;
+              		  
+    	            	  heartBeatBeginLock.acquire();
+    	            	  renewThreadStarter = new Thread(renewThread);
+    	            	  renewThreadStarter.start();
+    	            	  
+    	            	  if(heartBeatStarter == null || heartBeatStarter.getState().equals(Thread.State.TERMINATED)){
+	    	            	  isFinished = false;
+	    	            	  heartBeatStarter = new Thread(heartBeatThread);
+	    	            	  heartBeatStarter.start();
+    	            	  }
+                	}
                     
                     doAccept(keyChannel, tempProcessChannels);
                 }
@@ -789,6 +911,8 @@ public class MPJDaemon {
               if(DEBUG && logger.isDebugEnabled()) { 
                 logger.debug ("READ_EVENT");
 	      }
+              finishLock.acquire();
+              finishLock.signal();
 	      
               socketChannel = (SocketChannel) keyChannel;
 	      
@@ -857,7 +981,13 @@ public class MPJDaemon {
               //receive process info, map the uuid to the worldProcessTable
               if(read.equals("pro-")){
             	  doBarrierRead( ( (SocketChannel) keyChannel),
-                          worldProcessTable, false);
+                          worldProcessTable, false, false);
+              }
+              
+            //receive reconnect process info, map the uuid to the worldProcessTable
+              if(read.equals("rcn-")){
+            	  doBarrierRead( ( (SocketChannel) keyChannel),
+                          worldProcessTable, false, true);
               }
               
             //receive process exit, send exit ack back to the channel
@@ -868,6 +998,11 @@ public class MPJDaemon {
               //receive process checkpoint, send check cehckpoint ack back to the channel
               if(read.equals("che-")){
             	  doSendBackCheckpointAck((SocketChannel) keyChannel);
+              }
+              
+              //receive restart from a certain checkpoint command 
+              if(read.equals("rst-")){
+            	  isRestartFromCheckpoint = true;
               }
               
               
@@ -886,7 +1021,9 @@ public class MPJDaemon {
                 byte[] byteArray = new byte[length];
                 buffer.flip();
                 buffer.get(byteArray, 0, length);
-                applicationClassPathEntry = new String(byteArray);
+                //applicationClassPathEntry = new String(byteArray);
+                //change later
+                applicationClassPathEntry = System.getProperty("user.dir");
                 if(DEBUG && logger.isDebugEnabled()) { 
                   logger.debug ("applicationClassPathEntry:<"+ 
                                        applicationClassPathEntry+">");
@@ -1067,12 +1204,18 @@ public class MPJDaemon {
 
               }
               else if (read.equals("kill")) {
+            	  
+            	  finishLock.acquire();
+            	  isRestarting = true;
+            	  if(renewThreadStarter.getState() == Thread.State.BLOCKED)
+            		  renewThreadStarter.interrupt();
+            	  
                 if(DEBUG && logger.isDebugEnabled()) { 
                   logger.debug ("processing kill event");
 		}
-                MPJProcessPrintStream.stop();
+                //MPJProcessPrintStream.stop();
                 if(DEBUG && logger.isDebugEnabled()) { 
-                  logger.debug ("Stopping the output");
+                  logger.debug ("Stopping the output In kill event");
 		}
 
                 try {
@@ -1085,7 +1228,7 @@ public class MPJDaemon {
                     if(DEBUG && logger.isDebugEnabled()) { 
                       logger.debug ("Closing it ...");
 		    }
-                    peerChannel.close();
+                    //peerChannel.close();
                   }
                 }
                 catch (Exception e) {}
@@ -1157,6 +1300,9 @@ public class MPJDaemon {
 				initLock.acquire();
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
+				initializing = false;
+				heartBeatBeginLock.signal();
+				return;
 			}
 			
 			if (DEBUG && logger.isDebugEnabled()) {
@@ -1170,7 +1316,11 @@ public class MPJDaemon {
 		        	tempProcessChannels.wait();
 		        }
 		        catch (Exception e) {
-		          e.printStackTrace();
+		        	e.printStackTrace();
+		        	initializing = false;
+		        	initLock.signal();		
+		        	heartBeatBeginLock.signal();
+		          
 		        }
 		      }
 
@@ -1180,6 +1330,9 @@ public class MPJDaemon {
 					processChannels.get(i).close();
 				} catch (IOException e) {
 					e.printStackTrace();
+					initializing = false;
+		        	initLock.signal();
+		        	heartBeatBeginLock.signal();
 				}
 			 }
 			 
@@ -1214,6 +1367,9 @@ public class MPJDaemon {
 		        }
 		        catch (Exception e) {
 		          e.printStackTrace();
+		          initializing = false;
+		          initLock.signal();	
+		          heartBeatBeginLock.signal();
 		        }
 		      }
 		    } //end sync
@@ -1226,6 +1382,7 @@ public class MPJDaemon {
 		    initializing = false;
 		    
 		    initLock.signal();
+		    heartBeatBeginLock.signal();
 		    
 		    if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("initLock release");
@@ -1239,7 +1396,7 @@ public class MPJDaemon {
 	   */
 	  void doBarrierRead(SocketChannel socketChannel, Hashtable table, boolean
 				
-          ignoreFirstFourBytes) throws Exception {
+          ignoreFirstFourBytes, boolean isReconnect) throws Exception {
 		  
 		  if (DEBUG && logger.isDebugEnabled()) {
             logger.debug("---do barrier read---");
@@ -1285,8 +1442,16 @@ public class MPJDaemon {
 	    ruid = new UUID(msb, lsb);
 	    pids[rank] = ruid; //, rank);
    
-
+	    
+	    
+	    
 	    synchronized (table) {
+	    	
+	    	if(isReconnect == true){
+		    	checkpointingProcessTable.remove(ruid);
+		    }
+	    	
+	    	
 	      table.put(ruid, socketChannel);	      
 	      processValidMap.put(ruid, true);
 	      
@@ -1355,6 +1520,13 @@ public class MPJDaemon {
 			lsb = uuidBuffer.getLong();
 			UUID ruid = new UUID(msb, lsb);
 		  	
+			synchronized(worldProcessTable){
+				worldProcessTable.remove(ruid);
+				processValidMap.put(ruid, false);
+				checkpointingProcessTable.remove(ruid);
+				processFinishMap.put(ruid, true);
+			}
+			
 			ByteBuffer ackBuffer = ByteBuffer.allocate(4);
 			ackBuffer.putInt(DAEMON_EXIT_ACK);
 			
@@ -1379,7 +1551,6 @@ public class MPJDaemon {
 	            logger.debug("finish write back exit ack!");
 	        }
 			
-			processValidMap.put(ruid, false);
 			initLock.signal();
 			
 			if (DEBUG && logger.isDebugEnabled()) {
@@ -1397,6 +1568,7 @@ public class MPJDaemon {
 		//while in the channel and table initial period, can't send ack
 		  	try {
 				initLock.acquire();
+				heartBeatLock.acquire();
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
 			}
@@ -1414,6 +1586,7 @@ public class MPJDaemon {
 			            logger.debug("read channel close, return");
 			        }
 					initLock.signal();
+					heartBeatLock.signal();
 					return;
 				}
 				
@@ -1441,15 +1614,18 @@ public class MPJDaemon {
 			            logger.debug("write channel close, return");
 			        }
 					initLock.signal();
+					heartBeatLock.signal();
 					return;
 				}
 			}
 			
+			checkpointingProcessTable.put(ruid, 0);
 			processValidMap.put(ruid, false);
 			if (DEBUG && logger.isDebugEnabled()) {
 	            logger.debug("processValidMap size:" + processValidMap.size());
 	        }
 			initLock.signal();
+			heartBeatLock.signal();
 			
 		}
 
@@ -1499,8 +1675,18 @@ public class MPJDaemon {
 		@Override
 		public void run() {
 			if (DEBUG && logger.isDebugEnabled()) {
-	              logger.debug("start heart beat thread");
+				logger.debug("\n---Heartbeat Thread Start---");
 	        }
+			
+			try {
+				heartBeatBeginLock.acquire();
+			} catch (InterruptedException e1) {
+				e1.printStackTrace();
+				return;
+			}
+			heartBeatBeginLock.signal();
+			
+			
 			
 			while(!isFinished){
 				try {
@@ -1508,79 +1694,172 @@ public class MPJDaemon {
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					//if the lock is interrupted then exit the thread
-					break;
+					return;
 				}
 				
 				ByteBuffer buf = ByteBuffer.allocate(4);
 				buf.putInt(CHECK_VALID);
 				
-				
-				Iterator it = worldProcessTable.entrySet().iterator();
-				SocketChannel socketChannel = null;
-				while(it.hasNext()){
-					java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
-					UUID ruid = (UUID)entry.getKey();
-			    	if(processValidMap.get(ruid) == false)
-			    		continue;
-			    	
-			    	buf.flip();
-			    	socketChannel = (SocketChannel)entry.getValue();
-			    	
-			    	try {
-						if(socketChannel.write(buf) == -1){
-							throw new ClosedChannelException();
-						}
-					} catch (IOException e) {
+				synchronized (worldProcessTable) {
+					Iterator it = worldProcessTable.entrySet().iterator();
+					SocketChannel socketChannel = null;
+					
+					if (DEBUG && logger.isDebugEnabled()) {
+			              logger.debug("Heartbeat Thread");
+			              logger.debug("worldProcessTable size:" + worldProcessTable.size());
+			              
+			        }
+					while(it.hasNext()){
+						java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+						UUID ruid = (UUID)entry.getKey();
 						if (DEBUG && logger.isDebugEnabled()) {
-				              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host, exit heartbeat thread!");
+							logger.debug("processValidMap.get(uuid) " + processValidMap.get(ruid));				              
 				        }
 						
-						ByteBuffer msgBuffer = ByteBuffer.allocate(4);
-						msgBuffer.putInt(REQUEST_RESTART);
-						msgBuffer.flip();
-						while(msgBuffer.hasRemaining()){
-							try{
-								if(peerChannel.write(msgBuffer) == -1)
-									throw new ClosedChannelException();
+				    	if(processValidMap.get(ruid) == false)
+				    		continue;					    	
+				    	
+				    	buf.flip();
+				    	socketChannel = (SocketChannel)entry.getValue();
+				    	
+				    	try {
+							if(socketChannel.write(buf) == -1){
+								throw new ClosedChannelException();
 							}
-							catch(IOException ioe){
-								ioe.printStackTrace();
-								System.out.println("You should ensure the MPJRun host is running!");
+						} catch (IOException e) {
+							if (DEBUG && logger.isDebugEnabled()) {
+					              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
+					        }
+							
+							ByteBuffer msgBuffer = ByteBuffer.allocate(4);
+							msgBuffer.putInt(REQUEST_RESTART);
+							msgBuffer.flip();
+							while(msgBuffer.hasRemaining()){
+								try{
+									if(peerChannel.write(msgBuffer) == -1)
+										throw new ClosedChannelException();
+								}
+								catch(IOException ioe){
+									ioe.printStackTrace();
+									System.out.println("You should ensure the MPJRun host is running!");
+									if (DEBUG && logger.isDebugEnabled()) {
+							              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+							        }
+									
+									heartBeatLock.signal();									
+									return;
+								}
+							}
+							
+							isRestarting = true;
+							checkpointingProcessTable.clear();
+							heartBeatLock.signal();
+							if (DEBUG && logger.isDebugEnabled()) {
+					              logger.debug("after notify the MPJRun, exit heartbeat thread!");
+					        }
+							return;
+							
+						}
+				    	
+					}//end worldProcessTable iterator
+					
+					it = checkpointingProcessTable.entrySet().iterator();
+					while(it.hasNext()){
+						java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+						UUID ruid = (UUID)entry.getKey();
+						if(worldProcessTable.get(ruid) == null){
+							int t = (Integer) entry.getValue();
+							t++;
+							if(t == MAX_CHECKPOINT_INVALID_TIME){
+								
 								if (DEBUG && logger.isDebugEnabled()) {
-						              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+						              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
 						        }
 								
+								ByteBuffer msgBuffer = ByteBuffer.allocate(4);
+								msgBuffer.putInt(REQUEST_RESTART);
+								msgBuffer.flip();
+								while(msgBuffer.hasRemaining()){
+									try{
+										if(peerChannel.write(msgBuffer) == -1)
+											throw new ClosedChannelException();
+									}
+									catch(IOException ioe){
+										ioe.printStackTrace();
+										System.out.println("You should ensure the MPJRun host is running!");
+										if (DEBUG && logger.isDebugEnabled()) {
+								              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+								        }
+										
+										heartBeatLock.signal();
+										return;
+									}
+								}
+								
+								isRestarting = true;
+								checkpointingProcessTable.clear();
 								heartBeatLock.signal();
+								if (DEBUG && logger.isDebugEnabled()) {
+						              logger.debug("after notify the MPJRun, exit heartbeat thread!");
+						        }
 								return;
+								
+								
 							}
+							else{
+								checkpointingProcessTable.put(ruid, t);
+							}
+								
 						}
-						
-						heartBeatLock.signal();
-						if (DEBUG && logger.isDebugEnabled()) {
-				              logger.debug("after notify the MPJRun, exit heartbeat thread!");
-				        }
-						return;
-						
-					}
-			    	
-				}//end iterator
+					}//end checkpointingProcessTable iterator
+					
+				}//end syn
+				
+				
+				
+				
 
-			
+				heartBeatLock.signal();
 				try {
 					Thread.currentThread().sleep(5000);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
-				heartBeatLock.signal();
+				
 			
 			}//end while isFinished
 			
 			
 			if (DEBUG && logger.isDebugEnabled()) {
-	              logger.debug("exit heart beat thread");
+	              logger.debug("exit heartbeat thread");
 	        }
 		}//end run
 	};
+	
+	public static void copyFile(File sourceFile,File targetFile) 
+	throws IOException{
+        // buffer the input stream
+        FileInputStream input = new FileInputStream(sourceFile);
+        BufferedInputStream inBuff=new BufferedInputStream(input);
+ 
+        //buffer the output stream
+        FileOutputStream output = new FileOutputStream(targetFile);
+        BufferedOutputStream outBuff=new BufferedOutputStream(output);
+        
+        //buffer array
+        byte[] b = new byte[1024 * 5];
+        int len;
+        while ((len =inBuff.read(b)) != -1) {
+            outBuff.write(b, 0, len);
+        }
+        
+        outBuff.flush();
+        
+        inBuff.close();
+        outBuff.close();
+        output.close();
+        input.close();
+    } 
 }
 
 class OutputHandler extends Thread { 
