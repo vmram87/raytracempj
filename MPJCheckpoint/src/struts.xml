@@ -18,6 +18,10 @@
 			<result name="success">/index.jsp</result>
 		</action>
 		
+		<action name="kill" class="org.qing.action.StartAction" method="kill">
+			<result name="success">/index.jsp</result>
+		</action>
+		
 	</package>
 
 </struts>

@@ -13,6 +13,10 @@
 			<p>Input the arguments:<input type="text" style="width:300px" name="args" value="${args }"></input></p>
 			<p><input type="submit"></input></p>
 		</form>
+		
+		<form action="kill.action" method="post">
+			<p><input type="submit" value="kill"></input></p>
+		</form>
 		 
 	</p>
 </body>

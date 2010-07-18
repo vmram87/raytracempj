@@ -1016,12 +1016,183 @@ public class MPJRun {
 		else{
 			int divisor = nprocs / machineVector.size();
 			int remainder = nprocs % machineVector.size();
+			int numofProcess = divisor;
 			
+			for(int i = 0; i < machineVector.size() && contextList.size() > 0; i++){
+				numofProcess = divisor;
+				if(i < remainder)
+					numofProcess++;
+				
+				Map map = machnineProcessMap.get(machineVector.get(i));
+				int k = 0;
+				while(map.size() < numofProcess){
+					if(map.get(contextList.get(k).getProcessId()) == null){
+						map.put(contextList.get(k).getProcessId(), contextList.get(k));
+						contextList.remove(k);
+						k = 0;
+					}
+					else{
+						k++;
+					}
+					
+					if(k >= contextList.size())
+						break;
+				}// end of while
+			}// end of for
+		}
+		
+		try{
+			assignRestartTaskAndSendCommand();
+		}
+		catch(Exception e){
+			e.printStackTrace();
+			return false;
 		}
 		
 	  
 		return true;
 		
+	}
+
+	private void assignRestartTaskAndSendCommand() throws Exception {
+		PrintStream cout = null;
+	    int rank = 0;
+	    String name = null;
+	    int port = MPJ_SERVER_PORT;
+
+	    try {
+	      cfos = new FileOutputStream(CONF_FILE);
+	    }
+	    catch (FileNotFoundException fnfe) {}
+
+	    cout = new PrintStream(cfos);
+	    int noOfMachines = machineVector.size();
+	    cout.println("# Number of Processes");
+	    cout.println(nprocs);
+	    cout.println("# Protocol Switch Limit");
+	    cout.println(psl);
+	    cout.println("# Entry, HOST_NAME/IP@SERVERPORT@RANK");
+	    
+	    //have to modify later!!!!!
+	    cout.println(checkpointHost + "$" + checkpointPort + "$0");
+
+	    if (nprocs <= noOfMachines) {
+
+	      if(DEBUG && logger.isDebugEnabled()) { 
+	        logger.debug("Processes Requested " + nprocs +
+	                  " are less than than machines " + noOfMachines);
+	        logger.debug("Adding 1 processes to the first " + nprocs +
+	                  " items");
+	      }
+
+	      for (int i = 0; i < nprocs; i++) {
+		        procsPerMachineTable.put( (String) machineVector.get(i),
+		                                 new Integer(1));
+			 
+				if(deviceName.equals("niodev")) { 
+			          cout.println(name + "@" + port +
+			                       "@" + (rank++));
+			          port += 2;
+				} else if(deviceName.equals("mxdev")) { 
+			          cout.println(name + "@" + mxBoardNum+
+			                       "@" + (rank++));
+				} 
+				
+				
+			        if(DEBUG && logger.isDebugEnabled()) { 
+			          logger.debug("procPerMachineTable==>" + procsPerMachineTable);
+				}
+	
+		   }
+
+	    }
+	    else {
+		//System.out.println(nprocs);
+		//System.out.println();
+	     if(DEBUG && logger.isDebugEnabled())
+		 {
+	      logger.debug("Processes Requested " + nprocs +
+	                  " are greater than than machines " + noOfMachines);
+	     }
+		  
+	      for (int i = 0; i < noOfMachines; i++) {
+
+		  
+	          name=(String)machineVector.get(i);
+	          Map map = machnineProcessMap.get(name);
+
+	          Iterator it = map.entrySet().iterator();
+	          while(it.hasNext()){
+	        	  java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+	        	  Context c = (Context)entry.getValue();
+	        	  
+	        	  if(deviceName.equals("niodev")) { 		  
+		              cout.println( name + "@" +
+		                           port + "@" + (c.getRank()));
+		              port += 2;
+				  } 
+	        	  
+	          }//end of while
+	            
+		     }//end for
+			  
+		}// end else
+
+	    cout.close(); 
+	    cfos.close(); 
+	    
+	    
+	    Iterator it = machnineProcessMap.entrySet().iterator();
+        while(it.hasNext()){
+        	java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+        	
+        	String daemon = (String)entry.getKey();
+        	Map map = (Map) entry.getValue();
+        	if(map.size() == 0)
+        		continue;
+        	
+        	buffer.clear();
+        	buffer.put("rst-".getBytes());
+        	buffer.put("num-".getBytes());
+        	//write 4 just for test in the daemon side
+        	buffer.putInt(4);
+        	buffer.putInt(map.size());
+        	buffer.put("arg-".getBytes());
+        	
+        	//arg length is mean: for every rank, send the contextfilepath and 
+        	//tempfilepath for the arg
+        	buffer.putInt(map.size()*2);
+        	
+        	Iterator mIt = map.entrySet().iterator();
+        	while(mIt.hasNext()){
+        		java.util.Map.Entry mEntry = (java.util.Map.Entry)mIt.next();
+        		
+        		Context c = (Context) mEntry.getValue();
+        		buffer.putInt(c.getContextFilePath().getBytes().length);
+        		buffer.put(c.getContextFilePath().getBytes(), 0, 
+        				c.getContextFilePath().getBytes().length);
+        		
+        		buffer.putInt(c.getTempFilePath().getBytes().length);
+        		buffer.put(c.getTempFilePath().getBytes(), 0, 
+        				c.getTempFilePath().getBytes().length);
+        		
+        	}
+        	
+        	
+        	
+        	buffer.put("*GO*".getBytes(), 0, "*GO*".getBytes().length);    
+
+            buffer.flip();
+        	
+            SocketChannel channel = machineChannelMap.get(daemon);
+            while(buffer.hasRemaining()){
+            	if(channel.write(buffer) == -1){
+            		throw new ClosedChannelException();
+            	}            	
+            }
+        	
+        }
+	    
 	}
 
 private boolean restartFromBegining() {
@@ -1823,4 +1994,31 @@ if(DEBUG && logger.isDebugEnabled())
 		    }
 		    
 		  }
+
+	public void killProccesses() {
+		
+		try {
+			for (int j = 0; j < peerChannels.size(); j++) {
+	            SocketChannel socketChannel = null;
+	            socketChannel = peerChannels.get(j);
+	            buffer.clear();
+	            buffer.put( (new String("kill")).getBytes());
+	            buffer.flip();
+	            socketChannel.write(buffer);
+	            buffer.clear();
+	        }
+	          
+	          buffer.putInt(REQUEST_RESTART);
+	          buffer.flip();
+	          checkpiontChannel.write(buffer);
+	          buffer.clear();
+	          
+	          cfos.close();
+	     }
+	     catch(Exception e){
+	     }
+	        
+		this.Notify();
+		
+	}
 }
