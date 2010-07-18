@@ -124,6 +124,8 @@ public class ServerThread {
 	
 	  private final int MORE_TO_READ = -84;
 	  
+	  private final int REQUEST_RESTART = -70;
+	  
 	
 	Vector<SocketChannel> writableChannels = new Vector<SocketChannel> ();
 	Vector<SocketChannel> tempWritableChannels = new Vector<SocketChannel> ();
@@ -176,11 +178,13 @@ public class ServerThread {
 				  "yyyy-MM-dd-HH" );
 		  
 		  Logger rootLogger = Logger.getRootLogger() ;
-		  rootLogger.addAppender( fileAppender);
-		  LoggerRepository rep =  rootLogger.getLoggerRepository() ;
-		  rootLogger.setLevel ((Level) Level.ALL );
+		  //rootLogger.addAppender( fileAppender);
+		 // LoggerRepository rep =  rootLogger.getLoggerRepository() ;
+		  //rootLogger.setLevel ((Level) Level.ALL );
 		  //rep.setThreshold((Level) Level.OFF ) ;
 		  logger = Logger.getLogger( "cpServer" );  
+		  logger.addAppender(fileAppender);
+		  logger.setLevel(Level.ALL);
 	        }
 	        catch(Exception e) {
 	          throw new Exception(e) ;
@@ -329,6 +333,7 @@ public class ServerThread {
 	      SocketChannel socketChannel = null;
 	      int tempRead = 0, read = 0, shutdownCounter = 0;
 	      int header = 0;
+	      Thread renewThreadStarter = null;
 	      //long strt = 0L, stop = 0L, intv = 0L ;
 
 	      try {
@@ -376,7 +381,8 @@ public class ServerThread {
             		  worldWritableTable.clear();
             		  initializing = true;
             		  
-            		  (new Thread(renewThread)).start();
+            		  renewThreadStarter=new Thread(renewThread);
+            		  renewThreadStarter.start();
             	  }
 	              
 	              if (sChannel.socket().getLocalPort() == my_server_port) {
@@ -467,6 +473,13 @@ public class ServerThread {
 	                      realFinish((SocketChannel) keyChannel);
 
 	                      break;
+	                      
+	                  case REQUEST_RESTART:
+	                	  if(renewThreadStarter.getState().equals(Thread.State.BLOCKED));
+	                	 		renewThreadStarter.interrupt();
+	                	 		
+	                	  initializing = false;
+	                	  break;
 	                    
 	                  case END_APP:
 	                	  clearContextFileAndDatabase();
@@ -513,6 +526,8 @@ public class ServerThread {
 				initLock.acquire();
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
+				initializing = false;
+				return;
 			}
 			
 			if (DEBUG && logger.isDebugEnabled()) {
@@ -527,6 +542,9 @@ public class ServerThread {
 		        }
 		        catch (Exception e) {
 		          e.printStackTrace();
+		          initLock.signal();
+		          initializing = false;
+		          return;
 		        }
 		      }
 
@@ -545,6 +563,9 @@ public class ServerThread {
 		        }
 		        catch (Exception e) {
 		        	e.printStackTrace();
+		        	initLock.signal();
+		        	initializing = false;
+			          return;
 		        }
 		      }
 
@@ -575,6 +596,9 @@ public class ServerThread {
 		        }
 		        catch (Exception e) {
 		          e.printStackTrace();
+		          initLock.signal();
+		          initializing = false;
+		          return;
 		        }
 		      }
 		    } //end sync
@@ -590,6 +614,9 @@ public class ServerThread {
 		      }
 		      catch (Exception xde) {
 		    	  xde.printStackTrace();
+		    	  initLock.signal();
+		    	  initializing = false;
+		          return;
 		      }
 		    }
 		    
@@ -601,6 +628,9 @@ public class ServerThread {
 		        }
 		        catch (Exception e) {
 		        	e.printStackTrace();
+		        	initLock.signal();
+		        	initializing = false;
+			          return;
 		        }
 		      }
 		    } //end sync
@@ -667,6 +697,10 @@ public class ServerThread {
 		long msb = exitBuffer.getLong();
 		long lsb = exitBuffer.getLong();
 		UUID ruid = new UUID(msb, lsb);
+		
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("send exit ack back to rank<" + rank + ">");
+        }
 	  	
 		ByteBuffer askBuffer = ByteBuffer.allocate(4);
 		askBuffer.putInt(CPSERVER_EXIT_ACK);
@@ -918,19 +952,23 @@ public class ServerThread {
 	  private void clearContextFileAndDatabase() {
 			ContextDao dao = ContextFactory.getContextDao();
 			Integer latestVer = dao.getLatestVersionId();
-			List contextList = dao.getAllPrevContextsByVersion(latestVer + 1 );
-			  for(int i = 0; i < contextList.size(); i++){
-				  Context c = (Context)contextList.get(i);
-				  File file = new File(c.getContextFilePath());
-				  if(file.exists())
-					  file.delete();
+			if(latestVer != null){
+				List contextList = dao.getAllPrevContextsByVersion(latestVer + 1 );
+				if(contextList != null){
+				  for(int i = 0; i < contextList.size(); i++){
+					  Context c = (Context)contextList.get(i);
+					  File file = new File(c.getContextFilePath());
+					  if(file.exists())
+						  file.delete();
+					  
+					  file = new File(c.getTempFilePath());
+					  if(file.exists())
+						  file.delete();
+				  }
 				  
-				  file = new File(c.getTempFilePath());
-				  if(file.exists())
-					  file.delete();
-			  }
-			  
-			  dao.delAllPrevContextsByVersion(latestVer + 1);				
+				  dao.delAllPrevContextsByVersion(latestVer + 1);	
+				}
+			}
 		
 	  }
 
