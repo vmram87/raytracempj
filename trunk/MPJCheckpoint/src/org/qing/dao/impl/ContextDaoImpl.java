@@ -47,7 +47,7 @@ public class ContextDaoImpl extends HibernateDaoSupport implements ContextDao {
 
 	@Override
 	public List<Context> getContextsByVersion(int versionId) {
-		return getHibernateTemplate().find("from Context c where c.versionId=?",versionId);
+		return getHibernateTemplate().find("from Context c where c.versionId=? order by c.rank asc",versionId);
 	}
 
 	@Override

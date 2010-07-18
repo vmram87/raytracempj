@@ -149,6 +149,8 @@ public class MPJRun {
   private boolean isRestarting = false;
   private CustomSemaphore initLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
+  
+  private HashMap<String,HashMap<Integer,Context>> machnineProcessMap = new HashMap<String,HashMap<Integer,Context>>();
 
   /**
    * Every thing is being inside this constructor :-)
@@ -999,7 +1001,23 @@ public class MPJRun {
 			contextList = mgr.getContextsByVersion(ver);				
 		}
 		
+		machnineProcessMap.clear();
+		for(int i = 0; i < machineVector.size(); i++){
+			HashMap<Integer, Context> map = new HashMap<Integer, Context>();
+			machnineProcessMap.put((String) machineVector.get(i), map);
+		}
 		
+		if(nprocs <= machineVector.size()){
+			for(int i=0; i<nprocs; i++){
+				Map map = machnineProcessMap.get(machineVector.get(i));
+				map.put(contextList.get(i).getProcessId(), contextList.get(i));
+			}
+		}		
+		else{
+			int divisor = nprocs / machineVector.size();
+			int remainder = nprocs % machineVector.size();
+			
+		}
 		
 	  
 		return true;
