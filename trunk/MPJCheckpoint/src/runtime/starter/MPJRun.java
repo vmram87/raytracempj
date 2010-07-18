@@ -36,24 +36,46 @@
 
 package runtime.starter;
 
-import java.nio.channels.*;
-import java.nio.*;
-import java.net.*;
-import java.io.*;
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.net.InetAddress;
+import java.net.InetSocketAddress;
+import java.net.UnknownHostException;
+import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.NoConnectionPendingException;
+import java.nio.channels.SelectableChannel;
+import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
+import java.nio.channels.SocketChannel;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Hashtable;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Vector;
+import java.util.jar.Attributes;
+import java.util.jar.JarFile;
 
-import org.apache.log4j.Logger ;
-import org.apache.log4j.PropertyConfigurator ;
-import org.apache.log4j.PatternLayout ;
-import org.apache.log4j.FileAppender ;
-import org.apache.log4j.Level ;
-import org.apache.log4j.DailyRollingFileAppender ;
-import org.apache.log4j.spi.LoggerRepository ;
+import org.apache.log4j.DailyRollingFileAppender;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
+import org.qing.object.Context;
+import org.qing.service.ContextManager;
+import org.qing.service.SpringContextUtil;
 
-import java.util.jar.Attributes ;
-import java.util.jar.JarFile ;
-
-import runtime.MPJRuntimeException ;
+import runtime.MPJRuntimeException;
 
 public class MPJRun {
 
@@ -124,6 +146,7 @@ public class MPJRun {
   
   
   private boolean isFinished = false;
+  private boolean isRestarting = false;
   private CustomSemaphore initLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
 
@@ -160,51 +183,56 @@ public class MPJRun {
   }
   
   public void start() throws Exception{
+	  
+	  if(isRestarting == false){
 
-    if(deviceName.equals("multicore")) {
-       
-      System.out.println("MPJ Express ("+VERSION+") is started in the "+
-                                              "multicore configuration"); 
-      if(DEBUG && logger.isDebugEnabled()) {
-        logger.info("className "+className) ; 
-      }
-
-//applicationClassPathEntry 
-//className 
-
-      int jarOrClass = (applicationClassPathEntry.endsWith(".jar")?
-                                  RUNNING_JAR_FILE:RUNNING_CLASS_FILE);
-       
-      //System.out.println("codeBase"+codeBase) ; 
-      MulticoreDaemon multicoreDaemon =
-          new MulticoreDaemon(className, applicationClassPathEntry, jarOrClass, 
-	                           nprocs, wdir, jvmArgs, appArgs) ;
-      return ;
-
-    }
-    else { 
-      System.out.println("MPJ Express ("+VERSION+") is started in the "+
-                                              "cluster configuration"); 
-    }
+	    if(deviceName.equals("multicore")) {
+	       
+	      System.out.println("MPJ Express ("+VERSION+") is started in the "+
+	                                              "multicore configuration"); 
+	      if(DEBUG && logger.isDebugEnabled()) {
+	        logger.info("className "+className) ; 
+	      }
+	
+	//applicationClassPathEntry 
+	//className 
+	
+	      int jarOrClass = (applicationClassPathEntry.endsWith(".jar")?
+	                                  RUNNING_JAR_FILE:RUNNING_CLASS_FILE);
+	       
+	      //System.out.println("codeBase"+codeBase) ; 
+	      MulticoreDaemon multicoreDaemon =
+	          new MulticoreDaemon(className, applicationClassPathEntry, jarOrClass, 
+		                           nprocs, wdir, jvmArgs, appArgs) ;
+	      return ;
+	
+	    }
+	    else { 
+	      System.out.println("MPJ Express ("+VERSION+") is started in the "+
+	                                              "cluster configuration"); 
+	    }
 
     //System.exit(0) ; 
-    readMachineFile();
-    machinesSanityCheck() ;
+    
+	    readMachineFile();
+	    machinesSanityCheck() ;
+    
 	    
-    File mpjDirectory = new File ( System.getProperty("user.home")
-                                               + File.separator
-                                               + MPJ_DIR_NAME ) ;
-
-    if(!mpjDirectory.isDirectory() && !mpjDirectory.exists()) {
-      mpjDirectory.mkdir();
-    }
-
-    configFileName = mpjHomeDir 
-                                     + File.separator
-                                     + MPJ_DIR_NAME
-                                     + File.separator
-                                     + CONF_FILE_NAME  ;
-
+	    File mpjDirectory = new File ( System.getProperty("user.home")
+	                                               + File.separator
+	                                               + MPJ_DIR_NAME ) ;
+	
+	    if(!mpjDirectory.isDirectory() && !mpjDirectory.exists()) {
+	      mpjDirectory.mkdir();
+	    }
+	
+	    configFileName = mpjHomeDir 
+	                                     + File.separator
+	                                     + MPJ_DIR_NAME
+	                                     + File.separator
+	                                     + CONF_FILE_NAME  ;
+	}// end of if isRestarting == false
+	  
     CONF_FILE = new File(configFileName) ; 
 
     CONF_FILE.createNewFile() ; 
@@ -214,8 +242,11 @@ public class MPJRun {
     if(DEBUG && logger.isDebugEnabled()) { 
       logger.debug("CONF_FILE_PATH <"+CONF_FILE.getAbsolutePath()+">");
     }
+	  
 
     assignTasks();
+    
+    if(isRestarting == false){
 
     try {
 
@@ -226,42 +257,46 @@ public class MPJRun {
         hostIP = localaddr.getHostAddress(); 
 
       if(DEBUG && logger.isDebugEnabled()) {
-	logger.debug("Address: " + localaddr);
-	logger.debug("Name   : " + hostName );
-      }
+		logger.debug("Address: " + localaddr);
+		logger.debug("Name   : " + hostName );
+	      }
+	
+	    }
+	    catch (UnknownHostException unkhe) {
+	      throw new MPJRuntimeException(unkhe);  
+	    }
+	
+	    urlArray = applicationClassPathEntry.getBytes();
 
-    }
-    catch (UnknownHostException unkhe) {
-      throw new MPJRuntimeException(unkhe);  
-    }
+    
+    	peerChannels = new Vector<SocketChannel>();
 
-    urlArray = applicationClassPathEntry.getBytes();
+    	selector = Selector.open();
+    
 
-    peerChannels = new Vector<SocketChannel>();
-
-    selector = Selector.open();
-
-    clientSocketInit();
-
-    //System.out.println("going to sleep") ; 
-    //try { Thread.currentThread().sleep(10000) ; } catch(Exception e) {}
-    //System.out.println("sleep over") ; 
-    //System.exit(0) ; 
-
-    //startHttpServer();
-
-    selectorThreadStarter = new Thread(selectorThread);
-
-    if(DEBUG && logger.isDebugEnabled()) {
-      logger.debug("Starting the selector thread ");
-    }
-
-    selectorThreadStarter.start();
-
-    /* 
-     * wait till this client has connected to all daemons
-     */
-    Wait();
+	    clientSocketInit();
+	
+	    //System.out.println("going to sleep") ; 
+	    //try { Thread.currentThread().sleep(10000) ; } catch(Exception e) {}
+	    //System.out.println("sleep over") ; 
+	    //System.exit(0) ; 
+	
+	    //startHttpServer();
+	
+	    selectorThreadStarter = new Thread(selectorThread);
+	
+	    if(DEBUG && logger.isDebugEnabled()) {
+	      logger.debug("Starting the selector thread ");
+	    }
+	
+	    selectorThreadStarter.start();
+	
+	    /* 
+	     * wait till this client has connected to all daemons
+	     */
+	    Wait();
+    
+    }// end of if isRestarting == false
 
     buffer.clear();
 
@@ -320,16 +355,19 @@ public class MPJRun {
       logger.debug("procsPerMachineTable " + procsPerMachineTable);
     }
 
-    addShutdownHook();
+    if(isRestarting == false){
+	    addShutdownHook();
+	
+	    /* 
+	     * waiting to get the answer from the daemons that the job has finished.
+	     */ 
+	    Wait();
+	    
+	    if(DEBUG && logger.isDebugEnabled())
+	    	logger.debug("Calling the finish method now");
 
-    /* 
-     * waiting to get the answer from the daemons that the job has finished.
-     */ 
-    Wait();
-if(DEBUG && logger.isDebugEnabled())
-    logger.debug("Calling the finish method now");
-
-    this.finish();
+	    this.finish();
+    }// end of if isRestarting == false
 
   }
 	  
@@ -447,11 +485,15 @@ if(DEBUG && logger.isDebugEnabled())
 			    "yyyy-MM-dd-a" );
 
 	Logger rootLogger = Logger.getRootLogger() ;
-	rootLogger.addAppender( fileAppender);
-	LoggerRepository rep =  rootLogger.getLoggerRepository() ;
-	rootLogger.setLevel ((Level) Level.ALL );
+	//rootLogger.addAppender( fileAppender);
+	//LoggerRepository rep =  rootLogger.getLoggerRepository() ;
+	//rootLogger.setLevel ((Level) Level.ALL );
 	//rep.setThreshold((Level) Level.OFF ) ;
+	
 	logger = Logger.getLogger( "runtime" );
+	logger.setAdditivity(false);
+	logger.setLevel(Level.ALL);
+	logger.addAppender(fileAppender);
       }
       catch(Exception e) {
 	throw new MPJRuntimeException(e) ;
@@ -841,14 +883,25 @@ if(DEBUG && logger.isDebugEnabled())
   
   //assign tasks after restart
   private void restartTasks() throws Exception {
+	  	if(DEBUG && logger.isDebugEnabled())
+		{
+			logger.debug("--do restart--");
+		}
 		boolean finished = false;
 		while(!finished){
+			
+			if(DEBUG && logger.isDebugEnabled())
+			{
+				logger.debug("--do restart while--");
+			}
+			
 			ByteBuffer killMsg = ByteBuffer.allocate(4);
 			killMsg.put("kill".getBytes());
 				
 		    SocketChannel socketChannel = null;
 		    machineVector.clear();
 		    machineConnectedMap.clear();
+		    peerChannels.clear();
 		    readMachineFile();
 		    ArrayList<String> validMachines = new ArrayList<String>();
 		    
@@ -886,10 +939,16 @@ if(DEBUG && logger.isDebugEnabled())
 		    		if(s == 4){
 		    			machineConnectedMap.put(daemon, true);
 		    			validMachines.add(daemon);	
+		    			peerChannels.add(socketChannel);
 		    		}
 		    		
 		    	}
 		    }
+		    
+		    if(DEBUG && logger.isDebugEnabled())
+			{
+				logger.debug("--after sending the kill to live daemon and getting the valid daemon--");
+			}
 		    
 		    
 		    finished  = assignRestartTasks(validMachines);
@@ -900,13 +959,75 @@ if(DEBUG && logger.isDebugEnabled())
   }
   
 
-  private boolean assignRestartTasks(ArrayList<String> validMachines) {
-	    
-		//access database
+  private boolean assignRestartTasks(ArrayList<String> validMachines) throws Exception {
+	  	if(DEBUG && logger.isDebugEnabled())
+		{
+			logger.debug("send REQUEST_RESTART to checkpoint server");
+		}
 	  
-	  return true;
+		ByteBuffer restartMsg = ByteBuffer.allocate(4);
+		restartMsg.putInt(REQUEST_RESTART);
+		restartMsg.flip();
+		while(restartMsg.hasRemaining()){
+			try{
+				if(checkpiontChannel.write(restartMsg) == -1)
+					throw new ClosedChannelException();
+			}
+			catch(IOException e){
+				e.printStackTrace();
+				if(DEBUG && logger.isDebugEnabled())
+				{
+					logger.debug("checkpoint server channel close!");
+				}
+				break;
+			}			
+		}
+		
+		//find the latest complete version
+		ContextManager mgr = (ContextManager)SpringContextUtil.getBean("mgr");
+		Integer ver = mgr.getLatestVersionId();
+		
+		if(ver == null){
+			return restartFromBegining();
+		}
+		
+		List<Context> contextList = mgr.getContextsByVersion(ver);
+		while(contextList.size()!=nprocs){
+			ver = mgr.getNextLatestVersionId(ver);
+			if(ver == null)
+				return restartFromBegining();
+			contextList = mgr.getContextsByVersion(ver);				
+		}
+		
+		
+		
+	  
+		return true;
 		
 	}
+
+private boolean restartFromBegining() {
+	if(DEBUG && logger.isDebugEnabled())
+	{
+		logger.debug("restart from beginning");
+	}
+
+	try{
+		ContextManager mgr = (ContextManager)SpringContextUtil.getBean("mgr");
+		Integer ver = mgr.getLatestVersionId();
+		if(ver != null)
+			mgr.delAllPrevContextsByVersion(ver + 1);
+		
+		isRestarting = true;
+		this.start();
+	}catch(Exception e){
+		isRestarting = false;
+		return false;
+	}
+	
+	isRestarting = false;
+	return true;
+}
 
 private void machinesSanityCheck() throws Exception {
 	  
@@ -1442,7 +1563,7 @@ if(DEBUG && logger.isDebugEnabled())
 
               switch(read){
               	case END_OF_STREAM:
-              		if((Boolean)(machineConnectedMap.get(ias.getHostName()))==true){
+              		//if((Boolean)(machineConnectedMap.get(ias.getHostName()))==true){
                 		if(DEBUG && logger.isDebugEnabled())
             				logger.debug("END_OF_STREAM signal at starter from "+
                                          "channel "+socketChannel) ;  
@@ -1463,7 +1584,7 @@ if(DEBUG && logger.isDebugEnabled())
             				Notify();
                         }
                         */
-                	}
+                	//}
               		
               		break;
               		
