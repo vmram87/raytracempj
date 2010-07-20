@@ -1152,7 +1152,9 @@ public class MPJRun {
         		continue;
         	
         	buffer.clear();
-        	buffer.put("rst-".getBytes());
+        	//have to be 8 characters for the daemon to read
+        	buffer.put("rst-args".getBytes());
+        	
         	buffer.put("num-".getBytes());
         	//write 4 just for test in the daemon side
         	buffer.putInt(4);

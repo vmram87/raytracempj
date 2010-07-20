@@ -69,6 +69,7 @@ public class ContextManagerImpl implements ContextManager {
 
 	@Override
 	public void killProccesses() throws Exception {
+		delAllPrevContextsByVersion(getLatestVersionId()+1);
 		client.killProccesses();
 		
 	}
