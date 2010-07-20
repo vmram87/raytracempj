@@ -86,6 +86,7 @@ public class MPJDaemon {
   private ArrayList<String> jvmArgs = new ArrayList<String>();
   private ArrayList<String> appArgs = new ArrayList<String>();
   private int processes = 0;
+  private int nprocs = 0;
   private String cmd = null;
   private Process p[] = null ; 
   static Logger logger = null ; 
@@ -215,7 +216,7 @@ public class MPJDaemon {
 
       OutputHandler [] outputThreads = new OutputHandler[processes] ;  
       p = new Process[processes];  
-      pids = new UUID[processes];
+      pids = new UUID[nprocs];
 
       for (int j = 0; j < processes; j++) {
 
@@ -1169,6 +1170,18 @@ private void restoreVariables() {
 		}
                 lilBuffer2.clear();
               }
+              
+              else if (read.equals("nps-")) {
+                  if(DEBUG && logger.isDebugEnabled()) { 
+                    logger.debug ("nps-");
+  		}
+                  nprocs = lilBuffer.getInt();
+                  if(DEBUG && logger.isDebugEnabled()) { 
+                    logger.debug ("nprocs -->" + nprocs);
+  		}
+                 
+                }
+
 
               else if (read.equals("arg-")) {
                 if(DEBUG && logger.isDebugEnabled()) { 
