@@ -67,6 +67,8 @@ import java.util.Vector;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 
+import javax.jws.soap.SOAPBinding.Use;
+
 import org.apache.log4j.DailyRollingFileAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
@@ -81,6 +83,7 @@ public class MPJRun {
 
   public static String CONF_FILE_NAME = "mpjdev.conf" ;
   public static String MPJ_DIR_NAME = ".mpj" ;
+  private String USER_DIR = "user-folder";
 
   String configFileName = null ; 
 
@@ -88,6 +91,7 @@ public class MPJRun {
   private static int mxBoardNum = 0 ; 
   private static int D_SER_PORT = getPortFromWrapper() ;
   private static int endPointID = 0 ;
+  private int CHECKPOINT_INTERVAL = 20000; //the default checkpoint interval is 20s
 
   int S_PORT = 15000; 
   String machinesFile = "machines" ; 
@@ -151,6 +155,7 @@ public class MPJRun {
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
   
   private HashMap<String,HashMap<Integer,Context>> machnineProcessMap = new HashMap<String,HashMap<Integer,Context>>();
+  private Thread heartbeatThreadStarter = null;
 
   /**
    * Every thing is being inside this constructor :-)
@@ -297,6 +302,9 @@ public class MPJRun {
 	     * wait till this client has connected to all daemons
 	     */
 	    Wait();
+	    
+	    heartbeatThreadStarter  = new Thread(heartBeatThread);
+	    heartbeatThreadStarter.start();
     
     }// end of if isRestarting == false
 
@@ -440,7 +448,7 @@ public class MPJRun {
     }
 
     if(wdir == null) { 
-      wdir = System.getProperty("user.dir") ;
+      wdir = mpjHomeDir + File.separator + USER_DIR + File.separator;
     }
 
     buffer.put("wdr-".getBytes());
@@ -624,7 +632,8 @@ public class MPJRun {
 	String absJarPath = tFile.getAbsolutePath();
 	
 	if(tFile.exists()) {
-          applicationClassPathEntry = new String(absJarPath) ; 
+          applicationClassPathEntry = new String(mpjHomeDir + File.separator +
+        		   USER_DIR + File.separator + absJarPath) ; 
 
           try { 
             JarFile jarFile = new JarFile(absJarPath) ;
@@ -653,7 +662,7 @@ public class MPJRun {
           else {
             //This code takes care of executing class files directly ....
             //although does not look like it ....
-            applicationClassPathEntry = System.getProperty("user.dir");	      
+            applicationClassPathEntry = mpjHomeDir + File.separator + USER_DIR + File.separator;	      
  	    className = args[i];
 	    parallelProgramNotYetEncountered = false ; 
           }
@@ -890,73 +899,75 @@ public class MPJRun {
 			logger.debug("--do restart--");
 		}
 		boolean finished = false;
-		while(!finished){
-			
-			if(DEBUG && logger.isDebugEnabled())
-			{
-				logger.debug("--do restart while--");
-			}
-			
-			ByteBuffer killMsg = ByteBuffer.allocate(4);
-			killMsg.put("kill".getBytes());
+		synchronized (peerChannels) {
+			while(!finished){
 				
-		    SocketChannel socketChannel = null;
-		    machineVector.clear();
-		    machineConnectedMap.clear();
-		    peerChannels.clear();
-		    readMachineFile();
-		    ArrayList<String> validMachines = new ArrayList<String>();
-		    
-		    for(int i = 0; i < machineVector.size(); i++){
-		    	String daemon = (String) machineVector.get(i);
-		    	socketChannel = machineChannelMap.get(daemon);
-		    	if(socketChannel == null || !(socketChannel.isOpen() && socketChannel.isConnected())){
-		    		socketChannel = SocketChannel.open();
-		    		socketChannel.configureBlocking(true);
-		    		
-		    		if(true == socketChannel.connect(new InetSocketAddress(daemon, D_SER_PORT))){
-		    			doConnect(socketChannel, true);
-		    			machineConnectedMap.put(daemon, true);
-		    			machineChannelMap.put(daemon, socketChannel);
-		    			validMachines.add(daemon);
-		    		}else if(machineChannelMap.get(daemon) != null){
-		    			machineChannelMap.remove(daemon);
-		    		}
-		    	}
-		    	else{
-		    		killMsg.flip();
-		    		int s = 0;
-		    		int w = 0;
-		    		while(killMsg.hasRemaining()){
-		    			try{
-		    				if((w = socketChannel.write(killMsg)) == -1)
-		    					throw new ClosedChannelException();
-		    			}
-		    			catch(IOException e){
-		    				machineChannelMap.remove(daemon);
-		    				break;
-		    			}	    
-		    			s += w;
-		    		}
-		    		if(s == 4){
-		    			machineConnectedMap.put(daemon, true);
-		    			validMachines.add(daemon);	
-		    			peerChannels.add(socketChannel);
-		    		}
-		    		
-		    	}
-		    }
-		    
-		    if(DEBUG && logger.isDebugEnabled())
-			{
-				logger.debug("--after sending the kill to live daemon and getting the valid daemon--");
-			}
-		    
-		    
-		    finished  = assignRestartTasks(validMachines);
-		    
-		    
-		}
+				if(DEBUG && logger.isDebugEnabled())
+				{
+					logger.debug("--do restart while--");
+				}
+				
+				ByteBuffer killMsg = ByteBuffer.allocate(4);
+				killMsg.put("kill".getBytes());
+					
+			    SocketChannel socketChannel = null;
+			    machineVector.clear();
+			    machineConnectedMap.clear();
+			    peerChannels.clear();
+			    readMachineFile();
+			    ArrayList<String> validMachines = new ArrayList<String>();
+			    
+			    for(int i = 0; i < machineVector.size(); i++){
+			    	String daemon = (String) machineVector.get(i);
+			    	socketChannel = machineChannelMap.get(daemon);
+			    	if(socketChannel == null || !(socketChannel.isOpen() && socketChannel.isConnected())){
+			    		socketChannel = SocketChannel.open();
+			    		socketChannel.configureBlocking(true);
+			    		
+			    		if(true == socketChannel.connect(new InetSocketAddress(daemon, D_SER_PORT))){
+			    			doConnect(socketChannel, true);
+			    			machineConnectedMap.put(daemon, true);
+			    			machineChannelMap.put(daemon, socketChannel);
+			    			validMachines.add(daemon);
+			    		}else if(machineChannelMap.get(daemon) != null){
+			    			machineChannelMap.remove(daemon);
+			    		}
+			    	}
+			    	else{
+			    		killMsg.flip();
+			    		int s = 0;
+			    		int w = 0;
+			    		while(killMsg.hasRemaining()){
+			    			try{
+			    				if((w = socketChannel.write(killMsg)) == -1)
+			    					throw new ClosedChannelException();
+			    			}
+			    			catch(IOException e){
+			    				machineChannelMap.remove(daemon);
+			    				break;
+			    			}	    
+			    			s += w;
+			    		}
+			    		if(s == 4){
+			    			machineConnectedMap.put(daemon, true);
+			    			validMachines.add(daemon);	
+			    			peerChannels.add(socketChannel);
+			    		}
+			    		
+			    	}
+			    }
+			    
+			    if(DEBUG && logger.isDebugEnabled())
+				{
+					logger.debug("--after sending the kill to live daemon and getting the valid daemon--");
+				}
+			    
+			    
+			    finished  = assignRestartTasks(validMachines);
+			    
+			    
+			}// end of while
+		}// end syn
 		
   }
   
@@ -1242,9 +1253,10 @@ private void machinesSanityCheck() throws Exception {
     BufferedReader reader = null;
 
     try {
-      reader = new BufferedReader(new FileReader( machinesFile ));
+      reader = new BufferedReader(new FileReader( mpjHomeDir + File.separator + machinesFile ));
     }
     catch (FileNotFoundException fnfe) {
+    	fnfe.printStackTrace();
       throw new MPJRuntimeException ( "<"+ machinesFile + "> file cannot "+
                             " be found." +
                             " The starter module assumes "+
@@ -1542,6 +1554,15 @@ private void machinesSanityCheck() throws Exception {
     logger.debug("\n---finish---");
 	}
     try {
+    	if(DEBUG && logger.isDebugEnabled())
+	   	 {
+	         logger.debug("stop heartbeartthread");
+	         
+	   	 }
+    	isFinished = true;
+    	heartbeatThreadStarter.join();
+    	
+    	
       if(DEBUG && logger.isDebugEnabled())
 	 {
       logger.debug("Waking up the selector");
@@ -1913,69 +1934,82 @@ if(DEBUG && logger.isDebugEnabled())
 		@Override
 		public void run() {
 			if (DEBUG && logger.isDebugEnabled()) {
-	              logger.debug("start heart beat thread");
+	              logger.debug("start heartbeat thread");
 	        }
 			
 			while(!isFinished){
+				if (DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("\n---Heartbeat Event---");
+		        }
 				try {
 					heartBeatLock.acquire();
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					//if the lock is interrupted then exit the thread
-					break;
+					return;
 				}
 				
 				ByteBuffer buf = ByteBuffer.allocate(4);
 				buf.putInt(CHECK_VALID);
 				
-				for(int i = 0; i < peerChannels.size(); i++){
-					buf.flip();
-					while(buf.hasRemaining()){
-						try{
-							if(peerChannels.get(i).write(buf) == -1)
-								throw new ClosedChannelException();
-						}
-						catch(IOException ioe){
-							ioe.printStackTrace();
-							System.out.println("Some daemon has been down! So Restart");
-							if (DEBUG && logger.isDebugEnabled()) {
-					              logger.debug("Some daemon has been down! So Restart");
-					        }
-							
-							heartBeatLock.signal();
-							
-							doRestart();
-							return;
-						}
-					}
-				}
-
-					
+				synchronized (peerChannels) {
+					for(int i = 0; i < peerChannels.size(); i++){
+						buf.flip();
+						int s = 0;
+						int w = 0;
+						while(buf.hasRemaining()){
+							try{
+								if((w = peerChannels.get(i).write(buf)) == -1)
+									throw new ClosedChannelException();
+								s += w;
+							}
+							catch(IOException ioe){
+								ioe.printStackTrace();
+								System.out.println("Some daemon has been down! So Restart");
+								if (DEBUG && logger.isDebugEnabled()) {
+						              logger.debug("Some daemon has been down! So Restart");
+						        }								
+								
+								
+								try {
+									restartTasks();
+								} catch (Exception e) {
+									e.printStackTrace();
+									heartBeatLock.signal();
+									return;
+								}
+								break;
+							}
+						}// end while
+						
+						if(s != 4)
+							break;
+						
+					}//end for
+				}//end syn 
 				
+		
 
-			
+				heartBeatLock.signal();
 				try {
 					Thread.currentThread().sleep(5000);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
+					return;
 				}
-				heartBeatLock.signal();
+				
 			
 			}//end while isFinished
 			
 			
 			if (DEBUG && logger.isDebugEnabled()) {
-	              logger.debug("exit heart beat thread");
+	              logger.debug("exit heartbeat thread");
 	        }
 		}//end run
 
 		
 	};
 	
-	private void doRestart() {
-		// TODO Auto-generated method stub
-		
-	}
 	
 	  class CustomSemaphore {
 
