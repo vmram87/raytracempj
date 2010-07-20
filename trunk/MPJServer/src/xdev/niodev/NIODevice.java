@@ -1575,8 +1575,10 @@ public class NIODevice
    	
 
 	    try {
-	    	writableServerChannel.close();
-	    	readableServerChannel.close();
+	    	if(writableServerChannel.isOpen())
+	    		writableServerChannel.close();
+	    	if(readableServerChannel.isOpen())
+	    		readableServerChannel.close();
 	    }
 	    catch (Exception e) {
 	      throw new XDevException(e);

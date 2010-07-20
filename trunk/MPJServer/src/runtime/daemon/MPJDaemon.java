@@ -116,6 +116,7 @@ public class MPJDaemon {
   private CustomSemaphore finishLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatBeginLock = new CustomSemaphore(1); 
+  private CustomSemaphore sendRestartRequestLock = new CustomSemaphore(1); 
   private Thread renewThreadStarter = null;
   private Thread heartBeatStarter = null;
   UUID[] pids = null;
@@ -130,7 +131,7 @@ public class MPJDaemon {
   
   private final int MAX_CHECKPOINT_INVALID_TIME = 2;
   private boolean isRestartFromCheckpoint = false;
-  private static String JAVA_TEMP_FILE_DIRECTORY = "/temp/hsperfdata_" + System.getProperty("user.name") + "/";
+  private static String JAVA_TEMP_FILE_DIRECTORY = "/tmp/hsperfdata_" + System.getProperty("user.name") + "/";
   
 
   public MPJDaemon(String args[]) throws Exception {
@@ -175,6 +176,7 @@ public class MPJDaemon {
     while (loop) {
     	
     	isRestarting = false;
+    	sendRestartRequestLock = new CustomSemaphore(1); 
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
@@ -360,14 +362,14 @@ public class MPJDaemon {
                 logger.debug("tempFilePath:" + tempFilePath);
             }
         	
-        	String[] pathArg = tempFilePath.split("_");
-        	String processId = pathArg[0];
+        	int pos = tempFilePath.lastIndexOf("/");
+        	String pathArg = tempFilePath.substring(pos + 1);
+        	String processId = pathArg.split("_")[0];
         	
         	String dstTempFilePath = JAVA_TEMP_FILE_DIRECTORY + processId;
         	File srcTempFile = new File(tempFilePath);
         	File dstTempFile = new File(dstTempFilePath);
-        	if(dstTempFile.exists())
-        		dstTempFile.delete();
+ 
         	
         	if(DEBUG && logger.isDebugEnabled()) { 
                 logger.debug("copy the temp file");
@@ -415,8 +417,26 @@ public class MPJDaemon {
         e.printStackTrace() ; 
       } 
       
-	  //wait for the init of the writable and readable channels
-      //renewThreadStarter.join();
+	  //when init, and worldprocessTable is not init properly
+      Thread.currentThread().sleep(1000);
+      synchronized (worldProcessTable) {
+    	  if(DEBUG && logger.isDebugEnabled()) { 
+              logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
+          }
+    	  if(worldProcessTable.size() != processes){
+    		  if(DEBUG && logger.isDebugEnabled()) { 
+                  logger.debug("wait 8s for worldProcessTable"); 
+              }
+    		  worldProcessTable.wait(8000);
+    		  if(DEBUG && logger.isDebugEnabled()) { 
+                  logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
+              }
+    		  if(worldProcessTable.size() != processes ){
+    			  isFinished = true;
+    			  sendRestartReqestToMainHost();
+    		  }
+    	  }
+      }
     	
       
 
@@ -507,6 +527,16 @@ public class MPJDaemon {
   }
 
   private void sendRestartReqestToMainHost() {
+	  
+	  try {
+		sendRestartRequestLock.acquire();
+	} catch (InterruptedException e) {
+		e.printStackTrace();
+		return;
+	}
+	  if(DEBUG && logger.isDebugEnabled()) { 
+		  logger.debug("--sendRestartReqestToMainHost--"); 
+      }
 	  
 	  ByteBuffer msgBuffer = ByteBuffer.allocate(4);
 		msgBuffer.putInt(REQUEST_RESTART);
@@ -1463,7 +1493,8 @@ private void restoreVariables() {
 
 	      if ( (table.size() == processes ) && (!processValidMap.containsValue(false))) {
 	        try {
-	          table.notify();
+	        	//notify the renew thread and the main thread for the complete of the table init
+	          table.notifyAll();
 	          if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("notify table");
 	          }
@@ -1571,6 +1602,7 @@ private void restoreVariables() {
 				heartBeatLock.acquire();
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
+				return;
 			}
 			
 			long lsb, msb, versionNum;
@@ -1620,6 +1652,7 @@ private void restoreVariables() {
 			}
 			
 			checkpointingProcessTable.put(ruid, 0);
+			worldProcessTable.remove(ruid);
 			processValidMap.put(ruid, false);
 			if (DEBUG && logger.isDebugEnabled()) {
 	            logger.debug("processValidMap size:" + processValidMap.size());
