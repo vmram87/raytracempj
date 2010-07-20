@@ -1045,6 +1045,14 @@ private void restoreVariables() {
               }
               
               
+              //just a heartheat check
+              if(read.equals("cvl-")){
+            	  if(DEBUG && logger.isDebugEnabled()) { 
+                      logger.debug ("heartbeat check from main host.");
+            	  }            	  
+              }
+              
+              
 
               if (read.equals("cpe-")) {
  	        if(DEBUG && logger.isDebugEnabled()) { 
