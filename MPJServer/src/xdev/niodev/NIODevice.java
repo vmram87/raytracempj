@@ -668,6 +668,7 @@ public class NIODevice
   
   public static String MPJ_DIR_NAME = ".mpj" ;
   public static String CONTEXT_DIR_NAME = ".context" ;
+  private String USER_DIR = "user-folder";
   private boolean hasDaemon = true;
   
 

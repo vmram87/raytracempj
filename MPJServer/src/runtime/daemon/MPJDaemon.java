@@ -90,6 +90,7 @@ public class MPJDaemon {
   private Process p[] = null ; 
   static Logger logger = null ; 
   private String mpjHomeDir = null ;  
+  private String USER_DIR = "user-folder";
   String configFileName = null ;
   
   //Vector<SocketChannel> writableChannels = null;
@@ -116,7 +117,7 @@ public class MPJDaemon {
   private CustomSemaphore finishLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatBeginLock = new CustomSemaphore(1); 
-  private CustomSemaphore sendRestartRequestLock = new CustomSemaphore(1); 
+  private Object sendRestartRequestLock = new Object(); 
   private Thread renewThreadStarter = null;
   private Thread heartBeatStarter = null;
   UUID[] pids = null;
@@ -131,6 +132,7 @@ public class MPJDaemon {
   
   private final int MAX_CHECKPOINT_INVALID_TIME = 2;
   private boolean isRestartFromCheckpoint = false;
+  private boolean hasSendRequest = false;  
   private static String JAVA_TEMP_FILE_DIRECTORY = "/tmp/hsperfdata_" + System.getProperty("user.name") + "/";
   
 
@@ -182,10 +184,9 @@ public class MPJDaemon {
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
       }
       
-      wdir = System.getProperty("user.dir");
-      if(DEBUG && logger.isDebugEnabled()) { 
-        logger.debug("wdir "+wdir);
-      }
+      //wdir = System.getProperty("user.dir");
+      System.out.println("Test user.dir in daemon:" + System.getProperty("user.dir"));
+
       waitToStartExecution ();
 
 
@@ -261,7 +262,7 @@ public class MPJDaemon {
 	        for(int e=0 ; e<jArgs.length; e++) {
 	
 	          if(DEBUG && logger.isDebugEnabled()) { 
-	            logger.debug("jArgs["+e+"]="+jArgs[e]);
+	            //logger.debug("jArgs["+e+"]="+jArgs[e]);
 		  }
 	
 	          if(now) {
@@ -511,6 +512,8 @@ public class MPJDaemon {
 	        e.printStackTrace() ; 
 	        //continue;
 	      }
+	      
+	      restoreVariables() ; 
       }// if isRestarting == false
       else{
     	  restoreVariables() ; 
@@ -528,37 +531,43 @@ public class MPJDaemon {
 
   private void sendRestartReqestToMainHost() {
 	  
-	  try {
-		sendRestartRequestLock.acquire();
-	} catch (InterruptedException e) {
-		e.printStackTrace();
-		return;
-	}
+	
 	  if(DEBUG && logger.isDebugEnabled()) { 
 		  logger.debug("--sendRestartReqestToMainHost--"); 
       }
 	  
-	  ByteBuffer msgBuffer = ByteBuffer.allocate(4);
-		msgBuffer.putInt(REQUEST_RESTART);
-		msgBuffer.flip();
-		while(msgBuffer.hasRemaining()){
-			try{
-				if(peerChannel.write(msgBuffer) == -1)
-					throw new ClosedChannelException();
-			}
-			catch(IOException ioe){
-				ioe.printStackTrace();
-				System.out.println("You should ensure the MPJRun host is running!");
-				if (DEBUG && logger.isDebugEnabled()) {
-		              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
-		        }
-				break;
+	  synchronized (sendRestartRequestLock) {
+		if(hasSendRequest == false){
+			if(DEBUG && logger.isDebugEnabled()) { 
+				  logger.debug("has not send the restart request, and send it"); 
+		    }
+			hasSendRequest = true;
+			ByteBuffer msgBuffer = ByteBuffer.allocate(4);
+			msgBuffer.putInt(REQUEST_RESTART);
+			msgBuffer.flip();
+			while(msgBuffer.hasRemaining()){
+				try{
+					if(peerChannel.write(msgBuffer) == -1)
+						throw new ClosedChannelException();
+				}
+				catch(IOException ioe){
+					ioe.printStackTrace();
+					System.out.println("You should ensure the MPJRun host is running!");
+					if (DEBUG && logger.isDebugEnabled()) {
+			              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+			        }
+					break;
+				}
 			}
 		}
+	}
+	  
+	  
 	
 }
 
 private void restoreVariables() {
+	hasSendRequest = false;
 	isRestartFromCheckpoint = false;
     jvmArgs.clear();
     appArgs.clear(); 
@@ -1051,9 +1060,9 @@ private void restoreVariables() {
                 byte[] byteArray = new byte[length];
                 buffer.flip();
                 buffer.get(byteArray, 0, length);
-                //applicationClassPathEntry = new String(byteArray);
+                applicationClassPathEntry = new String(byteArray);
                 //change later
-                applicationClassPathEntry = System.getProperty("user.dir");
+                //applicationClassPathEntry = System.getProperty("user.dir");
                 if(DEBUG && logger.isDebugEnabled()) { 
                   logger.debug ("applicationClassPathEntry:<"+ 
                                        applicationClassPathEntry+">");
@@ -1764,23 +1773,31 @@ private void restoreVariables() {
 					              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
 					        }
 							
-							ByteBuffer msgBuffer = ByteBuffer.allocate(4);
-							msgBuffer.putInt(REQUEST_RESTART);
-							msgBuffer.flip();
-							while(msgBuffer.hasRemaining()){
-								try{
-									if(peerChannel.write(msgBuffer) == -1)
-										throw new ClosedChannelException();
-								}
-								catch(IOException ioe){
-									ioe.printStackTrace();
-									System.out.println("You should ensure the MPJRun host is running!");
-									if (DEBUG && logger.isDebugEnabled()) {
-							              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
-							        }
-									
-									heartBeatLock.signal();									
-									return;
+							synchronized (sendRestartRequestLock) {
+								if(hasSendRequest == false){
+									if(DEBUG && logger.isDebugEnabled()) { 
+										  logger.debug("has not send the restart request, and send it"); 
+								    }
+									hasSendRequest = true;
+									ByteBuffer msgBuffer = ByteBuffer.allocate(4);
+									msgBuffer.putInt(REQUEST_RESTART);
+									msgBuffer.flip();
+									while(msgBuffer.hasRemaining()){
+										try{
+											if(peerChannel.write(msgBuffer) == -1)
+												throw new ClosedChannelException();
+										}
+										catch(IOException ioe){
+											ioe.printStackTrace();
+											System.out.println("You should ensure the MPJRun host is running!");
+											if (DEBUG && logger.isDebugEnabled()) {
+									              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+									        }
+											
+											heartBeatLock.signal();									
+											return;
+										}
+									}
 								}
 							}
 							
@@ -1809,23 +1826,32 @@ private void restoreVariables() {
 						              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
 						        }
 								
-								ByteBuffer msgBuffer = ByteBuffer.allocate(4);
-								msgBuffer.putInt(REQUEST_RESTART);
-								msgBuffer.flip();
-								while(msgBuffer.hasRemaining()){
-									try{
-										if(peerChannel.write(msgBuffer) == -1)
-											throw new ClosedChannelException();
-									}
-									catch(IOException ioe){
-										ioe.printStackTrace();
-										System.out.println("You should ensure the MPJRun host is running!");
-										if (DEBUG && logger.isDebugEnabled()) {
-								              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
-								        }
-										
-										heartBeatLock.signal();
-										return;
+								synchronized (sendRestartRequestLock) {
+									if(hasSendRequest == false){
+										if(DEBUG && logger.isDebugEnabled()) { 
+											  logger.debug("has not send the restart request, and send it"); 
+									    }
+										hasSendRequest = true;
+								
+										ByteBuffer msgBuffer = ByteBuffer.allocate(4);
+										msgBuffer.putInt(REQUEST_RESTART);
+										msgBuffer.flip();
+										while(msgBuffer.hasRemaining()){
+											try{
+												if(peerChannel.write(msgBuffer) == -1)
+													throw new ClosedChannelException();
+											}
+											catch(IOException ioe){
+												ioe.printStackTrace();
+												System.out.println("You should ensure the MPJRun host is running!");
+												if (DEBUG && logger.isDebugEnabled()) {
+										              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+										        }
+												
+												heartBeatLock.signal();
+												return;
+											}
+										}
 									}
 								}
 								
