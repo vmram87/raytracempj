@@ -92,6 +92,7 @@ public class MPJDaemon {
   static Logger logger = null ; 
   private String mpjHomeDir = null ;  
   private String USER_DIR = "user-folder";
+  private String SYSTEM_LIB_DIR = "lib";
   String configFileName = null ;
   
   //Vector<SocketChannel> writableChannels = null;
@@ -227,7 +228,7 @@ public class MPJDaemon {
         
         if(isRestartFromCheckpoint == false){
         	jvmArgs.add("-Djava.library.path=."+File.pathSeparator+"/usr/local/lib"+
-        		File.pathSeparator+"/root/C++Workspace/blcr/Debug");
+        		File.pathSeparator+ mpjHomeDir + File.separator + SYSTEM_LIB_DIR);
         }
 
         while((line = bufferedReader.readLine()) != null) {
