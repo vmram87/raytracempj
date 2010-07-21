@@ -47,7 +47,7 @@ callback(void *arg)
         printf("C:errno:%d\n",errno);
     }
 
-    return ret;
+    return 0;
 }
 
 static char *
