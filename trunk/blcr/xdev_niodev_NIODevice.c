@@ -154,7 +154,7 @@ JNIEXPORT jint JNICALL Java_xdev_niodev_NIODevice_checkpoint(JNIEnv * jEnv, jobj
 		exit(1);
 	}
 
-	if(isContine == 1){
+	if(isContinue == 1){
 		/* wait for the request to complete */
 		do {
 			char *kmsgs = NULL;
