@@ -1216,7 +1216,8 @@ public class NIODevice
 	    	connected = false;
 	    	//conect the daemon channel
 	    	while (!connected) {
-	
+	    		
+	    		System.out.println("before connect to daemon");
 	          try {
 	            daemonChannel = SocketChannel.open();
 	            daemonChannel.configureBlocking(true);
@@ -1233,6 +1234,8 @@ public class NIODevice
 	          try {
 	            connected = daemonChannel.connect(
 	                new InetSocketAddress("localhost", getPortFromWrapper()+1));
+	            
+	            System.out.println("after connect to daemon");
 	          }
 	          catch (IOException ioe) {
 		            // this is continuing coz process 1 alwayz connect to process 0
@@ -4738,6 +4741,10 @@ public class NIODevice
 				writableChannels.get(i).close();
 			writableChannels.clear();
 			readableChannels.clear();
+			daemonChannel.close();
+			readableCheckpointServer.close();
+			writableCheckpointServer.close();
+			
 			selector.close();
 			contextSrcFilePath = contextSrcFilePath + "_Ver_" + versionNum; 
 			tempDstFilePath = tempDstFilePath + "_Ver_" + versionNum; 
