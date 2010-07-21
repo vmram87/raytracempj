@@ -459,11 +459,12 @@ public class MPJDaemon {
 
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("Stopping the output");
-        logger.debug("renewThreadStarter state:" + renewThreadStarter.getState());
+        if(renewThreadStarter != null)
+        	logger.debug("renewThreadStarter state:" + renewThreadStarter.getState());
       }
       
-      if(renewThreadStarter.getState().equals(Thread.State.BLOCKED) || 
-    		  renewThreadStarter.getState().equals(Thread.State.WAITING))
+      if(renewThreadStarter != null && (renewThreadStarter.getState().equals(Thread.State.BLOCKED) || 
+    		  renewThreadStarter.getState().equals(Thread.State.WAITING)))
     	  renewThreadStarter.interrupt();
       
       isFinished = true;
