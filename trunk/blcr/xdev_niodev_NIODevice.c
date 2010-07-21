@@ -47,7 +47,7 @@ callback(void *arg)
         printf("C:errno:%d\n",errno);
     }
 
-    return 0;
+    return ret;
 }
 
 static char *
@@ -142,6 +142,8 @@ JNIEXPORT jint JNICALL Java_xdev_niodev_NIODevice_checkpoint(JNIEnv * jEnv, jobj
 	printf("cr_request_checkpoint cr_args.cr_fd : %d\n", cr_args.cr_fd );
 	fflush(stdout);
 	if (ret < 0) {
+		printf("C:ret < 0, so exit!" );
+		fflush(stdout);
 		(void)close(cr_args.cr_fd);
 		(void)unlink(context_filename);
 		error("cr_request_checkpoint");
