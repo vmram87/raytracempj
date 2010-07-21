@@ -333,31 +333,35 @@ public class MPJRun {
 
       int nProcesses = nProcessesInt.intValue();
 
-      pack(nProcesses); 
+      synchronized (socketChannel) {
+    	  pack(nProcesses); 
 
-      if(DEBUG && logger.isDebugEnabled()) { 
-	logger.debug("Sending to " + socketChannel);
-	byte[] tempArray = new byte[buffer.limit()];
-	buffer.get(tempArray,0,buffer.limit());
-	// String line = new String(tempArray);
-	 logger.debug("Sending Content Buffer");
-	 //System.out.println(line);
-	 buffer.flip();
-      }
-      
-      
-      
-      int w = 0 ; 
-      while(buffer.hasRemaining()) {
-	if((w += socketChannel.write(buffer)) == -1) {
-	  //throw an exception ...
-	} 
-      }
-      if(DEBUG && logger.isDebugEnabled()) { 
-	logger.debug("Wrote bytes-->"+w+"to process"+j);
-      }
+          if(DEBUG && logger.isDebugEnabled()) { 
+    	logger.debug("Sending to " + socketChannel);
+    	byte[] tempArray = new byte[buffer.limit()];
+    	
+    	buffer.get(tempArray,0,buffer.limit());
+    	// String line = new String(tempArray);
+    	 logger.debug("Sending Content Buffer");
+    	 //System.out.println(line);
+    	 buffer.flip();
+          }
+          
+          
+          
+          int w = 0 ; 
+          while(buffer.hasRemaining()) {
+    	if((w += socketChannel.write(buffer)) == -1) {
+    	  //throw an exception ...
+    	} 
+          }
+          if(DEBUG && logger.isDebugEnabled()) { 
+    	logger.debug("Wrote bytes-->"+w+"to process"+j);
+          }
 
-      buffer.clear();
+          buffer.clear();
+  		}// end of syn
+      
 
     }
 
@@ -438,6 +442,18 @@ public class MPJRun {
 
     if(DEBUG && logger.isDebugEnabled()) {
       logger.debug("buffer(after nProcesses) " + buffer);
+    }
+    
+    buffer.put("nps-".getBytes());
+	 
+    if(DEBUG && logger.isDebugEnabled()) {
+      logger.debug("buffer " + buffer);
+    }
+
+    buffer.putInt(nprocs);
+
+    if(DEBUG && logger.isDebugEnabled()) {
+      logger.debug("nprocs " + nprocs);
     }
 
     buffer.put("arg-".getBytes());
@@ -899,31 +915,36 @@ public class MPJRun {
 			logger.debug("--do restart--");
 		}
 		boolean finished = false;
-		synchronized (peerChannels) {
-			while(!finished){
+		
+		while(!finished){
+			
+			if(DEBUG && logger.isDebugEnabled())
+			{
+				logger.debug("--do restart while--");
+			}
+			
+			ByteBuffer killMsg = ByteBuffer.allocate(4);
+			killMsg.put("kill".getBytes());
 				
-				if(DEBUG && logger.isDebugEnabled())
-				{
-					logger.debug("--do restart while--");
-				}
-				
-				ByteBuffer killMsg = ByteBuffer.allocate(4);
-				killMsg.put("kill".getBytes());
-					
-			    SocketChannel socketChannel = null;
-			    machineVector.clear();
-			    machineConnectedMap.clear();
-			    peerChannels.clear();
-			    readMachineFile();
-			    ArrayList<String> validMachines = new ArrayList<String>();
-			    
-			    for(int i = 0; i < machineVector.size(); i++){
-			    	String daemon = (String) machineVector.get(i);
-			    	socketChannel = machineChannelMap.get(daemon);
-			    	if(socketChannel == null || !(socketChannel.isOpen() && socketChannel.isConnected())){
-			    		socketChannel = SocketChannel.open();
-			    		socketChannel.configureBlocking(true);
-			    		
+		    SocketChannel socketChannel = null;
+		    Vector validMachines = new Vector();
+		    machineVector.clear();
+		    machineConnectedMap.clear();
+		    peerChannels.clear();
+		    readMachineFile();
+		    
+		    if(DEBUG && logger.isDebugEnabled())
+			{
+				logger.debug("machineVector.size():" + machineVector.size());
+			}
+		    
+		    for(int i = 0; i < machineVector.size(); i++){
+		    	String daemon = (String) machineVector.get(i);
+		    	socketChannel = machineChannelMap.get(daemon);
+		    	if(socketChannel == null || !(socketChannel.isOpen() && socketChannel.isConnected())){
+		    		socketChannel = SocketChannel.open();
+		    		socketChannel.configureBlocking(true);
+		    		try{
 			    		if(true == socketChannel.connect(new InetSocketAddress(daemon, D_SER_PORT))){
 			    			doConnect(socketChannel, true);
 			    			machineConnectedMap.put(daemon, true);
@@ -932,12 +953,18 @@ public class MPJRun {
 			    		}else if(machineChannelMap.get(daemon) != null){
 			    			machineChannelMap.remove(daemon);
 			    		}
-			    	}
-			    	else{
-			    		killMsg.flip();
-			    		int s = 0;
-			    		int w = 0;
-			    		while(killMsg.hasRemaining()){
+		    		}
+		    		catch(Exception e){
+		    			e.printStackTrace();
+		    			machineChannelMap.remove(daemon);
+		    		}
+		    	}
+		    	else{
+		    		killMsg.flip();
+		    		int s = 0;
+		    		int w = 0;
+		    		synchronized (socketChannel) {
+		    			while(killMsg.hasRemaining()){
 			    			try{
 			    				if((w = socketChannel.write(killMsg)) == -1)
 			    					throw new ClosedChannelException();
@@ -948,31 +975,38 @@ public class MPJRun {
 			    			}	    
 			    			s += w;
 			    		}
-			    		if(s == 4){
-			    			machineConnectedMap.put(daemon, true);
-			    			validMachines.add(daemon);	
-			    			peerChannels.add(socketChannel);
-			    		}
-			    		
-			    	}
-			    }
-			    
-			    if(DEBUG && logger.isDebugEnabled())
-				{
-					logger.debug("--after sending the kill to live daemon and getting the valid daemon--");
-				}
-			    
-			    
-			    finished  = assignRestartTasks(validMachines);
-			    
-			    
-			}// end of while
-		}// end syn
+					}		    		
+		    		if(s == 4){
+		    			machineConnectedMap.put(daemon, true);
+		    			validMachines.add(daemon);	
+		    			peerChannels.add(socketChannel);
+		    		}
+		    		
+		    	}
+		    }
+		    
+		    machineVector = validMachines;
+		    if(DEBUG && logger.isDebugEnabled())
+			{
+				logger.debug("After valid: machineVector.size():" + machineVector.size());
+			}
+		    
+		    if(DEBUG && logger.isDebugEnabled())
+			{
+				logger.debug("--after sending the kill to live daemon and getting the valid daemon--");
+			}
+		    
+		    
+		    finished  = assignRestartTasks();
+		    
+		    
+		}// end of while
+
 		
   }
   
 
-  private boolean assignRestartTasks(ArrayList<String> validMachines) throws Exception {
+  private boolean assignRestartTasks() throws Exception {
 	  	if(DEBUG && logger.isDebugEnabled())
 		{
 			logger.debug("send REQUEST_RESTART to checkpoint server");
@@ -1162,47 +1196,66 @@ public class MPJRun {
         	if(map.size() == 0)
         		continue;
         	
-        	buffer.clear();
-        	//have to be 8 characters for the daemon to read
-        	buffer.put("rst-args".getBytes());
+        	SocketChannel channel = machineChannelMap.get(daemon);
+            synchronized (channel) {
         	
-        	buffer.put("num-".getBytes());
-        	//write 4 just for test in the daemon side
-        	buffer.putInt(4);
-        	buffer.putInt(map.size());
-        	buffer.put("arg-".getBytes());
-        	
-        	//arg length is mean: for every rank, send the contextfilepath and 
-        	//tempfilepath for the arg
-        	buffer.putInt(map.size()*2);
-        	
-        	Iterator mIt = map.entrySet().iterator();
-        	while(mIt.hasNext()){
-        		java.util.Map.Entry mEntry = (java.util.Map.Entry)mIt.next();
-        		
-        		Context c = (Context) mEntry.getValue();
-        		buffer.putInt(c.getContextFilePath().getBytes().length);
-        		buffer.put(c.getContextFilePath().getBytes(), 0, 
-        				c.getContextFilePath().getBytes().length);
-        		
-        		buffer.putInt(c.getTempFilePath().getBytes().length);
-        		buffer.put(c.getTempFilePath().getBytes(), 0, 
-        				c.getTempFilePath().getBytes().length);
-        		
-        	}
-        	
-        	
-        	
-        	buffer.put("*GO*".getBytes(), 0, "*GO*".getBytes().length);    
+	        	buffer.clear();
+	        	//have to be 8 characters for the daemon to read
+	        	buffer.put("rst-args".getBytes());
+	        	
+	        	buffer.put("num-".getBytes());
+	        	//write 4 just for test in the daemon side
+	        	buffer.putInt(4);
+	        	buffer.putInt(map.size());
+	        	buffer.put("arg-".getBytes());
+	        	
+	        	//arg length is mean: for every rank, send the contextfilepath and 
+	        	//tempfilepath for the arg
+	        	buffer.putInt(map.size()*2);
+	        	
+	        	Iterator mIt = map.entrySet().iterator();
+	        	while(mIt.hasNext()){
+	        		java.util.Map.Entry mEntry = (java.util.Map.Entry)mIt.next();
+	        		
+	        		Context c = (Context) mEntry.getValue();
+	        		buffer.putInt(c.getContextFilePath().getBytes().length);
+	        		buffer.put(c.getContextFilePath().getBytes(), 0, 
+	        				c.getContextFilePath().getBytes().length);
+	        		
+	        		buffer.putInt(c.getTempFilePath().getBytes().length);
+	        		buffer.put(c.getTempFilePath().getBytes(), 0, 
+	        				c.getTempFilePath().getBytes().length);
+	        		
+	        	}
+	        	
+	        	if(wdir == null) { 
+	        	      wdir = mpjHomeDir + File.separator + USER_DIR + File.separator;
+	        	    }
+	
+	    	    buffer.put("wdr-".getBytes());
+	    	    buffer.putInt(wdir.getBytes().length);
+	    	    buffer.put(wdir.getBytes(), 0, wdir.getBytes().length); 
+	        	
+	    	    buffer.put("nps-".getBytes());
 
-            buffer.flip();
+	    	    buffer.putInt(nprocs);
+
+	    	    if(DEBUG && logger.isDebugEnabled()) {
+	    	      logger.debug("nprocs " + nprocs);
+	    	    }
+	        	
+	        	buffer.put("*GO*".getBytes(), 0, "*GO*".getBytes().length);    
+	
+	            buffer.flip();
         	
-            SocketChannel channel = machineChannelMap.get(daemon);
-            while(buffer.hasRemaining()){
-            	if(channel.write(buffer) == -1){
-            		throw new ClosedChannelException();
-            	}            	
-            }
+            
+            	while(buffer.hasRemaining()){
+                	if(channel.write(buffer) == -1){
+                		throw new ClosedChannelException();
+                	}            	
+                }
+			}
+            
         	
         }
 	    
@@ -1868,31 +1921,36 @@ if(DEBUG && logger.isDebugEnabled())
 						ByteBuffer endMsg = ByteBuffer.allocate(4);
 						endMsg.putInt(END_APP);
 						endMsg.flip();
-						while(endMsg.hasRemaining()){
-							try{
-								if(checkpiontChannel.write(endMsg) == -1)
-									throw new ClosedChannelException();
+						synchronized (checkpiontChannel) {
+							while(endMsg.hasRemaining()){
+								try{
+									if(checkpiontChannel.write(endMsg) == -1)
+										throw new ClosedChannelException();
+								}
+								catch(IOException e){
+									e.printStackTrace();
+									if(DEBUG && logger.isDebugEnabled())
+									{
+										logger.debug("the checkpiont channel is close, this should not happen!");
+									}								
+								}
 							}
-							catch(IOException e){
-								e.printStackTrace();
-								if(DEBUG && logger.isDebugEnabled())
-								{
-									logger.debug("the checkpiont channel is close, this should not happen!");
-								}								
-							}
+							if(DEBUG && logger.isDebugEnabled())
+							{
+								logger.debug("finish send END_APP to the checkpiont server");
+							}	
+							Notify();
 						}
-						if(DEBUG && logger.isDebugEnabled())
-						{
-							logger.debug("finish send END_APP to the checkpiont server");
-						}	
-						Notify();
+						
 			        }
 			        
               		break;
               		
               	case REQUEST_RESTART:
               		//retrive the database and assign job and version number
-              		restartTasks();
+              		synchronized (peerChannels) {
+              			restartTasks();
+              		}
               		//send "kill" to the daemon
               		
               		//pack and send the command like before
@@ -1950,37 +2008,42 @@ if(DEBUG && logger.isDebugEnabled())
 				}
 				
 				ByteBuffer buf = ByteBuffer.allocate(4);
-				buf.putInt(CHECK_VALID);
+				buf.put("cvl-".getBytes());
 				
 				synchronized (peerChannels) {
+					SocketChannel c ;
 					for(int i = 0; i < peerChannels.size(); i++){
 						buf.flip();
 						int s = 0;
 						int w = 0;
-						while(buf.hasRemaining()){
-							try{
-								if((w = peerChannels.get(i).write(buf)) == -1)
-									throw new ClosedChannelException();
-								s += w;
-							}
-							catch(IOException ioe){
-								ioe.printStackTrace();
-								System.out.println("Some daemon has been down! So Restart");
-								if (DEBUG && logger.isDebugEnabled()) {
-						              logger.debug("Some daemon has been down! So Restart");
-						        }								
-								
-								
-								try {
-									restartTasks();
-								} catch (Exception e) {
-									e.printStackTrace();
-									heartBeatLock.signal();
-									return;
+						c = peerChannels.get(i);
+						synchronized (c) {
+							while(buf.hasRemaining()){
+								try{								
+	
+									if((w = c.write(buf)) == -1)
+										throw new ClosedChannelException();
+									s += w;
 								}
-								break;
-							}
-						}// end while
+								catch(IOException ioe){
+									ioe.printStackTrace();
+									System.out.println("Some daemon has been down! So Restart");
+									if (DEBUG && logger.isDebugEnabled()) {
+							              logger.debug("Some daemon has been down! So Restart");
+							        }								
+									
+									
+									try {
+										restartTasks();
+									} catch (Exception e) {
+										e.printStackTrace();
+										heartBeatLock.signal();
+										return;
+									}
+									break;
+								}
+							}// end while
+						}//end syn
 						
 						if(s != 4)
 							break;
@@ -2037,17 +2100,25 @@ if(DEBUG && logger.isDebugEnabled())
 			for (int j = 0; j < peerChannels.size(); j++) {
 	            SocketChannel socketChannel = null;
 	            socketChannel = peerChannels.get(j);
-	            buffer.clear();
-	            buffer.put( (new String("kill")).getBytes());
-	            buffer.flip();
-	            socketChannel.write(buffer);
-	            buffer.clear();
+	            synchronized (socketChannel) {
+		            buffer.clear();
+		            buffer.put( (new String("kill")).getBytes());
+		            buffer.flip();	            
+	            	socketChannel.write(buffer);
+	            	 buffer.clear();
+				}
+	            
+	           
 	        }
 	          
-	          buffer.putInt(REQUEST_RESTART);
-	          buffer.flip();
-	          checkpiontChannel.write(buffer);
-	          buffer.clear();
+	          
+	          synchronized (checkpiontChannel) {
+	        	  buffer.putInt(REQUEST_RESTART);
+		          buffer.flip();
+		          checkpiontChannel.write(buffer);
+		          buffer.clear();
+	          }
+	          
 	          
 	          cfos.close();
 	     }
