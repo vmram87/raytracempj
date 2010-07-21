@@ -19,6 +19,8 @@ static char*  versionNum;
 static jstring stoJstring(JNIEnv* env, const char* pat);
 static char* jstringTostring(JNIEnv* env, jstring jstr);
 
+static int isContinue = 0;
+
 static int
 callback(void *arg)
 {
@@ -37,10 +39,12 @@ callback(void *arg)
     ret = cr_checkpoint(0);
     if (ret > 0) {
         printf("C:restart\n");
+        isContinue = 0;
         //mid = (*jenv)->GetMethodID(jenv,cls,"processRestart","()V");
        // (*jenv)->CallObjectMethod(jenv, jobj, mid);
     } else if (ret == 0) {
         printf("C:continue\n");
+        isContinue = 1;
        // mid = (*jenv)->GetMethodID(jenv,cls,"processContinue","()V");
        // (*jenv)->CallObjectMethod(jenv, jobj, mid);
     } else {
@@ -150,34 +154,36 @@ JNIEXPORT jint JNICALL Java_xdev_niodev_NIODevice_checkpoint(JNIEnv * jEnv, jobj
 		exit(1);
 	}
 
-	/* wait for the request to complete */
-	do {
-		char *kmsgs = NULL;
-		ret = cr_poll_checkpoint_msg(&crut_cr_handle, NULL, &kmsgs);
-		printf("cr_poll_checkpoint_msg ret: %d\n", ret);
-		fflush(stdout);
-		if (ret < 0) {
-			if ((ret == CR_POLL_CHKPT_ERR_POST) && (errno == CR_ERESTARTED)) {
-			/* restarting -- not an error */
-					ret = 0;
-			} else if (errno == EINTR) {
-					/* retry */
-					;
-			} else {
-				int saved_errno = errno;
-				fprintf(stderr, "cr_poll_checkpoint returned %d: %s\n", ret, cr_strerror(errno));
-				if (kmsgs) {
-					fputs(kmsgs, stderr);
+	if(isContine == 1){
+		/* wait for the request to complete */
+		do {
+			char *kmsgs = NULL;
+			ret = cr_poll_checkpoint_msg(&crut_cr_handle, NULL, &kmsgs);
+			printf("cr_poll_checkpoint_msg ret: %d\n", ret);
+			fflush(stdout);
+			if (ret < 0) {
+				if ((ret == CR_POLL_CHKPT_ERR_POST) && (errno == CR_ERESTARTED)) {
+				/* restarting -- not an error */
+						ret = 0;
+				} else if (errno == EINTR) {
+						/* retry */
+						;
+				} else {
+					int saved_errno = errno;
+					fprintf(stderr, "cr_poll_checkpoint returned %d: %s\n", ret, cr_strerror(errno));
+					if (kmsgs) {
+						fputs(kmsgs, stderr);
+					}
+					errno = saved_errno;
+					exit(1);
 				}
-				errno = saved_errno;
+			} else if (ret == 0) {
+					fprintf(stderr, "cr_poll_checkpoint returned unexpected 0\n");
 				exit(1);
 			}
-		} else if (ret == 0) {
-				fprintf(stderr, "cr_poll_checkpoint returned unexpected 0\n");
-			exit(1);
-		}
-	} while (ret < 0);
+		} while (ret < 0);
 
+	}//end if(isContine == 1)
 
 	close(cr_args.cr_fd);
 
