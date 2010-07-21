@@ -95,7 +95,7 @@ public class MPIViewport extends AbstractViewPort {
 			return false;
 		
 		//test error
-		//if(rank == 1)
+		//if(rank == 1) 
 		//	System.exit(1);
 		
 		System.out.println("after dataSizeCollection");

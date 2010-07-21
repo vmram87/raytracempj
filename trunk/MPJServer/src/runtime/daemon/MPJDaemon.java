@@ -1267,7 +1267,8 @@ private void restoreVariables() {
             	  
             	  finishLock.acquire();
             	  isRestarting = true;
-            	  if(renewThreadStarter.getState() == Thread.State.BLOCKED)
+            	  if(renewThreadStarter != null && (renewThreadStarter.getState() == Thread.State.BLOCKED
+            			  || renewThreadStarter.getState() == Thread.State.WAITING))
             		  renewThreadStarter.interrupt();
             	  
                 if(DEBUG && logger.isDebugEnabled()) { 
