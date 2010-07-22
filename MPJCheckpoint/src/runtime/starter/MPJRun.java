@@ -923,8 +923,8 @@ public class MPJRun {
 				logger.debug("--do restart while--");
 			}
 			
-			ByteBuffer killMsg = ByteBuffer.allocate(4);
-			killMsg.put("kill".getBytes());
+			ByteBuffer killMsg = ByteBuffer.allocate(8);
+			killMsg.put("killproc".getBytes());
 				
 		    SocketChannel socketChannel = null;
 		    Vector validMachines = new Vector();
@@ -941,7 +941,15 @@ public class MPJRun {
 		    for(int i = 0; i < machineVector.size(); i++){
 		    	String daemon = (String) machineVector.get(i);
 		    	socketChannel = machineChannelMap.get(daemon);
-		    	if(socketChannel == null || !(socketChannel.isOpen() && socketChannel.isConnected())){
+		    	if(DEBUG && logger.isDebugEnabled())
+				{
+					logger.debug("daemon:" + daemon);
+				}
+		    	if(socketChannel == null || !socketChannel.isConnected()){
+			    	if(DEBUG && logger.isDebugEnabled())
+					{
+						logger.debug("the daemon's socketchannel is not valid, so try reconnect");
+					}
 		    		socketChannel = SocketChannel.open();
 		    		socketChannel.configureBlocking(true);
 		    		try{
@@ -950,8 +958,16 @@ public class MPJRun {
 			    			machineConnectedMap.put(daemon, true);
 			    			machineChannelMap.put(daemon, socketChannel);
 			    			validMachines.add(daemon);
+			    			if(DEBUG && logger.isDebugEnabled())
+							{
+								logger.debug("after reconnect, add the socketchannel");
+							}
 			    		}else if(machineChannelMap.get(daemon) != null){
 			    			machineChannelMap.remove(daemon);
+			    			if(DEBUG && logger.isDebugEnabled())
+							{
+								logger.debug("after reconnect, still not valid, remove the socketchannel");
+							}
 			    		}
 		    		}
 		    		catch(Exception e){
@@ -963,6 +979,10 @@ public class MPJRun {
 		    		killMsg.flip();
 		    		int s = 0;
 		    		int w = 0;
+		    		if(DEBUG && logger.isDebugEnabled())
+					{
+						logger.debug("the daemon's socketchannel is valid, so try send kill msg");
+					}
 		    		synchronized (socketChannel) {
 		    			while(killMsg.hasRemaining()){
 			    			try{
@@ -970,13 +990,18 @@ public class MPJRun {
 			    					throw new ClosedChannelException();
 			    			}
 			    			catch(IOException e){
+			    				e.printStackTrace();
 			    				machineChannelMap.remove(daemon);
 			    				break;
 			    			}	    
 			    			s += w;
 			    		}
 					}		    		
-		    		if(s == 4){
+		    		if(s == 8){
+		    			if(DEBUG && logger.isDebugEnabled())
+						{
+							logger.debug("after send the kill, it is valid, so add to the valid machnines");
+						}
 		    			machineConnectedMap.put(daemon, true);
 		    			validMachines.add(daemon);	
 		    			peerChannels.add(socketChannel);
@@ -1720,7 +1745,7 @@ private void machinesSanityCheck() throws Exception {
             SocketChannel socketChannel = null;
             socketChannel = peerChannels.get(j);
             buffer.clear();
-            buffer.put( (new String("kill")).getBytes());
+            buffer.put( (new String("killproc")).getBytes());
             buffer.flip();
             socketChannel.write(buffer);
             buffer.clear();
@@ -2007,8 +2032,8 @@ if(DEBUG && logger.isDebugEnabled())
 					return;
 				}
 				
-				ByteBuffer buf = ByteBuffer.allocate(4);
-				buf.put("cvl-".getBytes());
+				ByteBuffer buf = ByteBuffer.allocate(8);
+				buf.put("cvl-proc".getBytes());
 				
 				synchronized (peerChannels) {
 					SocketChannel c ;
@@ -2045,7 +2070,7 @@ if(DEBUG && logger.isDebugEnabled())
 							}// end while
 						}//end syn
 						
-						if(s != 4)
+						if(s != 8)
 							break;
 						
 					}//end for
@@ -2102,7 +2127,7 @@ if(DEBUG && logger.isDebugEnabled())
 	            socketChannel = peerChannels.get(j);
 	            synchronized (socketChannel) {
 		            buffer.clear();
-		            buffer.put( (new String("kill")).getBytes());
+		            buffer.put( (new String("killproc")).getBytes());
 		            buffer.flip();	            
 	            	socketChannel.write(buffer);
 	            	 buffer.clear();
