@@ -977,7 +977,8 @@ public class ServerThread {
             logger.debug("add to database, rank:" + rank + " processId:" + processId +
             		" versionId:" + verNum);
       }
-		// TODO Auto-generated method stub
+		// TODO Auto-generated method stub		
+		
 		String contextFilePath =  mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
 		File.separator + "context." + processId + "_Rank_" + rank + "_Ver_" + verNum;
 		String tempFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
@@ -988,9 +989,13 @@ public class ServerThread {
 		c.setProcessId(processId);
 		c.setVersionId(verNum);
 		c.setContextFilePath(contextFilePath);
-		c.setTempFilePath(tempFilePath);
+		c.setTempFilePath(tempFilePath);		
 		
 		ContextDao dao = ContextFactory.getContextDao();
+		Context tempContext = null;
+		if( (tempContext = dao.getContext(rank, processId, verNum)) != null )
+			dao.delete(tempContext);
+		
 		dao.save(c);
 		  
 	  }
