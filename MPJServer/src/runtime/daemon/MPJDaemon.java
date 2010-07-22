@@ -469,7 +469,8 @@ public class MPJDaemon {
     	  renewThreadStarter.interrupt();
       
       isFinished = true;
-      heartBeatStarter.join();
+      if(heartBeatStarter != null)
+    	  heartBeatStarter.join();
       
    // Its important to kill all JVMs that we started ... 
       synchronized (p) {

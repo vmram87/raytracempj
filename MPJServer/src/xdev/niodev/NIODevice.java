@@ -1585,7 +1585,7 @@ public class NIODevice
 	    		readableServerChannel.close();
 	    }
 	    catch (Exception e) {
-	      throw new XDevException(e);
+	      e.printStackTrace();
 	    }
 	    
   }//end of socket init
@@ -4769,6 +4769,9 @@ public class NIODevice
 		// TODO Auto-generated method stub
 		System.out.println("Enter Continue!");
 		isCheckpointing = true;
+		
+		//restore the logger
+		logger = Logger.getLogger("mpj");
 		
 		socketInit();
 		/*
