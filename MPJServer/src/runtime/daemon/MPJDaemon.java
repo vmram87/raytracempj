@@ -430,7 +430,7 @@ public class MPJDaemon {
     		  if(DEBUG && logger.isDebugEnabled()) { 
                   logger.debug("wait 8s for worldProcessTable"); 
               }
-    		  worldProcessTable.wait(8000);
+    		  worldProcessTable.wait(12000);
     		  if(DEBUG && logger.isDebugEnabled()) { 
                   logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
               }
