@@ -131,6 +131,7 @@ public class MPJDaemon {
   private final int DAEMON_EXIT_ACK = -36;
   private final int REQUEST_RESTART = -70;
   private final int CHECK_VALID = -71;
+  private final int START_CHECKPOINT_WAVE = -31;
   
   private final int MAX_CHECKPOINT_INVALID_TIME = 2;
   private boolean isRestartFromCheckpoint = false;
@@ -1048,6 +1049,12 @@ private void restoreVariables() {
             	  isRestartFromCheckpoint = true;
               }
               
+              //receive start checkpoint wave from MPJRun host 
+              if(read.equals("scpv")){
+            	  int rank = lilBuffer.getInt();
+            	  doStartCheckpointWave(rank);
+              }
+              
               
               //just a heartheat check
               if(read.equals("cvl-")){
@@ -1350,7 +1357,6 @@ private void restoreVariables() {
       }
     } //end run()
 
-
 	
   }; //end selectorThread which is an inner class 
   
@@ -1454,6 +1460,32 @@ private void restoreVariables() {
 		  
 		}
 	};// end renew thread
+	
+	private void doStartCheckpointWave(int rank) {
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("---do start checkpoint wave---");
+        }
+		
+		UUID ruid = pids[rank];
+		if(ruid != null){
+			SocketChannel socketChannel = worldProcessTable.get(ruid);
+			if(socketChannel != null){
+				ByteBuffer buf = ByteBuffer.allocate(4);
+				buf.putInt(START_CHECKPOINT_WAVE);
+				buf.flip();
+				while(buf.hasRemaining()){
+					try{
+						if(socketChannel.write(buf) == -1)
+							throw new ClosedChannelException();
+					}
+					catch(IOException e){
+						e.printStackTrace();
+						return;
+					}
+				}
+			}
+		}		
+	}
 	
 	/*
 	   * This method is used during initialization.

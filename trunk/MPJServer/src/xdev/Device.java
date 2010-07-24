@@ -255,7 +255,11 @@ public interface Device {
 
   public abstract mpjdev.Request peek() throws XDevException; 
   
-  public void checkpoint() throws XDevException; 
+  public abstract void checkpoint() throws XDevException;
+
+  public abstract void acquireUserLock()  throws InterruptedException;
+
+  public abstract void signalUserLock();  
 	  
 
 }
