@@ -605,6 +605,7 @@ public class NIODevice
   private final int RENDEZ_HEADER = -22;
   
   private final int START_CHECKPOINT = -32;
+  private final int START_CHECKPOINT_WAVE = -31;
   
   private final int FINISH_CHECKPOINT = -33;
   
@@ -4439,6 +4440,10 @@ public class NIODevice
                   case CHECK_VALID:
                 	                  	  
                 	  break;
+                
+                  case START_CHECKPOINT_WAVE:
+                	  startCheckpoint = true;
+                	  break;
 
                   case END_OF_STREAM:
                     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
@@ -4809,5 +4814,16 @@ public class NIODevice
 	
 	public void test(){
 		System.out.println("Hello");
+	}
+
+	@Override
+	public void acquireUserLock() throws InterruptedException {
+		cLockUserSend.acquire();
+		
+	}
+
+	@Override
+	public void signalUserLock() {
+		cLockUserSend.signal();		
 	}
 }

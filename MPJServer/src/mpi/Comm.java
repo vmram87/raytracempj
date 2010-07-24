@@ -2043,6 +2043,19 @@ public class Comm {
   public void checkpoint() throws MPIException {
 	  mpjdevComm.checkpoint();
   }
+  
+  public void acquireCheckpointLock() throws MPIException {
+	  try {
+		mpjdevComm.acquireCheckpointLock();
+	} catch (InterruptedException e) {
+		e.printStackTrace();
+		throw new MPIException(e);
+	}
+  }
+  
+  public void signalCheckpointLock() throws MPIException {
+	  mpjdevComm.signalCheckpointLock();
+  }
 
   /**
    * Duplicate this communicator.

@@ -527,4 +527,18 @@ public void checkpoint() throws XDevException {
 	
 }
 
+@Override
+public void acquireUserLock() throws InterruptedException {
+	throw new XDevException("Not Implemented!");
+	
+}
+
+@Override
+public void signalUserLock() {
+	throw new XDevException("Not Implemented!");
+	
+}
+
+
+
 }

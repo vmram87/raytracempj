@@ -1235,4 +1235,14 @@ public class Comm {
 		device.checkpoint();		
 	}
 
+	public void acquireCheckpointLock()  throws InterruptedException{
+		device.acquireUserLock();
+		
+	}
+
+	public void signalCheckpointLock() {
+		device.signalUserLock();
+		
+	}
+
 }
