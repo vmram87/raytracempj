@@ -151,6 +151,7 @@ public class MPJRun {
   
   private boolean isFinished = false;
   private boolean isRestarting = false;
+  private boolean isCanCheckpoint = false;
   private CustomSemaphore initLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
   
@@ -2097,6 +2098,7 @@ if(DEBUG && logger.isDebugEnabled())
 
 		
 	};
+
 	
 	
 	  class CustomSemaphore {
@@ -2152,5 +2154,16 @@ if(DEBUG && logger.isDebugEnabled())
 	        
 		this.Notify();
 		
+	}
+	
+	public void setCheckpointInterval(int timeInterval){
+		CHECKPOINT_INTERVAL = timeInterval;
+	}
+	
+	public boolean startCheckpointWave(){
+		if(isCanCheckpoint == false)
+			return false;
+		
+		return true;
 	}
 }
