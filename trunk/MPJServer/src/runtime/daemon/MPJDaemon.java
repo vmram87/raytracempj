@@ -1289,7 +1289,7 @@ private void restoreVariables() {
                 lilBuffer.clear();
                 startExecution ();
 
-              }
+              } 
               else if (read.equals("kill")) {
             	  
             	  finishLock.acquire();
