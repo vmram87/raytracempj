@@ -183,6 +183,7 @@ public class MPJDaemon {
     	
     	isRestarting = false;
     	sendRestartRequestLock = new CustomSemaphore(1); 
+    	startLock = new CustomSemaphore(1);
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
@@ -666,8 +667,11 @@ private void restoreVariables() {
   }
 
   private synchronized void startExecution () {
-    waitToStartExecution = false;
-    startLock.signal();
+	  if(waitToStartExecution == true){
+		  startLock.signal();
+		  waitToStartExecution = false;
+	  }  
+    
   }
   
   private void createLogger(String homeDir, String hostName) 
