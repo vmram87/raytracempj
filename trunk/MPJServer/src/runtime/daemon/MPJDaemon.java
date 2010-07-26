@@ -670,7 +670,7 @@ private void restoreVariables() {
   private void startExecution () {
 	  synchronized (startLock) {
 		  waitToStartExecution = false;
-		  startLock.notify();
+		  startLock.notifyAll();
 	  }
 	  
 
