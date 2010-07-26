@@ -184,6 +184,8 @@ public class MPJDaemon {
     	isRestarting = false;
     	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
+    	if(peerChannel != null)
+    		peerChannel.close();
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
