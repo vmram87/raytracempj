@@ -57,6 +57,7 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -76,6 +77,8 @@ import org.apache.log4j.PatternLayout;
 import org.qing.object.Context;
 import org.qing.service.ContextManager;
 import org.qing.service.SpringContextUtil;
+
+import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
 
 import runtime.MPJRuntimeException;
 
@@ -493,7 +496,7 @@ public class MPJRun {
       buffer.put(aArgs[j].getBytes(), 0, aArgs[j].getBytes().length);
     }
 
-    buffer.put("*GO*".getBytes(), 0, "*GO*".getBytes().length);    
+    buffer.put("*GO**GO*".getBytes(), 0, "*GO**GO*".getBytes().length);    
 
     buffer.flip();
   }
@@ -1186,6 +1189,7 @@ public class MPJRun {
 	                  " are greater than than machines " + noOfMachines);
 	     }
 		  
+	     rank = 0;
 	      for (int i = 0; i < noOfMachines; i++) {
 
 		  
@@ -1193,17 +1197,25 @@ public class MPJRun {
 	          Map map = machnineProcessMap.get(name);
 
 	          Iterator it = map.entrySet().iterator();
+	          ArrayList<Integer> rankList = new ArrayList<Integer>();
 	          while(it.hasNext()){
 	        	  java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
 	        	  Context c = (Context)entry.getValue();
-	        	  
+	        	  rankList.add(c.getRank());
+	          }
+	          
+	          Object[] rankArray = rankList.toArray();
+	          Arrays.sort(rankArray);
+	          
+	          for(int j=0; j < rankArray.length; j++){
 	        	  if(deviceName.equals("niodev")) { 		  
 		              cout.println( name + "@" +
-		                           port + "@" + (c.getRank()));
+		                           port + "@" + rankArray[j]);
 		              port += 2;
 				  } 
-	        	  
-	          }//end of while
+	          }//end of for
+	          
+
 	            
 		     }//end for
 			  
@@ -1270,7 +1282,7 @@ public class MPJRun {
 	    	      logger.debug("nprocs " + nprocs);
 	    	    }
 	        	
-	        	buffer.put("*GO*".getBytes(), 0, "*GO*".getBytes().length);    
+	        	buffer.put("*GO**Go*".getBytes(), 0, "*GO**Go*".getBytes().length);    
 	
 	            buffer.flip();
         	
@@ -1825,8 +1837,14 @@ if(DEBUG && logger.isDebugEnabled())
               lilBuffer.clear();
               read = 0;
               while(lilBuffer.hasRemaining()){
-            	  if((read = socketChannel.read(lilBuffer)) == -1 ){
-            		  break;
+            	  try{
+	            	  if((read = socketChannel.read(lilBuffer)) == -1 ){
+	            		  break;
+	            	  }
+            	  }
+            	  catch(IOException e){
+            		  e.printStackTrace();
+            		  read = END_OF_STREAM;
             	  }
               }
               

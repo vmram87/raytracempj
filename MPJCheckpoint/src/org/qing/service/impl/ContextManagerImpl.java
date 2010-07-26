@@ -73,7 +73,12 @@ public class ContextManagerImpl implements ContextManager {
 		if(ver != null){
 			delAllPrevContextsByVersion(getLatestVersionId()+1);
 		}
-		client.killProccesses();
+		try{
+			client.killProccesses();
+		}
+		catch(Exception e){
+			e.printStackTrace();
+		}
 		
 	}
 
