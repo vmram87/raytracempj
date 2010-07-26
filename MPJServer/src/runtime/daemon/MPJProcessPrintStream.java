@@ -80,8 +80,7 @@ public class MPJProcessPrintStream extends PrintStream {
     	intBuffer.putInt(MPJDaemon.DAEMON_EXIT);
     	intBuffer.flip();
     	while(intBuffer.hasRemaining()){
-    		if(socketChannel.write(intBuffer) == -1);
-	  			throw new ClosedChannelException();
+    		socketChannel.write(intBuffer);
     	}
 
     	intBuffer.clear();
@@ -100,8 +99,7 @@ public class MPJProcessPrintStream extends PrintStream {
     	intBuffer.putInt(b);
     	intBuffer.flip();
     	while(intBuffer.hasRemaining()){
-    		if(socketChannel.write(intBuffer) == -1);
-	  			throw new ClosedChannelException();
+    		socketChannel.write(intBuffer);
     	}
     	
     	intBuffer.clear();
@@ -123,8 +121,7 @@ public class MPJProcessPrintStream extends PrintStream {
       buffer.put(buf, off, len);
       buffer.flip();
       while(buffer.hasRemaining()){
-    	  if(socketChannel.write(buffer) == -1);
-    	  	throw new ClosedChannelException();
+    	  socketChannel.write(buffer);
       }
       
       buffer.clear();
