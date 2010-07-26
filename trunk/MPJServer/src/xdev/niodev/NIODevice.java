@@ -75,6 +75,7 @@ import java.util.Vector;
 
 import javax.imageio.spi.RegisterableService;
 
+import mpi.MPIException;
 import mpi.ProcTree;
 import mpjbuf.BufferFactory;
 import mpjbuf.NIOBuffer;
@@ -83,7 +84,11 @@ import mpjbuf.Type;
 import mpjdev.MPJException;
 import mpjdev.Request;
 
+import org.apache.log4j.DailyRollingFileAppender;
+import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
+import org.apache.log4j.PatternLayout;
+import org.apache.log4j.spi.LoggerRepository;
 
 import xdev.Device;
 import xdev.ProcessID;
@@ -1587,6 +1592,7 @@ public class NIODevice
 	    }
 	    catch (Exception e) {
 	      e.printStackTrace();
+	      return;
 	    }
 	    
   }//end of socket init
@@ -4769,15 +4775,41 @@ public class NIODevice
 		
 	}
 	
+	private void initLogger(){
+		DailyRollingFileAppender fileAppender = null ;  	  
+	      Map<String,String> map = System.getenv() ;
+	      String mpjHomeDir = map.get("MPJ_HOME");
+	      
+	      if(logger == null && mpi.MPI.DEBUG ) {
+	        try {
+	          fileAppender = new DailyRollingFileAppender( 
+				  new PatternLayout(
+					  " %-5p %c %x - %m\n" ),
+				  mpjHomeDir+"/logs/mpj"+rank+".log", 
+				  "yyyy-MM-dd-HH" );
+		  
+		  Logger rootLogger = Logger.getRootLogger() ;
+		  rootLogger.addAppender( fileAppender);
+		  LoggerRepository rep =  rootLogger.getLoggerRepository() ;
+		  rootLogger.setLevel ((Level) Level.ALL );
+		  //rep.setThreshold((Level) Level.OFF ) ;
+		  logger = Logger.getLogger( "mpj" );  
+	        }
+	        catch(Exception e) {
+	          throw new MPIException(e) ;
+	        }
+	      }
+	}
+	
 
 	public void processContinue() {
 		// TODO Auto-generated method stub
 		System.out.println("Enter Continue!");
 		isCheckpointing = true;
-		
-		//restore the logger
-		logger = Logger.getLogger("mpj");
-		
+		initLogger();
+		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+            logger.debug("\n\n---Rank<" + this.rank + "> Enter Continue---\n");
+        }
 		socketInit();
 		/*
 		try {
@@ -4820,7 +4852,7 @@ public class NIODevice
 	public void acquireUserLock() throws InterruptedException {
 		cLockUserSend.acquire();
 		
-	}
+	} 
 
 	@Override
 	public void signalUserLock() {
