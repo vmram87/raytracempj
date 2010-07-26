@@ -119,7 +119,7 @@ public class MPJDaemon {
   private CustomSemaphore finishLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatBeginLock = new CustomSemaphore(1); 
-  private CustomSemaphore startLock = new CustomSemaphore(1); 
+  private Object startLock = new CustomSemaphore(1); 
   private Object sendRestartRequestLock = new Object(); 
   private Thread renewThreadStarter = null;
   private Thread heartBeatStarter = null;
@@ -595,7 +595,7 @@ private void restoreVariables() {
 
     if (waitToStartExecution) {
       try {
-        startLock.acquire();
+        startLock.wait();
       }
       catch (Exception e) {
         e.printStackTrace();
@@ -667,10 +667,9 @@ private void restoreVariables() {
   }
 
   private synchronized void startExecution () {
-	  if(waitToStartExecution == true){
-		  startLock.signal();
-		  waitToStartExecution = false;
-	  }  
+	  waitToStartExecution = false;
+	  startLock.notify();
+
     
   }
   
