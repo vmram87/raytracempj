@@ -470,7 +470,12 @@ public class MPJDaemon {
     	  renewThreadStarter.interrupt();
       
       isFinished = true;
-      if(heartBeatStarter != null)
+      if(DEBUG && logger.isDebugEnabled()) { 
+          if(heartBeatStarter != null)
+          	logger.debug("heartBeatStarter state:" + heartBeatStarter.getState());
+      }
+      
+      if(heartBeatStarter != null && !heartBeatStarter.getState().equals(Thread.State.TERMINATED))
     	  heartBeatStarter.join();
       
    // Its important to kill all JVMs that we started ... 
