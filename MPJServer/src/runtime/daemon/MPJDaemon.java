@@ -1294,6 +1294,10 @@ private void restoreVariables() {
             	  
             	  finishLock.acquire();
             	  isRestarting = true;
+            	  synchronized (startLock) {
+            		//unnomal terminate 
+					startLock.notify();
+            	  }
             	  if(renewThreadStarter != null && (renewThreadStarter.getState() == Thread.State.BLOCKED
             			  || renewThreadStarter.getState() == Thread.State.WAITING))
             		  renewThreadStarter.interrupt();
