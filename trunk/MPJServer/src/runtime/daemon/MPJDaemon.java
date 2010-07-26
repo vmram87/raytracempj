@@ -591,18 +591,19 @@ private void restoreVariables() {
     p = null ; 
   }
 
-   private synchronized void waitToStartExecution () {
+   private void waitToStartExecution () {
+	   synchronized(startLock){
+		   if (waitToStartExecution) {
+		      try {
+		        startLock.wait();
+		      }
+		      catch (Exception e) {
+		        e.printStackTrace();
+		      }
+		    } 
 
-    if (waitToStartExecution) {
-      try {
-        startLock.wait();
-      }
-      catch (Exception e) {
-        e.printStackTrace();
-      }
-    } 
-
-    waitToStartExecution = true ; 
+		    waitToStartExecution = true ; 
+	   }    
 
   }
 
@@ -666,9 +667,12 @@ private void restoreVariables() {
     return false;
   }
 
-  private synchronized void startExecution () {
-	  waitToStartExecution = false;
-	  startLock.notify();
+  private void startExecution () {
+	  synchronized (startLock) {
+		  waitToStartExecution = false;
+		  startLock.notify();
+	  }
+	  
 
     
   }
