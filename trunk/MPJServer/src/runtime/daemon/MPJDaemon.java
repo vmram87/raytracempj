@@ -190,7 +190,7 @@ public class MPJDaemon {
       }
       
       //wdir = System.getProperty("user.dir");
-      System.out.println("Test user.dir in daemon:" + System.getProperty("user.dir"));
+      //System.out.println("Test user.dir in daemon:" + System.getProperty("user.dir"));
 
       waitToStartExecution ();
 
