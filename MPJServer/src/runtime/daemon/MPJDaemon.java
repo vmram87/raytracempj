@@ -184,8 +184,6 @@ public class MPJDaemon {
     	isRestarting = false;
     	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
-    	if(peerChannel != null)
-    		peerChannel.close();
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
@@ -595,7 +593,11 @@ private void restoreVariables() {
 
    private void waitToStartExecution () {
 	   synchronized(startLock){
+		   
 		   if (waitToStartExecution) {
+			   if (DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("--go to wait for startLock--");
+		       }
 		      try {
 		        startLock.wait();
 		      }
@@ -672,7 +674,7 @@ private void restoreVariables() {
   private void startExecution () {
 	  synchronized (startLock) {
 		  waitToStartExecution = false;
-		  startLock.notifyAll();
+		  startLock.notify();
 	  }
 	  
 
