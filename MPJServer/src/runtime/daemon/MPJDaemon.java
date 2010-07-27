@@ -186,7 +186,6 @@ public class MPJDaemon {
     	kill_signal = false;
     	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
-    	processStartLock = new CustomSemaphore(1);
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
@@ -225,8 +224,6 @@ public class MPJDaemon {
       p = new Process[processes];  
       pids = new UUID[nprocs];
       
-      processStartLock.acquire();
-      if(kill_signal == false){
 	      try{
 	
 	    	  
@@ -431,8 +428,6 @@ public class MPJDaemon {
 		      }
 	    	  sendRestartReqestToMainHost();
 	      }
-      }//end of it kill_signal == false
-      processStartLock.signal(); 
 		      
 		
 		
@@ -506,7 +501,6 @@ public class MPJDaemon {
     	  heartBeatStarter.join();
       
    // Its important to kill all JVMs that we started ... 
-      processStartLock.acquire();
       try{
       	if(kill_signal == false){
       		for(int i=0 ; i<processes ; i++) 
@@ -516,7 +510,6 @@ public class MPJDaemon {
       catch(Exception e){
     	  e.printStackTrace();
       }
-      processStartLock.signal();
       
       
       
