@@ -450,9 +450,9 @@ public class MPJDaemon {
           }
     	  if(worldProcessTable.size() != processes){
     		  if(DEBUG && logger.isDebugEnabled()) { 
-                  logger.debug("wait 8s for worldProcessTable"); 
+                  logger.debug("wait 12s for worldProcessTable"); 
               }
-    		  worldProcessTable.wait(16000);
+    		  worldProcessTable.wait(12000);
     		  if(DEBUG && logger.isDebugEnabled()) { 
                   logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
               }
@@ -468,7 +468,8 @@ public class MPJDaemon {
       //Wait for the I/O threads to finish. They finish when 
       // their corresponding JVMs finish. 
       for (int j = 0; j < processes; j++) {
-        outputThreads[j].join();
+    	  if(outputThreads[j] != null)
+    		  outputThreads[j].join();
       }
 	      
 	      
@@ -1609,7 +1610,7 @@ private void restoreVariables() {
 	      processValidMap.put(ruid, true);
 	      
 	      if (DEBUG && logger.isDebugEnabled()) {
-            logger.debug("added rand" + rank + " to table:" + table);
+            logger.debug("added rand <" + rank + "> to table:" + table);
             logger.debug("table size:" + table.size());
             logger.debug("processValidMap size:" + processValidMap.size());
         }
