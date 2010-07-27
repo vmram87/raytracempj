@@ -1321,8 +1321,9 @@ private void restoreVariables() {
               else if (read.equals("kill")) {
             	  
             	  processStartLock.acquire();
-            	  finishLock.acquire();
+            	  finishLock.acquire();            	  
             	  isRestarting = true;
+            	  checkpointingProcessTable.clear();
             	  synchronized (startLock) {
             		//unnomal terminate 
 					startLock.notify();
