@@ -1921,6 +1921,7 @@ private void restoreVariables() {
 								isRestarting = true;
 								checkpointingProcessTable.clear();
 								heartBeatLock.signal();
+								processStartLock.signal();
 								if (DEBUG && logger.isDebugEnabled()) {
 						              logger.debug("after notify the MPJRun, exit heartbeat thread!");
 						        }
