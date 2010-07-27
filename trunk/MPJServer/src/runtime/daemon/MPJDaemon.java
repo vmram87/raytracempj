@@ -186,6 +186,7 @@ public class MPJDaemon {
     	kill_signal = false;
     	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
+    	processStartLock = new CustomSemaphore(1);
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
