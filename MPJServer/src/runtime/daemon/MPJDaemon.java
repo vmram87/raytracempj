@@ -1939,7 +1939,8 @@ private void restoreVariables() {
 								if(t == MAX_CHECKPOINT_INVALID_TIME){
 									
 									if (DEBUG && logger.isDebugEnabled()) {
-							              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
+							              logger.debug("Excced the max time of try, Checkpointing process [" + ruid
+							            		  + "]is closed, so notify the main host");
 							        }
 									
 									synchronized (sendRestartRequestLock) {
