@@ -1926,7 +1926,7 @@ private void restoreVariables() {
 						              logger.debug("after notify the MPJRun, exit heartbeat thread!");
 						        }
 								return;
-								
+							
 							}
 					    	
 						}//end worldProcessTable iterator
