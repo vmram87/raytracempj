@@ -135,7 +135,7 @@ public class MPJDaemon {
   private final int CHECK_VALID = -71;
   private final int START_CHECKPOINT_WAVE = -31;
   
-  private final int MAX_CHECKPOINT_INVALID_TIME = 2;
+  private final int MAX_CHECKPOINT_INVALID_TIME = 4;
   private boolean isRestartFromCheckpoint = false;
   private boolean hasSendRequest = false;  
   private static String JAVA_TEMP_FILE_DIRECTORY = "/tmp/hsperfdata_" + System.getProperty("user.name") + "/";
