@@ -221,235 +221,246 @@ public class MPJDaemon {
       OutputHandler [] outputThreads = new OutputHandler[processes] ;  
       p = new Process[processes];  
       pids = new UUID[nprocs];
+      
+      try{
 
-      for (int j = 0; j < processes; j++) {
-
-        /* Step 1: Read from the config file - basically need to know
-                   rank of processes */ 
-        String line = null;
-        String rank = null; 
-        
-        if(isRestartFromCheckpoint == false){
-        	jvmArgs.add("-Djava.library.path=."+File.pathSeparator+"/usr/local/lib"+
-        		File.pathSeparator+ mpjHomeDir + File.separator + SYSTEM_LIB_DIR);
-        }
-
-        while((line = bufferedReader.readLine()) != null) {
-
-          if(DEBUG && logger.isDebugEnabled()) { 
-            //logger.debug ("line ="+line);
-          }
-
-          if(MPJDaemon.matchMe(line) ) {
-            StringTokenizer tokenizer = new StringTokenizer(line, "@");
-            tokenizer.nextToken();
-            tokenizer.nextToken();
-            rank = tokenizer.nextToken();
-            break ;
-          }
-
-        } //end while
-
-        if(DEBUG && logger.isDebugEnabled()) { 
-          logger.debug("out of while loop");
-        }
-
-        /* Step 2: Argument Processing */ 
-
-        String[] jArgs = jvmArgs.toArray(new String[0]); 
-        ProcessBuilder pb = null;
-        
-        if(isRestartFromCheckpoint == false){
-        	
-	        boolean now = false;
-	        boolean noSwitch = true ;
+	      for (int j = 0; j < processes; j++) {
 	
-	        for(int e=0 ; e<jArgs.length; e++) {
+	        /* Step 1: Read from the config file - basically need to know
+	                   rank of processes */ 
+	        String line = null;
+	        String rank = null; 
+	        
+	        if(isRestartFromCheckpoint == false){
+	        	jvmArgs.add("-Djava.library.path=."+File.pathSeparator+"/usr/local/lib"+
+	        		File.pathSeparator+ mpjHomeDir + File.separator + SYSTEM_LIB_DIR);
+	        }
+	
+	        while((line = bufferedReader.readLine()) != null) {
 	
 	          if(DEBUG && logger.isDebugEnabled()) { 
-	            //logger.debug("jArgs["+e+"]="+jArgs[e]);
-		  }
-	
-	          if(now) {
-	            String cp = jvmArgs.remove(e);
-		      
-	            cp = "."+File.pathSeparator+""+
-	                  mpjHomeDir+"/lib/loader1.jar"+
-	                  File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
-	                  File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
-	                  File.pathSeparator+applicationClassPathEntry+
-	                  File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
-	                  File.pathSeparator+applicationClassPathEntry+"/bin"+
-	                  File.pathSeparator+cp;
-		      
-	            jvmArgs.add(e,cp);
-	            now = false;
+	            //logger.debug ("line ="+line);
 	          }
 	
-	          if(jArgs[e].equals("-cp")) {
-	            now = true;
-	            noSwitch = false;
+	          if(MPJDaemon.matchMe(line) ) {
+	            StringTokenizer tokenizer = new StringTokenizer(line, "@");
+	            tokenizer.nextToken();
+	            tokenizer.nextToken();
+	            rank = tokenizer.nextToken();
+	            break ;
 	          }
-	        }
 	
-	        if(noSwitch) {
-	          jvmArgs.add("-cp");
-		  jvmArgs.add("."+File.pathSeparator+""
-	  	        +mpjHomeDir+"/lib/loader1.jar"+
-	                File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
-	                File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
-	                File.pathSeparator+applicationClassPathEntry+
-	                File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
-	                File.pathSeparator+applicationClassPathEntry+"/bin") ; 
-	        }
-	        
-	        
-	
-	        jArgs = jvmArgs.toArray(new String[0]);
-        
-        
-	        jvmArgs.clear();
-	 
-	        for(int e=0 ; e<jArgs.length; e++) {
-	          if(DEBUG && logger.isDebugEnabled()) { 
-	            //logger.debug("modified: jArgs["+e+"]="+jArgs[e]);
-		  }
-	        }
-		  
-	        String[] aArgs = appArgs.toArray(new String[0]); 
-	
-	        int N_ARG_COUNT = 7 ; 
-		  
-	        String[] ex = new String[(N_ARG_COUNT+jArgs.length+aArgs.length)]; 
-	        ex[0] = "java";
-	
-	        //System.arraycopy ... can be used ..here ...
-	        for(int i=0 ; i<jArgs.length ; i++) { 
-	          ex[i+1] = jArgs[i]; 	
-	        }
-	
-	        int indx = jArgs.length+1; 
-		
-	        ex[indx] = "runtime.daemon.Wrapper" ; indx++ ;
-	        ex[indx] = configFileName; indx++ ; 
-	        ex[indx] = Integer.toString(processes); indx++ ; 
-	        ex[indx] = deviceName; indx++ ; 
-	        ex[indx] = rank; indx++ ; 
-	        ex[indx] = className ; 
-		  
-	        //System.arraycopy ... can be used ..here ...
-	        for(int i=0 ; i< aArgs.length ; i++) { 
-	          ex[i+N_ARG_COUNT+jArgs.length] = aArgs[i]; 	
-	        }
+	        } //end while
 	
 	        if(DEBUG && logger.isDebugEnabled()) { 
-	          for (int i = 0; i < ex.length; i++) {
-	            //logger.debug(i+": "+ ex[i]);
-	          }  
+	          logger.debug("out of while loop");
 	        }
-	        
-	        
-	        /* Step 3: Now start a new JVM */ 
-	        pb = new ProcessBuilder(ex);
-	        pb.directory(new File(wdir)) ;
-	        pb.redirectErrorStream(true); 
-        
-        }//end  of if isRestartFromCheckpoint == false
-        else{
-        	if(DEBUG && logger.isDebugEnabled()) { 
-                logger.debug("process restart args");
-            }
-        	
-        	String contextFilePath = jArgs[j*2];
-        	String tempFilePath = jArgs[j*2 + 1];
-        	
-        	if(DEBUG && logger.isDebugEnabled()) { 
-                logger.debug("contextFilePath:" + contextFilePath);
-                logger.debug("tempFilePath:" + tempFilePath);
-            }
-        	
-        	int pos = tempFilePath.lastIndexOf("/");
-        	String pathArg = tempFilePath.substring(pos + 1);
-        	String processId = pathArg.split("_")[0];
-        	
-        	String dstTempFilePath = JAVA_TEMP_FILE_DIRECTORY + processId;
-        	File srcTempFile = new File(tempFilePath);
-        	File dstTempFile = new File(dstTempFilePath);
- 
-        	
-        	if(DEBUG && logger.isDebugEnabled()) { 
-                logger.debug("copy the temp file");
-            }
-        	copyFile(srcTempFile, dstTempFile);
-        	
-        	String[] ex = new String[2];
-        	ex[0] = "cr_restart";
-        	ex[1] = contextFilePath;
-        	
-        	/* Step 3: Now start a new JVM */ 
-	        pb = new ProcessBuilder(ex);
-	        pb.directory(new File(wdir)) ;
-	        pb.redirectErrorStream(true); 
-        }
 	
-       
-        if(DEBUG && logger.isDebugEnabled()) { 
-          logger.debug("starting the process ");
-        }
-
-        p[j] = pb.start();
-
-        /* Step 4: Start a new thread to handle output from this particular
-                   JVM. 
-                   FIXME: Now this seems like a good amount of overhead. If
-                   we start 4 JVMs on a quad-core CPU, we also start 4 
-                   additional threads to handle I/O. Is it possible to 
-                   get rid of this overhead?
-                   */ 
-        outputThreads[j] = new OutputHandler(p[j], rank) ; 
-        outputThreads[j].start();
-	  
-        if(DEBUG && logger.isDebugEnabled()) { 
-          logger.debug("started the process "); 
-        }
-      } //end for.	
+	        /* Step 2: Argument Processing */ 
+	
+	        String[] jArgs = jvmArgs.toArray(new String[0]); 
+	        ProcessBuilder pb = null;
+	        
+	        if(isRestartFromCheckpoint == false){
+	        	
+		        boolean now = false;
+		        boolean noSwitch = true ;
+		
+		        for(int e=0 ; e<jArgs.length; e++) {
+		
+		          if(DEBUG && logger.isDebugEnabled()) { 
+		            //logger.debug("jArgs["+e+"]="+jArgs[e]);
+			  }
+		
+		          if(now) {
+		            String cp = jvmArgs.remove(e);
+			      
+		            cp = "."+File.pathSeparator+""+
+		                  mpjHomeDir+"/lib/loader1.jar"+
+		                  File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
+		                  File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
+		                  File.pathSeparator+applicationClassPathEntry+
+		                  File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
+		                  File.pathSeparator+applicationClassPathEntry+"/bin"+
+		                  File.pathSeparator+cp;
+			      
+		            jvmArgs.add(e,cp);
+		            now = false;
+		          }
+		
+		          if(jArgs[e].equals("-cp")) {
+		            now = true;
+		            noSwitch = false;
+		          }
+		        }
+		
+		        if(noSwitch) {
+		          jvmArgs.add("-cp");
+			  jvmArgs.add("."+File.pathSeparator+""
+		  	        +mpjHomeDir+"/lib/loader1.jar"+
+		                File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
+		                File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
+		                File.pathSeparator+applicationClassPathEntry+
+		                File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
+		                File.pathSeparator+applicationClassPathEntry+"/bin") ; 
+		        }
+		        
+		        
+		
+		        jArgs = jvmArgs.toArray(new String[0]);
+	        
+	        
+		        jvmArgs.clear();
+		 
+		        for(int e=0 ; e<jArgs.length; e++) {
+		          if(DEBUG && logger.isDebugEnabled()) { 
+		            //logger.debug("modified: jArgs["+e+"]="+jArgs[e]);
+			  }
+		        }
+			  
+		        String[] aArgs = appArgs.toArray(new String[0]); 
+		
+		        int N_ARG_COUNT = 7 ; 
+			  
+		        String[] ex = new String[(N_ARG_COUNT+jArgs.length+aArgs.length)]; 
+		        ex[0] = "java";
+		
+		        //System.arraycopy ... can be used ..here ...
+		        for(int i=0 ; i<jArgs.length ; i++) { 
+		          ex[i+1] = jArgs[i]; 	
+		        }
+		
+		        int indx = jArgs.length+1; 
+			
+		        ex[indx] = "runtime.daemon.Wrapper" ; indx++ ;
+		        ex[indx] = configFileName; indx++ ; 
+		        ex[indx] = Integer.toString(processes); indx++ ; 
+		        ex[indx] = deviceName; indx++ ; 
+		        ex[indx] = rank; indx++ ; 
+		        ex[indx] = className ; 
+			  
+		        //System.arraycopy ... can be used ..here ...
+		        for(int i=0 ; i< aArgs.length ; i++) { 
+		          ex[i+N_ARG_COUNT+jArgs.length] = aArgs[i]; 	
+		        }
+		
+		        if(DEBUG && logger.isDebugEnabled()) { 
+		          for (int i = 0; i < ex.length; i++) {
+		            //logger.debug(i+": "+ ex[i]);
+		          }  
+		        }
+		        
+		        
+		        /* Step 3: Now start a new JVM */ 
+		        pb = new ProcessBuilder(ex);
+		        pb.directory(new File(wdir)) ;
+		        pb.redirectErrorStream(true); 
+	        
+	        }//end  of if isRestartFromCheckpoint == false
+	        else{
+	        	if(DEBUG && logger.isDebugEnabled()) { 
+	                logger.debug("process restart args");
+	            }
+	        	
+	        	String contextFilePath = jArgs[j*2];
+	        	String tempFilePath = jArgs[j*2 + 1];
+	        	
+	        	if(DEBUG && logger.isDebugEnabled()) { 
+	                logger.debug("contextFilePath:" + contextFilePath);
+	                logger.debug("tempFilePath:" + tempFilePath);
+	            }
+	        	
+	        	int pos = tempFilePath.lastIndexOf("/");
+	        	String pathArg = tempFilePath.substring(pos + 1);
+	        	String processId = pathArg.split("_")[0];
+	        	
+	        	String dstTempFilePath = JAVA_TEMP_FILE_DIRECTORY + processId;
+	        	File srcTempFile = new File(tempFilePath);
+	        	File dstTempFile = new File(dstTempFilePath);
+	 
+	        	
+	        	if(DEBUG && logger.isDebugEnabled()) { 
+	                logger.debug("copy the temp file");
+	            }
+	        	copyFile(srcTempFile, dstTempFile);
+	        	
+	        	String[] ex = new String[2];
+	        	ex[0] = "cr_restart";
+	        	ex[1] = contextFilePath;
+	        	
+	        	/* Step 3: Now start a new JVM */ 
+		        pb = new ProcessBuilder(ex);
+		        pb.directory(new File(wdir)) ;
+		        pb.redirectErrorStream(true); 
+	        }
+		
+	       
+	        if(DEBUG && logger.isDebugEnabled()) { 
+	          logger.debug("starting the process ");
+	        }
+	
+	        p[j] = pb.start();
+	
+	        /* Step 4: Start a new thread to handle output from this particular
+	                   JVM. 
+	                   FIXME: Now this seems like a good amount of overhead. If
+	                   we start 4 JVMs on a quad-core CPU, we also start 4 
+	                   additional threads to handle I/O. Is it possible to 
+	                   get rid of this overhead?
+	                   */ 
+	        outputThreads[j] = new OutputHandler(p[j], rank) ; 
+	        outputThreads[j].start();
+		  
+	        if(DEBUG && logger.isDebugEnabled()) { 
+	          logger.debug("started the process "); 
+	        }
+	      } //end for.	
+	      
+	
+	
+	      try { 
+	        bufferedReader.close() ; 
+	        in.close() ; 
+	      } catch(Exception e) { 
+	        e.printStackTrace() ; 
+	      } 
+	      
+		  //when init, and worldprocessTable is not init properly
+	      Thread.currentThread().sleep(1000);
+	      synchronized (worldProcessTable) {
+	    	  if(DEBUG && logger.isDebugEnabled()) { 
+	              logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
+	          }
+	    	  if(worldProcessTable.size() != processes){
+	    		  if(DEBUG && logger.isDebugEnabled()) { 
+	                  logger.debug("wait 8s for worldProcessTable"); 
+	              }
+	    		  worldProcessTable.wait(12000);
+	    		  if(DEBUG && logger.isDebugEnabled()) { 
+	                  logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
+	              }
+	    		  if(worldProcessTable.size() != processes ){
+	    			  isFinished = true;
+	    			  sendRestartReqestToMainHost();
+	    		  }
+	    	  }
+	      }
+	    	
+	      
+	
+	      //Wait for the I/O threads to finish. They finish when 
+	      // their corresponding JVMs finish. 
+	      for (int j = 0; j < processes; j++) {
+	        outputThreads[j].join();
+	      }
       
-
-
-      try { 
-        bufferedReader.close() ; 
-        in.close() ; 
-      } catch(Exception e) { 
-        e.printStackTrace() ; 
-      } 
       
-	  //when init, and worldprocessTable is not init properly
-      Thread.currentThread().sleep(1000);
-      synchronized (worldProcessTable) {
+      }catch(Exception e){
+    	  e.printStackTrace();    	  
     	  if(DEBUG && logger.isDebugEnabled()) { 
-              logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
-          }
-    	  if(worldProcessTable.size() != processes){
-    		  if(DEBUG && logger.isDebugEnabled()) { 
-                  logger.debug("wait 8s for worldProcessTable"); 
-              }
-    		  worldProcessTable.wait(12000);
-    		  if(DEBUG && logger.isDebugEnabled()) { 
-                  logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
-              }
-    		  if(worldProcessTable.size() != processes ){
-    			  isFinished = true;
-    			  sendRestartReqestToMainHost();
-    		  }
-    	  }
-      }
-    	
-      
-
-      //Wait for the I/O threads to finish. They finish when 
-      // their corresponding JVMs finish. 
-      for (int j = 0; j < processes; j++) {
-        outputThreads[j].join();
+	          logger.debug("Exception in process starting!"); 
+	      }
+    	  sendRestartReqestToMainHost();
       }
       
       //if process finish before the heartbeat thread start, then check the 
