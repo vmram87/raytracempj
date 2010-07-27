@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.List;
 
 import org.qing.dao.ContextDao;
+import org.qing.factory.ClientFactory;
 import org.qing.object.Context;
 import org.qing.service.ContextManager;
 
@@ -11,7 +12,6 @@ import runtime.starter.MPJRun;
 
 public class ContextManagerImpl implements ContextManager {
 	private ContextDao contextDao;
-	private MPJRun client;
 	private Thread MPJRunThreadStarter = null;
 
 	public void setContextDao(ContextDao contextDao) {
@@ -21,7 +21,7 @@ public class ContextManagerImpl implements ContextManager {
 
 	@Override
 	public void startMPJRun(String[] argv) throws Exception {
-		client = new MPJRun(argv);
+		ClientFactory.initClient(argv);
 		MPJRunThreadStarter = new Thread(MPJRunThread);
 		MPJRunThreadStarter.start();
 	}
@@ -74,7 +74,7 @@ public class ContextManagerImpl implements ContextManager {
 			delAllPrevContextsByVersion(getLatestVersionId()+1);
 		}
 		try{
-			client.killProccesses();
+			ClientFactory.getClient().killProccesses();
 		}
 		catch(Exception e){
 			e.printStackTrace();
@@ -88,7 +88,7 @@ public class ContextManagerImpl implements ContextManager {
 		@Override
 		public void run() {
 			try {
-				client.start();
+				ClientFactory.getClient().start();
 			} catch (Exception e) {
 				e.printStackTrace();
 			}			
