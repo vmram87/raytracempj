@@ -186,6 +186,7 @@ public class MPJDaemon {
     	kill_signal = false;
     	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
+    	processStartLock = new CustomSemaphore(1);
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
@@ -224,10 +225,9 @@ public class MPJDaemon {
       p = new Process[processes];  
       pids = new UUID[nprocs];
       
+      processStartLock.acquire();
+      if(kill_signal == false){
 	      try{
-	
-	    	  
-	    	  
 	    	  
 		      for (int j = 0; j < processes; j++) {
 		
@@ -428,38 +428,37 @@ public class MPJDaemon {
 		      }
 	    	  sendRestartReqestToMainHost();
 	      }
-		      
-		
-		
-      try { 
-        bufferedReader.close() ; 
-        in.close() ; 
-      } catch(Exception e) { 
-        e.printStackTrace() ; 
-      } 
-      
-	  //when init, and worldprocessTable is not init properly
-      Thread.currentThread().sleep(1000);
-      synchronized (worldProcessTable) {
-    	  if(DEBUG && logger.isDebugEnabled()) { 
-              logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
-          }
-    	  if(worldProcessTable.size() != processes){
-    		  if(DEBUG && logger.isDebugEnabled()) { 
-                  logger.debug("wait 12s for worldProcessTable"); 
-              }
-    		  worldProcessTable.wait(12000);
-    		  if(DEBUG && logger.isDebugEnabled()) { 
-                  logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
-              }
-    		  if(worldProcessTable.size() != processes ){
-    			  isFinished = true;
-    			  sendRestartReqestToMainHost();
-    		  }
-    	  }
-      }
-		    	
-	       
+	      
+	      try { 
+	          bufferedReader.close() ; 
+	          in.close() ; 
+	        } catch(Exception e) { 
+	          e.printStackTrace() ; 
+	        } 
+	        
+	  	  //when init, and worldprocessTable is not init properly
+	        Thread.currentThread().sleep(1000);
+	        synchronized (worldProcessTable) {
+	      	  if(DEBUG && logger.isDebugEnabled()) { 
+	                logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
+	            }
+	      	  if(worldProcessTable.size() != processes){
+	      		  if(DEBUG && logger.isDebugEnabled()) { 
+	                    logger.debug("wait 12s for worldProcessTable"); 
+	                }
+	      		  worldProcessTable.wait(12000);
+	      		  if(DEBUG && logger.isDebugEnabled()) { 
+	                    logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
+	                }
+	      		  if(worldProcessTable.size() != processes ){
+	      			  isFinished = true;
+	      			  sendRestartReqestToMainHost();
+	      		  }
+	      	  }
+	        }
+      }//end of it kill_signal == false
+      processStartLock.signal(); 
+		          
 		
       //Wait for the I/O threads to finish. They finish when 
       // their corresponding JVMs finish. 
@@ -501,6 +500,7 @@ public class MPJDaemon {
     	  heartBeatStarter.join();
       
    // Its important to kill all JVMs that we started ... 
+      processStartLock.acquire();
       try{
       	if(kill_signal == false){
       		for(int i=0 ; i<processes ; i++) 
@@ -510,6 +510,8 @@ public class MPJDaemon {
       catch(Exception e){
     	  e.printStackTrace();
       }
+      kill_signal = true;
+      processStartLock.signal();
       
       
       
@@ -1842,95 +1844,46 @@ private void restoreVariables() {
 			while(!isFinished){
 				try {
 					heartBeatLock.acquire();
+					processStartLock.acquire();
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					//if the lock is interrupted then exit the thread
 					return;
 				}
 				
-				ByteBuffer buf = ByteBuffer.allocate(4);
-				buf.putInt(CHECK_VALID);
+				if(kill_signal == false){
 				
-				synchronized (worldProcessTable) {
-					Iterator it = worldProcessTable.entrySet().iterator();
-					SocketChannel socketChannel = null;
+				
+					ByteBuffer buf = ByteBuffer.allocate(4);
+					buf.putInt(CHECK_VALID);
 					
-					if (DEBUG && logger.isDebugEnabled()) {
-			              logger.debug("Heartbeat Thread");
-			              logger.debug("worldProcessTable size:" + worldProcessTable.size());
-			              
-			        }
-					while(it.hasNext()){
-						java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
-						UUID ruid = (UUID)entry.getKey();
-						if (DEBUG && logger.isDebugEnabled()) {
-							logger.debug("processValidMap.get(uuid) " + processValidMap.get(ruid));				              
-				        }
+					synchronized (worldProcessTable) {
+						Iterator it = worldProcessTable.entrySet().iterator();
+						SocketChannel socketChannel = null;
 						
-				    	if(processValidMap.get(ruid) == false)
-				    		continue;					    	
-				    	
-				    	buf.flip();
-				    	socketChannel = (SocketChannel)entry.getValue();
-				    	
-				    	try {
-							if(socketChannel.write(buf) == -1){
-								throw new ClosedChannelException();
-							}
-						} catch (IOException e) {
+						if (DEBUG && logger.isDebugEnabled()) {
+				              logger.debug("Heartbeat Thread");
+				              logger.debug("worldProcessTable size:" + worldProcessTable.size());
+				              
+				        }
+						while(it.hasNext()){
+							java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+							UUID ruid = (UUID)entry.getKey();
 							if (DEBUG && logger.isDebugEnabled()) {
-					              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
+								logger.debug("processValidMap.get(uuid) " + processValidMap.get(ruid));				              
 					        }
 							
-							synchronized (sendRestartRequestLock) {
-								if(hasSendRequest == false){
-									if(DEBUG && logger.isDebugEnabled()) { 
-										  logger.debug("has not send the restart request, and send it"); 
-								    }
-									hasSendRequest = true;
-									ByteBuffer msgBuffer = ByteBuffer.allocate(4);
-									msgBuffer.putInt(REQUEST_RESTART);
-									msgBuffer.flip();
-									while(msgBuffer.hasRemaining()){
-										try{
-											if(peerChannel.write(msgBuffer) == -1)
-												throw new ClosedChannelException();
-										}
-										catch(IOException ioe){
-											ioe.printStackTrace();
-											System.out.println("You should ensure the MPJRun host is running!");
-											if (DEBUG && logger.isDebugEnabled()) {
-									              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
-									        }
-											
-											heartBeatLock.signal();									
-											return;
-										}
-									}
+					    	if(processValidMap.get(ruid) == false)
+					    		continue;					    	
+					    	
+					    	buf.flip();
+					    	socketChannel = (SocketChannel)entry.getValue();
+					    	
+					    	try {
+								if(socketChannel.write(buf) == -1){
+									throw new ClosedChannelException();
 								}
-							}
-							
-							isRestarting = true;
-							checkpointingProcessTable.clear();
-							heartBeatLock.signal();
-							if (DEBUG && logger.isDebugEnabled()) {
-					              logger.debug("after notify the MPJRun, exit heartbeat thread!");
-					        }
-							return;
-							
-						}
-				    	
-					}//end worldProcessTable iterator
-					
-					it = checkpointingProcessTable.entrySet().iterator();
-					while(it.hasNext()){
-						java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
-						UUID ruid = (UUID)entry.getKey();
-						if(worldProcessTable.get(ruid) == null){
-							int t = (Integer) entry.getValue();
-							t++;
-							if(t == MAX_CHECKPOINT_INVALID_TIME){
-								
+							} catch (IOException e) {
 								if (DEBUG && logger.isDebugEnabled()) {
 						              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
 						        }
@@ -1941,7 +1894,6 @@ private void restoreVariables() {
 											  logger.debug("has not send the restart request, and send it"); 
 									    }
 										hasSendRequest = true;
-								
 										ByteBuffer msgBuffer = ByteBuffer.allocate(4);
 										msgBuffer.putInt(REQUEST_RESTART);
 										msgBuffer.flip();
@@ -1957,7 +1909,8 @@ private void restoreVariables() {
 										              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
 										        }
 												
-												heartBeatLock.signal();
+												heartBeatLock.signal();		
+												processStartLock.signal();
 												return;
 											}
 										}
@@ -1972,22 +1925,79 @@ private void restoreVariables() {
 						        }
 								return;
 								
-								
 							}
-							else{
-								checkpointingProcessTable.put(ruid, t);
+					    	
+						}//end worldProcessTable iterator
+						
+						it = checkpointingProcessTable.entrySet().iterator();
+						while(it.hasNext()){
+							java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+							UUID ruid = (UUID)entry.getKey();
+							if(worldProcessTable.get(ruid) == null){
+								int t = (Integer) entry.getValue();
+								t++;
+								if(t == MAX_CHECKPOINT_INVALID_TIME){
+									
+									if (DEBUG && logger.isDebugEnabled()) {
+							              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
+							        }
+									
+									synchronized (sendRestartRequestLock) {
+										if(hasSendRequest == false){
+											if(DEBUG && logger.isDebugEnabled()) { 
+												  logger.debug("has not send the restart request, and send it"); 
+										    }
+											hasSendRequest = true;
+									
+											ByteBuffer msgBuffer = ByteBuffer.allocate(4);
+											msgBuffer.putInt(REQUEST_RESTART);
+											msgBuffer.flip();
+											while(msgBuffer.hasRemaining()){
+												try{
+													if(peerChannel.write(msgBuffer) == -1)
+														throw new ClosedChannelException();
+												}
+												catch(IOException ioe){
+													ioe.printStackTrace();
+													System.out.println("You should ensure the MPJRun host is running!");
+													if (DEBUG && logger.isDebugEnabled()) {
+											              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+											        }
+													
+													heartBeatLock.signal();
+													processStartLock.signal();
+													return;
+												}
+											}
+										}
+									}
+									
+									isRestarting = true;
+									checkpointingProcessTable.clear();
+									heartBeatLock.signal();
+									processStartLock.signal();
+									if (DEBUG && logger.isDebugEnabled()) {
+							              logger.debug("after notify the MPJRun, exit heartbeat thread!");
+							        }
+									return;
+									
+									
+								}
+								else{
+									checkpointingProcessTable.put(ruid, t);
+								}
+									
 							}
-								
-						}
-					}//end checkpointingProcessTable iterator
+						}//end checkpointingProcessTable iterator
+						
+					}//end syn
 					
-				}//end syn
-				
-				
-				
-				
-
+					
+				}//end of if kill_signal == false
+					
+	
 				heartBeatLock.signal();
+				processStartLock.signal();
 				try {
 					Thread.currentThread().sleep(5000);
 				} catch (InterruptedException e) {
