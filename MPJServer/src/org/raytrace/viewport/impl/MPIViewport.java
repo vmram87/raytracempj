@@ -70,8 +70,8 @@ public class MPIViewport extends AbstractViewPort {
 		
 		
 		//test error
-		if(rank == 2) 
-			System.exit(1);
+		//if(rank == 2) 
+		//	System.exit(1);
 		
 		//checkpoint
 		if(this.rank == 0){
