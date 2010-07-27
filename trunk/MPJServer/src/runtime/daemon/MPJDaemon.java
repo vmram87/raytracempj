@@ -183,6 +183,7 @@ public class MPJDaemon {
     while (loop) {
     	
     	isRestarting = false;
+    	kill_signal = false;
     	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
     	
@@ -430,7 +431,6 @@ public class MPJDaemon {
 	    	  sendRestartReqestToMainHost();
 	      }
       }//end of it kill_signal == false
-      kill_signal = false;
       processStartLock.signal(); 
 		      
 		
@@ -504,11 +504,19 @@ public class MPJDaemon {
     	  heartBeatStarter.join();
       
    // Its important to kill all JVMs that we started ... 
-      synchronized (p) {
-        for(int i=0 ; i<processes ; i++) 
-          p[i].destroy();
-        kill_signal = false;
+      processStartLock.acquire();
+      try{
+      	if(kill_signal == false){
+      		for(int i=0 ; i<processes ; i++) 
+      			p[i].destroy();
+      	}
       }
+      catch(Exception e){
+    	  e.printStackTrace();
+      }
+      processStartLock.signal();
+      
+      
       
       if(isRestarting == false){
 
@@ -1436,6 +1444,7 @@ private void restoreVariables() {
 		        	initializing = false;
 		        	initLock.signal();		
 		        	heartBeatBeginLock.signal();
+		        	return;
 		          
 		        }
 		      }
@@ -1449,6 +1458,7 @@ private void restoreVariables() {
 					initializing = false;
 		        	initLock.signal();
 		        	heartBeatBeginLock.signal();
+		        	return;
 				}
 			 }
 			 
@@ -1486,6 +1496,7 @@ private void restoreVariables() {
 		          initializing = false;
 		          initLock.signal();	
 		          heartBeatBeginLock.signal();
+		          return;
 		        }
 		      }
 		    } //end sync
