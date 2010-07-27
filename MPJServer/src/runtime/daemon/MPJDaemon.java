@@ -120,6 +120,7 @@ public class MPJDaemon {
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatBeginLock = new CustomSemaphore(1); 
   private CustomSemaphore startLock = new CustomSemaphore(1); 
+  private CustomSemaphore processStartLock = new CustomSemaphore(1); 
   private Object sendRestartRequestLock = new Object(); 
   private Thread renewThreadStarter = null;
   private Thread heartBeatStarter = null;
@@ -222,7 +223,7 @@ public class MPJDaemon {
       p = new Process[processes];  
       pids = new UUID[nprocs];
       
-      startLock.acquire();
+      processStartLock.acquire();
       if(kill_signal == false){
 	      try{
 	
@@ -430,7 +431,7 @@ public class MPJDaemon {
 	      }
       }//end of it kill_signal == false
       kill_signal = false;
-      startLock.signal(); 
+      processStartLock.signal(); 
 		      
 		
 		
@@ -1314,7 +1315,7 @@ private void restoreVariables() {
               } 
               else if (read.equals("kill")) {
             	  
-            	  startLock.acquire();
+            	  processStartLock.acquire();
             	  finishLock.acquire();
             	  isRestarting = true;
             	  synchronized (startLock) {
@@ -1357,9 +1358,7 @@ private void restoreVariables() {
                       synchronized (p) {
 
                         for(int i=0 ; i<processes ; i++) 
-                         p[i].destroy() ; 
-
-                        kill_signal = true;
+                         p[i].destroy() ;                         
                       }
                     }
                   }
@@ -1375,7 +1374,8 @@ private void restoreVariables() {
                 buffer.clear();
                 lilBuffer.clear();
                 
-                startLock.signal();
+                kill_signal = true;
+                processStartLock.signal();
 
               }
 
