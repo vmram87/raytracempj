@@ -74,6 +74,7 @@ font-family:Arial, Helvetica, sans-serif;
 		<ul>
 			
 			<li class="open" id='2'><span>Tree Node 1</span>
+				<ul></ul>
 			</li>
 			
 			<li id='5'><span>Tree Node 2</span>
