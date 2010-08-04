@@ -1,0 +1,34 @@
+/* CSS Document */
+#nodes{
+}
+
+.machine_node{
+background-color:#F6F6F6;
+width:200px;
+border:1px solid #CCCCCC;
+margin:10px;
+float:left;
+}
+
+
+.machine_node .machine_id{
+height:24px;
+width:200px;
+font-weight:bold;
+font-size:13px;
+line-height:24px;
+background:url(../images/layout/frame_head.jpg) left top no-repeat;
+}
+
+.machine_node .machine_id span{
+margin-left:10px;
+}
+
+.machine_node .machine_frame{
+height:100px;
+width:200px;
+font-size:12px;
+}
+.machine_node .machine_frame p{
+margin:0 3px;
+}

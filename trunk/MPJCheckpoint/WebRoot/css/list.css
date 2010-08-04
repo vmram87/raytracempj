@@ -1,0 +1,99 @@
+/* CSS Document */
+#list_head{
+background-color:#bbccff;
+width:100%;
+position:relative;
+height:24px;
+overflow:hidden;
+padding:1px 0;
+font-size:12px;
+}
+.select_col{
+float:left;
+width:25px;
+margin-right:1px;
+}
+.name_col{
+float:left;
+width:300px;
+}
+
+.date_col{
+position:absolute;
+left:336px;
+width:100%;
+}
+
+#list_head .select_col, #list_head .name_col, #list_head .date_col{
+line-height:24px;
+height:24px;
+background:url(../images/layout/header_background.gif) left top repeat-x;
+}
+
+#list_head .list_move_handle{
+	width:1px;
+	height:25px;	
+	float:left;
+}
+
+#list_head .list_move_handle:hover{
+cursor:w-resize;
+}
+
+#list_head .unmovable_divider, #list_head .movable_divider{
+background:url(../images/layout/head_divider.gif) left top no-repeat;
+width:10px;
+height:24px;
+float:left;
+}
+
+#list_head .unmovable_divider{
+}
+
+#list_head .movable_divider{
+}
+
+#list_head .movable_divider:hover{
+cursor:w-resize;
+}
+
+#list_head .movable_divider
+
+.clear{
+clear:both;
+}
+
+#list_content{
+position:relative;
+overflow:hidden;
+font-size:12px;
+}
+
+#list_content .list_content_item{
+position:relative;
+line-height:24px;
+height:24px;
+background:#eff3fa;
+border-bottom:1px solid #dddddd;
+}
+
+#list_content .list_content_blank_item{
+position:relative;
+line-height:24px;
+height:24px;
+border-bottom:1px solid #dddddd;
+}
+
+#list_content .list_folder_close{
+width:16px;
+height:24px;
+line-height:24px;
+float:left;
+background:url(../images/layout/icons.png) -385px 4px no-repeat;
+}
+
+#list_content .list_folder_close:hover{
+cursor:pointer;
+}
+
+

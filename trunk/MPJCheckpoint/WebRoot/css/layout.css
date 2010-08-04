@@ -1,0 +1,183 @@
+/* CSS Document */
+html, body{
+margin:0;
+padding:0;
+width:100%;
+height:100%;
+font-family:Arial, Helvetica, sans-serif;
+}
+
+#container{
+height:100%;
+position:relative;
+overflow:hidden;
+}
+
+#top_line{
+height:25px;
+border-bottom:1px #c9d7f1 solid;
+}
+
+.clear{
+clear:both;
+}
+
+#top_title{
+padding:0px 5px;
+}
+
+#content{
+width:100%;
+height:100%;
+overflow:hidden;
+position:relative;
+}
+
+#left_bar{
+min-width:200px;
+width:200px;
+height:100%;
+float:left;
+overflow:hidden;
+}
+
+* html #left_bar{
+width:200px;
+float:left;
+}
+
+*+html #left_bar{
+width:200px;
+float:left;
+}
+
+
+#left_bar #left_button_area{
+background-color:#e3e9ff;
+height:30px;
+}
+
+#left_button_area .button_frame{
+margin:5px;
+float:left;
+}
+
+#left_button_area #button_new_folder{
+margin-left:10px;
+}
+#left_button_area #button_upload{
+margin-left:10px;
+}
+
+
+#handle_container{
+width:4px;
+float:left;
+height:100%;
+}
+#handle_container{
+cursor:w-resize;
+}
+
+#handle_bar{
+width:4px;
+float:left;
+height:100%;
+background:url(../images/layout/splitpane_handle.gif) left 40% no-repeat;
+background-color:#bbccff;
+}
+
+#handle_bar:hover{
+cursor:w-resize;
+}
+
+#right_bar{
+float:left;
+width:100%;
+height:100%;
+background-color:#bbccff;
+}
+
+#right_bar #right_option_area{
+margin-top:30px;
+width:100%;
+height:30px;
+background-color:#e3e9ff;
+}
+
+#right_bar #right_context{
+background-color:#FFFFFF;
+height:100%;
+}
+
+.button_item{
+cursor:default;
+-moz-user-select:none;
+}
+
+.button_item:hover{
+border-color:#999999;
+}
+
+.button_item .button_left_border{
+margin:1px 0px;
+float:left;
+height:19px;
+border-left:1px solid #bbbbbb;
+display:inline;
+}
+
+.button_item  .button_inner_border{
+margin:0px;
+font-size:10px;
+padding:2px;
+padding-left:10px;
+padding-right:10px;
+line-height:15px;
+border-top:1px solid #bbbbbb;
+border-bottom:1px solid #bbbbbb;
+background:url(../images/layout/bg_button_gradient.gif) left top repeat-x;
+float:left;
+display:inline;
+}
+
+.button_item .button_right_border{
+margin:1px 0px;
+border-right:1px solid #bbbbbb;
+height:19px;
+float:left;
+display:inline;
+}
+
+
+#left_bar #left_option_area{
+height:180px;
+font-size:13px;
+border-bottom:1px solid #dddddd;
+}
+
+#left_option_area .option_item{
+margin:5px 0;
+padding:5px 20px;
+}
+
+#left_option_area .option_item:hover{
+background-color:#e3e9ff;
+cursor:pointer;
+}
+
+#left_option_area .option_item_selected{
+margin:5px 0;
+padding:5px 20px;
+background-color:#6688ee;
+}
+
+#left_bar #file_tree{
+overflow:hidden;
+}
+
+#file_tree #fileFrame{
+margin:0;
+padding:0;
+}
+

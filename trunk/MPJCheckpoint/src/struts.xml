@@ -22,6 +22,22 @@
 			<result name="success">/index.jsp</result>
 		</action>
 		
+		<action name="homepage" class="org.qing.action.HomepageAction" >
+			<result name="success">/WEB-INF/jsp/homepage.jsp</result>
+		</action>
+		
+		<action name="fileTree" class="org.qing.action.FileTreeAction" >
+			<result name="success">/WEB-INF/jsp/file_tree.jsp</result>
+		</action>
+		
+		<action name="fileList" class="org.qing.action.FileListAction" >
+			<result name="success">/WEB-INF/jsp/file_list.jsp</result>
+		</action>
+		
+		<action name="graphicView" class="org.qing.action.GraphicViewAction">
+			<result name="success">/WEB-INF/jsp/graphic_view.jsp</result>
+		</action>
+		
 	</package>
 
 </struts>

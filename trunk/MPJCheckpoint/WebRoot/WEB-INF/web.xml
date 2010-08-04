@@ -24,11 +24,6 @@ version="2.4">
 		<filter-name>struts-cleanup</filter-name>
 		<filter-class>org.apache.struts2.dispatcher.ActionContextCleanUp</filter-class>
 	</filter>
-	<!-- 定义整合SiteMesh和核心 Filter -->
-	<filter>
-		<filter-name>sitemesh</filter-name>
-		<filter-class>com.opensymphony.module.sitemesh.filter.PageFilter</filter-class>
-	</filter>
 	
 	 <!-- 解决延迟加载的问题 -->
 	 <filter>
@@ -48,10 +43,6 @@ version="2.4">
         <url-pattern>/*</url-pattern>
     </filter-mapping>
     
-    <filter-mapping>
-        <filter-name>sitemesh</filter-name>
-        <url-pattern>/*</url-pattern>
-    </filter-mapping>
     
   <filter-mapping>
  	 <filter-name>hibernateFilter</filter-name>
