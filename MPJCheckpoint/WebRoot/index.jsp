@@ -1,1 +1,3 @@
-<% response.sendRedirect("homepage.action"); %>
+<% 
+response.sendRedirect("homepage.action");
+%>

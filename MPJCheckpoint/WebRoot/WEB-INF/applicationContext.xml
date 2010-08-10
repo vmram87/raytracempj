@@ -76,6 +76,10 @@
     <bean id="mgr" class="org.qing.service.impl.ContextManagerImpl" scope="singleton">
         <property name="contextDao" ref="contextDao"/>
     </bean>
+    
+    <bean id="fileMgr" class="org.qing.service.impl.FileManagerImpl" scope="singleton">
+        <property name="fileDao" ref="fileDao"/>
+    </bean>
    
 
 </beans>
