@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!DOCTYPE hibernate-mapping PUBLIC
+	"-//Hibernate/Hibernate Mapping DTD//EN"
+	"http://hibernate.sourceforge.net/hibernate-mapping-3.0.dtd" >
+
+<hibernate-mapping package="org.qing.object">
+	<class name="MyFile" table="file">
+
+		<id	name="id" type="integer" column="fileId">
+			<generator class="identity"/>
+		</id>
+
+		<property name="fileName" column="fileName"	type="string" not-null="true"/>
+		<property name="filePath" column="filePath"	type="string" not-null="true"/>
+		<property name="isDirectory" column="isDirectory" type="boolean" not-null="true"/>
+		
+		<many-to-one name="parentDirectory" column="parentDirectoryId" />
+		<property name="updateTime" column="updateTime"	type="timestamp" not-null="false" />
+		
+		<set name="files" inverse="true">
+            <key column="parentDirectoryId"/>
+            <one-to-many class="MyFile" />
+        </set>
+		
+
+	</class>	
+</hibernate-mapping> 

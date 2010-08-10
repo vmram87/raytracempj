@@ -38,6 +38,14 @@
 			<result name="success">/WEB-INF/jsp/graphic_view.jsp</result>
 		</action>
 		
+		<action name="uploadPage" class="org.qing.action.SwfUploadAction">
+			<result name="success">/WEB-INF/jsp/upload_page.jsp</result>
+		</action>
+		
+		<action name="swfUpload" class="org.qing.action.SwfUploadAction" method="upload">
+			<result name="success">/WEB-INF/jsp/upload_success.jsp</result>
+		</action>
+		
 	</package>
 
 </struts>

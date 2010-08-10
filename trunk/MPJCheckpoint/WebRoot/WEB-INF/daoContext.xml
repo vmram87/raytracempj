@@ -10,6 +10,8 @@
 
 	<bean id="contextDao" class="org.qing.dao.impl.ContextDaoImpl"
 		parent="daoTemplate"/>
-		
+	
+	<bean id="fileDao" class="org.qing.dao.impl.FileDaoImpl"
+		parent="daoTemplate"/>
 
 </beans>

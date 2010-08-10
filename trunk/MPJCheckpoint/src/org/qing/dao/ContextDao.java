@@ -7,16 +7,16 @@ import org.qing.object.Context;
 
 public interface ContextDao {
 
-	Context get(int id);
-	void save(Context context);	
-	void saveOrUpdate(Context context);
-	void delete(int id);
-	void delete(Context context);
+	Context get(int id) throws Exception;
+	void save(Context context) throws Exception;	
+	void saveOrUpdate(Context context) throws Exception;
+	void delete(int id) throws Exception;
+	void delete(Context context) throws Exception;
 	
-	Integer getLatestVersionId();
-	Integer getNextLatestVersionId(int versionId);
-	Context getContext(int rank, int processId, int versionId);
-	List<Context> getContextsByVersion(int versionId);
-	List<Context> getAllPrevContextsByVersion(int versionId);
+	Integer getLatestVersionId() throws Exception;
+	Integer getNextLatestVersionId(int versionId) throws Exception;
+	Context getContext(int rank, int processId, int versionId) throws Exception;
+	List<Context> getContextsByVersion(int versionId) throws Exception;
+	List<Context> getAllPrevContextsByVersion(int versionId) throws Exception;
 	
 }

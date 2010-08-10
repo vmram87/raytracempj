@@ -48,6 +48,8 @@ $(function() {
 		doListHandleMouseDown(e);
 	});
 
+	
+
 
 
 });
@@ -183,7 +185,7 @@ function mouseUpButton(b){
 	}
 }
 
-function selectOption(opt){
+function selectOption(opt, viewMode){
 	var p = opt.parentNode;
 	var childs = p.childNodes;
 	for(i=0;i<childs.length;i++){
@@ -192,6 +194,73 @@ function selectOption(opt){
 		}
 	}
 	opt.className="option_item_selected";
+ 
+	if(view_mode != viewMode){
+		open_view(viewMode);
+	}
+}
+
+var view_mode;
+if(window.location.hash == "")
+	view_mode = "fileList";
+else
+	view_mode = window.location.hash.substring(1);
+
+function open_view(viewMode){
+	if(view_mode == "fileList"){
+		var list_head = document.getElementById("list_head");
+		list_head.parentNode.removeChild(list_head);
+	}
+
+	if(viewMode == "fileList"){
+		var list_head = document.createElement("div");
+		list_head.id="list_head";
+		
+		var select_col_head = document.createElement("div");
+		select_col_head.id="select_col_head";
+		select_col_head.className = "select_col";
+
+		var name_col_head = document.createElement("div");
+		name_col_head.id = "name_col_head";
+		name_col_head.className = "name_col";
+		name_col_head.innerHTML = "Name";
+
+		var movable_divider = document.createElement("div");
+		movable_divider.className = "movable_divider";
+
+		var date_col_head = document.createElement("div");
+		date_col_head.id = "date_col_head";
+		date_col_head.className = "date_col";
+		date_col_head.innerHTML = "Date";
+
+		var clearTag = document.createElement("div");
+		clearTag.className = "clear";
+
+		list_head.appendChild(select_col_head);
+		list_head.appendChild(name_col_head);
+		list_head.appendChild(movable_divider);
+		list_head.appendChild(date_col_head);
+		list_head.appendChild(clearTag);
+
+		var listFrame = document.getElementById("listFrame");
+		document.getElementById("right_context").insertBefore(list_head, listFrame);
+			
+		listFrame.src="fileList.action";
+		
+		$(".movable_divider").mousedown(function(e){
+			doListHandleMouseDown(e);
+		});
+	}
+
+	document.getElementById("listFrame").src = viewMode +".action";	
+	view_mode = viewMode;
+	window.location.hash = view_mode;
+}
+
+function open_upload_page(){
+	if(view_mode != "uploadPage"){
+		open_view('uploadPage');
+	}	
 }
 
 
@@ -209,7 +278,7 @@ function selectOption(opt){
 	<div id="content">
 		<div id="left_bar">
 			<div id="left_button_area">		
-				<div id="button_new_folder" class="button_frame">
+				<div id="button_new_folder" class="button_frame" onclick="create_new_folder()">
 					<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
 						<div class="button_left_border"></div>	
 						<div class="button_inner_border">
@@ -220,7 +289,7 @@ function selectOption(opt){
 					</div>
 				</div>
 				
-				<div id="button_upload" class="button_frame">
+				<div id="button_upload" class="button_frame" onclick="open_upload_page()">
 					<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
 						<div class="button_left_border"></div>	
 						<div class="button_inner_border">
@@ -234,10 +303,10 @@ function selectOption(opt){
 			</div><!-- end of left button_area-->
 			
 			<div id="left_option_area">
-				<div class="option_item" onclick="selectOption(this)">Nodes Status View</div>
-				<div class="option_item" onclick="selectOption(this)">Files View</div>
-				<div class="option_item" onclick="selectOption(this)">System Configuration</div>	
-				<div class="option_item" onclick="selectOption(this)">User Guide</div>				
+				<div class="option_item" onclick="selectOption(this,'graphicView')">Nodes Status View</div>
+				<div class="option_item" onclick="selectOption(this,'fileList')">Files View</div>
+				<div class="option_item" onclick="selectOption(this,4)">System Configuration</div>	
+				<div class="option_item" onclick="selectOption(this,5)">User Guide</div>				
 			</div><!-- end of left_option_area-->
 			
 			<div id="file_tree">
@@ -261,21 +330,19 @@ function selectOption(opt){
 			
 			<div id="right_context">
 				
-				
-				<div id="list_head">
-					<div id="select_col_head" class="select_col"></div>
-					<div id="name_col_head" class="name_col">Name</div>
-					<div class="movable_divider"></div>
-					<div id="date_col_head" class="date_col">Date</div>
-					<div class="clear"></div>
-				</div>
+				<script type="text/javascript">
+					if(view_mode == "fileList"){
+						document.write('<div id="list_head"><div id="select_col_head" class="select_col"></div><div id="name_col_head" class="name_col">Name</div><div class="movable_divider"></div><div id="date_col_head" class="date_col">Date</div><div class="clear"></div></div>')
+					}
+				</script>
 
-				<iframe id="listFrame" name="listFrame" border="0" frameBorder="0"  scrolling="auto"  width="100%"    onload="doResize()"  src="fileList.action"></iframe>
+				<script type="text/javascript">
+					document.write('<iframe id="listFrame" name="listFrame" border="0" frameBorder="0"  scrolling="auto"  width="100%"    onload="doResize()"  src="' + view_mode + '.action"></iframe>')
+				</script>
+
 				
+				 
 				
-				<!--  
-				<iframe id="listFrame" name="listFrame" border="0" frameBorder="0"  scrolling="auto"  width="100%"    onload="doResize()"  src="graphicView.action"></iframe>
-				-->
 			</div><!--end of right_context-->
 		</div><!-- end of right bar -->
 		

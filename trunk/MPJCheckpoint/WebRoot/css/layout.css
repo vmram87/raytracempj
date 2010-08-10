@@ -57,7 +57,7 @@ background-color:#e3e9ff;
 height:30px;
 }
 
-#left_button_area .button_frame{
+.button_frame{
 margin:5px;
 float:left;
 }
