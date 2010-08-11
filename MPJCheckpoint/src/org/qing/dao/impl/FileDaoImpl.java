@@ -73,5 +73,16 @@ public class FileDaoImpl extends HibernateDaoSupport implements FileDao {
 			return null;
 	}
 
+	@Override
+	public MyFile getByFileNameAndParent(String newFolderName,
+			MyFile parentFolder) throws Exception {
+		Object[] args = {newFolderName, parentFolder};
+		List ul = getHibernateTemplate().find("from MyFile f where f.fileName=? and f.parentDirectory=?",args);
+		if(ul != null && ul.size() == 1)
+			return (MyFile)ul.get(0);
+		else
+			return null;
+	}
+
 	
 }

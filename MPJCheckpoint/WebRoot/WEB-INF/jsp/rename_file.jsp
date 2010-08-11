@@ -24,7 +24,7 @@ font-family:Arial, Helvetica, sans-serif;
 <script type="text/javascript">
 
 function addFolder(){
-	var uri="addFolder.action";
+	var uri="renameFile.action";
 
 	xmlrequest.open("POST",uri,true);
 
@@ -35,7 +35,7 @@ function addFolder(){
 	var folderName=document.getElementById("folderName");
 	var id = document.getElementById("folder.id");
 
-	var str="folderName="+folderName.value+"&folder.id="+id.value+"&includeFiles=false";
+	var str="folderName="+folderName.value+"&folder.id="+id.value;
 
 	xmlrequest.send(str);
 
@@ -49,7 +49,9 @@ function processResponse()
 	if(xmlrequest.readyState==4){
 		if(xmlrequest.status==200){
 			if(xmlrequest.responseText.indexOf("Successed")!=-1){
-				window.parent.addFolder(document.getElementById("folder.id").value);
+				var folderName=document.getElementById("folderName");
+				var id = document.getElementById("folder.id");
+				window.parent.rename_file(id.value,folderName.value);
 			}
 			else{
 				var waitDiv = document.getElementById("waitDiv");

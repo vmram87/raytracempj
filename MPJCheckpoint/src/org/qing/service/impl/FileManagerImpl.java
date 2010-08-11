@@ -26,8 +26,12 @@ public class FileManagerImpl implements FileManager {
 	@Override
 	public void deleteFile(int fileId) throws Exception {
 		MyFile f = fileDao.get(fileId);
+		MyFile parent = f.getParentDirectory();
 		fileDao.delete(fileId);
-		File file = new File(f.getFilePath());
+		
+		String path = getRelativePathById(parent.getId());
+		path = userDirectory + path + f.getFileName();
+		File file = new File(path);
 		if(file.exists())
 			file.delete();
 	}
@@ -42,23 +46,42 @@ public class FileManagerImpl implements FileManager {
 		MyFile srcf = fileDao.get(fileId);
 		MyFile dstf = fileDao.get(directoryId);
 		
-		File srcfile = new File(srcf.getFilePath());
-		File dir = new File(dstf.getFilePath() + File.separator + srcf.getFileName());
+		File srcfile = new File(userDirectory + getRelativePathById(srcf.getId()));
+		File dir = new File(userDirectory +  getRelativePathById(dstf.getId()) + srcf.getFileName());
 		
-		boolean success = srcfile.renameTo(new File(dir, srcfile.getName()));
-		return success;
+		
+		srcf.setParentDirectory(dstf);
+		fileDao.saveOrUpdate(srcf);
+		
+		return srcfile.renameTo(dir);
 	}
 
 	@Override
-	public boolean renameFile(String fileName, int fileId) throws Exception {
+	public boolean renameFile(String fileName, int fileId) throws Exception {		
 		MyFile srcf = fileDao.get(fileId);
 		MyFile dstf = srcf.getParentDirectory();
+	
+		File srcfile = new File(userDirectory + getRelativePathById(srcf.getId()));
+		File dir = new File(userDirectory +  getRelativePathById(dstf.getId()) + fileName);
 		
-		File srcfile = new File(srcf.getFilePath());
-		File dir = new File(dstf.getFilePath() + File.separator + fileName);
+		srcf.setFileName(fileName);
+		fileDao.saveOrUpdate(srcf);
 		
-		boolean success = srcfile.renameTo(new File(dir, srcfile.getName()));
-		return success;
+		return srcfile.renameTo(dir);
+		
+		/*
+		if(srcf.getIsDirectory() == true){
+			FileUtils.copyDirectoryToDirectory(srcfile, dir);
+			FileUtils.deleteDirectory(srcfile);
+		}
+		else{
+			FileUtils.copyFileToDirectory(srcfile, dir);
+			srcfile.delete();
+		}
+		
+		
+		return true;
+		*/
 	}
 
 	@Override
@@ -122,6 +145,10 @@ public class FileManagerImpl implements FileManager {
 	public boolean newFolder(String newFolderName, Integer parentFileId) throws Exception {
 		MyFile newFolder = new MyFile();
 		MyFile parentFolder = fileDao.get(parentFileId);
+		if(fileDao.getByFileNameAndParent(newFolderName, parentFolder) != null){
+			return false;
+		}
+		
 		newFolder.setFileName(newFolderName);
 		newFolder.setIsDirectory(true);
 		newFolder.setParentDirectory(parentFolder);

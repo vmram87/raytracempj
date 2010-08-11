@@ -11,7 +11,9 @@ public class FileTreeAction extends BaseActionInterface {
 	private boolean includeFiles;
 	private MyFile folder;
 	private String folderName;
+	private int directoryId;
 	private String path;
+	private String tip;
 	private List fileList;
 		
 	public String getFolderName() {
@@ -66,6 +68,20 @@ public class FileTreeAction extends BaseActionInterface {
 		return fileList;
 	}
 
+	public String getTip() {
+		return tip;
+	}
+	
+	
+
+	public int getDirectoryId() {
+		return directoryId;
+	}
+
+	public void setDirectoryId(int directoryId) {
+		this.directoryId = directoryId;
+	}
+
 	@Override
 	public String execute() throws Exception{
 		codeFolder = fileMgr.getUserFolder();
@@ -80,12 +96,83 @@ public class FileTreeAction extends BaseActionInterface {
 	}
 	
 	public String addFolder() throws Exception{
-		fileMgr.newFolder(folderName, folder.getId());
+		tip = null;
+		if(fileMgr.newFolder(folderName, folder.getId())==false)
+			tip = "Failed, Check file name to see whether it exists!";
 		return SUCCESS;
+
 	}
 	
 	public String getFolderPath() throws Exception{
 		path = fileMgr.getRelativePathById(folder.getId());		
 		return SUCCESS;
+	}
+	
+	public String delFile() throws Exception{
+		tip = null;
+		codeFolder = fileMgr.getUserFolder();
+		libFolder = fileMgr.getUserLib();
+		if(folder.getId().intValue() == codeFolder.getId().intValue() || 
+				folder.getId().intValue() == libFolder.getId().intValue()){
+			tip = "Failed: Can not delete the My_Class or My_Lib folder";
+			return SUCCESS;
+		}
+		
+		try{
+			fileMgr.deleteFile(folder.getId());
+		}
+		catch(Exception e){
+			e.printStackTrace();
+			tip = "Failed, Exception Occurs!";
+		}
+			
+		return SUCCESS;
+
+	}
+	
+	public String renameFile() throws Exception{
+		tip = null;
+		codeFolder = fileMgr.getUserFolder();
+		libFolder = fileMgr.getUserLib();
+		if(folder.getId().intValue() == codeFolder.getId().intValue() || 
+				folder.getId().intValue() == libFolder.getId().intValue()){
+			tip = "Failed: Can not rename the My_Class or My_Lib folder";
+			return SUCCESS;
+		}
+		
+		try{
+			if(fileMgr.renameFile(folderName, folder.getId()) == false)
+				tip = "Failed: can not rename!";
+		}
+		catch(Exception e){
+			e.printStackTrace();
+			tip = "Failed, Exception Occurs!";
+		}
+			
+		return SUCCESS;
+
+	}
+	
+	public String moveFile() throws Exception{
+		tip = null;
+		codeFolder = fileMgr.getUserFolder();
+		libFolder = fileMgr.getUserLib();
+		if(folder.getId().intValue() == codeFolder.getId().intValue() || 
+				folder.getId().intValue() == libFolder.getId().intValue()){
+			tip = "Failed: Can not mvoe the My_Class or My_Lib folder";
+			return SUCCESS;
+		}
+		
+		try{
+			if(fileMgr.moveto(folder.getId(), directoryId) == false)
+				tip = "Failed: can not rename!";
+		}
+		catch(Exception e){
+			e.printStackTrace();
+			tip = "Failed, Exception Occurs!";
+		}
+			
+		return SUCCESS;
+
 	}
 }

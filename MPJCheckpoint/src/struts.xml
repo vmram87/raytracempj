@@ -58,6 +58,30 @@
 			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
 		</action>
 		
+		<action name="delFilePage" class="org.qing.action.FileTreeAction" method="getFolderPath">
+			<result name="success">/WEB-INF/jsp/del_file.jsp</result>			
+		</action>
+		
+		<action name="delFile" class="org.qing.action.FileTreeAction" method="delFile">
+			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
+		</action>
+		
+		<action name="renameFilePage" class="org.qing.action.FileTreeAction" method="getFolderPath">
+			<result name="success">/WEB-INF/jsp/rename_file.jsp</result>			
+		</action>
+		
+		<action name="renameFile" class="org.qing.action.FileTreeAction" method="renameFile">
+			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
+		</action>
+		
+		<action name="moveFilePage" class="org.qing.action.FileTreeAction" method="getFolderPath">
+			<result name="success">/WEB-INF/jsp/select_path.jsp</result>			
+		</action>
+		
+		<action name="moveFile" class="org.qing.action.FileTreeAction" method="moveFile">
+			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
+		</action>
+		
 	</package>
 
 </struts>
