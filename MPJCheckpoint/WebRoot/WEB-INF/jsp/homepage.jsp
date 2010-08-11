@@ -11,6 +11,10 @@
 <link href="css/list.css" type="text/css" rel="stylesheet"/>
 <script language="javascript" type="text/javascript" src="js/jquery.js"></script>
 <script type="text/javascript" src="js/jquery.simple.tree.js"></script>
+<script type="text/javascript" src="js/update_file_tree.js"></script>
+
+<link rel="stylesheet" type="text/css" href="css/dialog.css"/>
+<script language="javascript" type="text/javascript" src="js/dialog.js" ></script>
 
 <script language="javascript" type="text/javascript">
 $(function() {
@@ -263,7 +267,14 @@ function open_upload_page(){
 	}	
 }
 
-
+var select_folder_id = null;
+//click new folder
+function create_new_folder(){
+	if(select_folder_id == null || select_folder_id == undefined)
+		dialog("New Folder","text:Please first select the destination folder in the left bottom corner!","400px","200px","text");
+	else
+		dialog("New Folder","iframe:newFolder.action?folder.id=" + select_folder_id,"400px","200px","iframe");
+}
 
 </script>
 
@@ -351,6 +362,10 @@ function open_upload_page(){
 	<!-- end of content-->
 	
 </div><!-- end of container-->
+
+<iframe id="DivShim" src="javascript:false;" scrolling="no" frameborder="0" width="0" height="0" style="position:absolute; top:0px; left:0px;opacity:0">
+</iframe>
+
 </body>
 
 </html>

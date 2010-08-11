@@ -329,6 +329,11 @@ TD.uploadTD{border-top: 1px dotted #CCCCCC}
 	height: 5px;
 	border: solid 1px #999999;
 }
+
+#listTable{
+	min-height:250px;
+}
+
 TR.uploadTitle{vertical-align: middle;font-weight:700;background-color: #CCCDDD;height:22px;color:#000000}
 
 .btn {
@@ -373,4 +378,18 @@ TR.uploadTitle{vertical-align: middle;font-weight:700;background-color: #CCCDDD;
 	height:14px;
 	float:right;
 	margin-left:3px;
+}
+
+#button_destination_folder #choose_folder_area{
+	position:absolute;
+	top:20px;
+	width:200px;
+	height:230px;
+	z-index:100;
+	padding:10px;
+	border:1px solid #AAA;
+	background-color:#FFF;
+}
+#button_destination_folder #choose_folder_area iframe{
+	border:1px solid #DDD;
 }

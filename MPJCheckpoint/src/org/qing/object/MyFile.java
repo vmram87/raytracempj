@@ -34,10 +34,10 @@ public class MyFile implements Serializable {
 	public void setFilePath(String filePath) {
 		this.filePath = filePath;
 	}
-	public boolean isDirectory() {
+	public boolean getIsDirectory() {
 		return isDirectory;
 	}
-	public void setDirectory(boolean isDirectory) {
+	public void setIsDirectory(boolean isDirectory) {
 		this.isDirectory = isDirectory;
 	}
 	public Timestamp getUpdateTime() {
