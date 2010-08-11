@@ -6,7 +6,7 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>New Folder</title>
+<title>Delete File</title>
 
 <script type="text/javascript" src="js/ajax.js"></script>
 
@@ -23,8 +23,8 @@ font-family:Arial, Helvetica, sans-serif;
 
 <script type="text/javascript">
 
-function addFolder(){
-	var uri="addFolder.action";
+function delFile(){
+	var uri="delFile.action";
 
 	xmlrequest.open("POST",uri,true);
 
@@ -32,14 +32,13 @@ function addFolder(){
 
 	xmlrequest.onreadystatechange=processResponse;
 
-	var folderName=document.getElementById("folderName");
 	var id = document.getElementById("folder.id");
 
-	var str="folderName="+folderName.value+"&folder.id="+id.value+"&includeFiles=false";
+	var str="folder.id="+id.value;
 
 	xmlrequest.send(str);
 
-	document.getElementById("addForm").style.display="none";
+	document.getElementById("delForm").style.display="none";
 	document.getElementById("waitDiv").style.display="";
 	
 }
@@ -49,7 +48,7 @@ function processResponse()
 	if(xmlrequest.readyState==4){
 		if(xmlrequest.status==200){
 			if(xmlrequest.responseText.indexOf("Successed")!=-1){
-				window.parent.addFolder(document.getElementById("folder.id").value);
+				window.parent.delFile(document.getElementById("folder.id").value);
 			}
 			else{
 				var waitDiv = document.getElementById("waitDiv");
@@ -73,12 +72,10 @@ function processResponse()
 </head>
 
 <body>
-<div id="addForm">
-	<p>Please enter a new name for the folder or file:</p>
-	<input id="folderName" name="folderName" type="text" value="<s:if test='%{folderName!=null}'>${floderName }</s:if><s:else>New Folder</s:else>"/>
-	<p>Destination Folder:${path}</p>
+<div id="delForm">
+	<p>Are you sure to delete the file or folder:${path} (the operation can not be recovered!)</p>
 	<input type="hidden" id="folder.id" name="folder.id" value="${folder.id }"/>
-	<input type="button" value="OK" onclick="addFolder()"/>
+	<input type="button" value="OK" onclick="delFile()"/>
 	<input type="button" value="Cancel" onclick="window.parent.close_dialog()"/>
 </div>
 

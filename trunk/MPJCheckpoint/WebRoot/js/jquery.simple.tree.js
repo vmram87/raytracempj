@@ -44,7 +44,7 @@ $.fn.simpleTree = function(opt){
 		var ajaxCache = Array();
 
 		TREE.option = {
-			drag:		true,
+			drag:		false,
 			animate:	false,
 			autoclose:	false,
 			speed:		'fast',
@@ -103,7 +103,7 @@ $.fn.simpleTree = function(opt){
 		};
 		TREE.setAjaxNodes = function(node, parentId, callback)
 		{
-			if($.inArray(parentId,ajaxCache) == -1){
+			
 				ajaxCache[ajaxCache.length]=parentId;
 				var url = $.trim($('>li', node).text());
 				if(url && url.indexOf('url:'))
@@ -131,7 +131,7 @@ $.fn.simpleTree = function(opt){
 					});
 				}
 				
-			}
+			
 		};
 		TREE.setTreeNodes = function(obj, useParent){
 			obj = useParent? obj.parent():obj;
@@ -169,6 +169,7 @@ $.fn.simpleTree = function(opt){
 				{
 					TREE.option.afterContextMenu($(this).parent());
 				}
+	
 				return false;
 			}).mousedown(function(event){
 				mousePressed = true;
@@ -217,6 +218,29 @@ $.fn.simpleTree = function(opt){
 			}).before('<li class="line">&nbsp;</li>')
 			.filter(':last-child').after('<li class="line-last"></li>');
 			TREE.setEventLine($('.line, .line-last', obj));
+			
+			$('li>span', obj).contextMenu('myMenu1',
+					{
+			          bindings: 
+			          {
+			            'new_folder': function(t) {
+							window.parent.select_folder_id = t.parentNode.id;
+							window.parent.create_new_folder();
+			            },
+			            'rename': function(t) {
+			            	window.parent.select_folder_id = t.parentNode.id;
+							window.parent.rename_file_page();
+			            },
+			            'delete': function(t) {
+			            	window.parent.select_folder_id = t.parentNode.id;
+			            	window.parent.delete_file();
+			            },
+			            'move_to': function(t) {
+			            	window.parent.select_folder_id = t.parentNode.id;
+			            	window.parent.move_to_folder_page();
+			            }
+			          }
+				});
 		};
 		TREE.setTrigger = function(node){
 			$('>span',node).before('<img class="trigger" src="images/tree/spacer.gif" border=0>');
@@ -416,7 +440,7 @@ $.fn.simpleTree = function(opt){
 				TREE.option.afterMove($(node).parents('li:first'), $(dragNode_source), pos);
 			}
 		};
-
+		
 		TREE.addNode = function(id, text, callback)
 		{
 			var temp_node = $('<li><ul><li id="'+id+'"><span>'+text+'</span></li></ul></li>');

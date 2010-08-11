@@ -9,6 +9,7 @@
 <title>New Folder</title>
 
 <script type="text/javascript" src="js/ajax.js"></script>
+<link href="css/upload_page.css" rel="stylesheet" type="text/css" />
 
 <style>
 html, body{
@@ -22,9 +23,10 @@ font-family:Arial, Helvetica, sans-serif;
 </style>
 
 <script type="text/javascript">
+var select_folder_id = null;
 
-function addFolder(){
-	var uri="addFolder.action";
+function moveFile(){
+	var uri="moveFile.action";
 
 	xmlrequest.open("POST",uri,true);
 
@@ -35,7 +37,7 @@ function addFolder(){
 	var folderName=document.getElementById("folderName");
 	var id = document.getElementById("folder.id");
 
-	var str="folderName="+folderName.value+"&folder.id="+id.value+"&includeFiles=false";
+	var str="directoryId="+select_folder_id+"&folder.id="+id.value;
 
 	xmlrequest.send(str);
 
@@ -49,7 +51,7 @@ function processResponse()
 	if(xmlrequest.readyState==4){
 		if(xmlrequest.status==200){
 			if(xmlrequest.responseText.indexOf("Successed")!=-1){
-				window.parent.addFolder(document.getElementById("folder.id").value);
+				window.parent.move_file(select_folder_id,document.getElementById("folder.id").value);
 			}
 			else{
 				var waitDiv = document.getElementById("waitDiv");
@@ -70,16 +72,31 @@ function processResponse()
 
 </script>
 
+<style type="text/css">
+#choose_folder_area{
+	width:265px;
+	height:400px;
+	z-index:100;
+	background-color:#FFF;
+	
+}
+#choose_folder_area iframe{
+margin-bottom: 10px;
+	border:1px solid #DDD;
+}
+
+</style>
+
 </head>
 
 <body>
 <div id="addForm">
-	<p>Please enter a new name for the folder or file:</p>
-	<input id="folderName" name="folderName" type="text" value="<s:if test='%{folderName!=null}'>${floderName }</s:if><s:else>New Folder</s:else>"/>
-	<p>Destination Folder:${path}</p>
-	<input type="hidden" id="folder.id" name="folder.id" value="${folder.id }"/>
-	<input type="button" value="OK" onclick="addFolder()"/>
-	<input type="button" value="Cancel" onclick="window.parent.close_dialog()"/>
+	<div id="choose_folder_area">
+		<iframe id="fileFrame" name="fileFrame" border="0" frameBorder="0"  scrolling="auto"  width="100%" height="280px" src="fileTree.action"></iframe>
+		<input type="hidden" id="folder.id" name="folder.id" value="${folder.id }"/>
+		<input type="button" value="Move To This Folder" onclick="moveFile()"/>
+		<input type="button" value="Cancel" onclick="window.parent.close_dialog()"/>
+	</div>
 </div>
 
 <div id="waitDiv" style="display:none">

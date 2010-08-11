@@ -11,6 +11,8 @@
 <link href="css/tree.css" type="text/css" rel="stylesheet"/>
 <script language="javascript" type="text/javascript" src="js/jquery.js"></script>
 <script type="text/javascript" src="js/jquery.simple.tree.js"></script>
+<script type="text/javascript" src="js/update_file_tree.js"></script>
+<script type="text/javascript" src="js/jquery.contextmenu.r2.packed.js"></script>
 
 <script language="javascript" type="text/javascript">
 $(function() {
@@ -51,6 +53,9 @@ $(document).ready(function(){
 		{
 			//alert('Loaded');
 		},
+		afterContextMenu:function(node)
+		{
+		},
 		animate:true
 		//,docToFolderConvert:true
 	});
@@ -72,24 +77,17 @@ font-family:Arial, Helvetica, sans-serif;
 
 <body>
 
-<ul class="simpleTree">
-	<li class="root" id='-1'><span>My Folder</span>
-		<ul>
-			
-			<li id='${codeFolder.id}'><span>${codeFolder.fileName}</span>
-				<ul class="ajax">
-					<li id='${-codeFolder.id}'>{url:folderList.action?folder.id=${codeFolder.id}&includeFiles=false}</li>
-				</ul>
-			</li>
-			
-			<li id='${libFolder.id}'><span>${libFolder.fileName}</span>
-				<ul class="ajax">
-					<li id='${-libFolder.id}'>{url:folderList.action?folder.id=${libFolder.id}&includeFiles=false}</li>
-				</ul>
-			</li>
-		</ul>
-	</li>
-</ul>
+<s:include value="tree_main.jsp"/>
+
+ <div class="contextMenu" id="myMenu1">
+  <ul>
+    <li id="new_folder"><img src="folder.png" /> New Folder</li>
+    <li id="rename"><img src="email.png" /> Rename</li>
+    <li id="delete"><img src="disk.png" /> Delete</li>
+    <li id="move_to"><img src="cross.png" /> Move To</li>
+  </ul>
+</div>
+
 					
 </body>
 
