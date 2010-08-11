@@ -32,7 +32,7 @@ public class FileDaoImpl extends HibernateDaoSupport implements FileDao {
 
 	@Override
 	public MyFile getUserFolder() throws Exception {
-		List ul = getHibernateTemplate().find("from MyFile f where f.fileName='user-folder' and f.parentDirecotry is null");;
+		List ul = getHibernateTemplate().find("from MyFile f where f.fileName='My_Class' and f.parentDirectory is null");;
 		if(ul != null && ul.size() == 1)
 			return (MyFile)ul.get(0);
 		else
@@ -41,7 +41,7 @@ public class FileDaoImpl extends HibernateDaoSupport implements FileDao {
 
 	@Override
 	public MyFile getUserLib() throws Exception {
-		List ul = getHibernateTemplate().find("from MyFile f where f.fileName='user-lib' and f.parentDirecotry is null");;
+		List ul = getHibernateTemplate().find("from MyFile f where f.fileName='My_Lib' and f.parentDirectory is null");;
 		if(ul != null && ul.size() == 1)
 			return (MyFile)ul.get(0);
 		else
@@ -58,4 +58,20 @@ public class FileDaoImpl extends HibernateDaoSupport implements FileDao {
 		getHibernateTemplate().saveOrUpdate(file);
 	}
 
+	@Override
+	public List getFolderListById(MyFile parent, boolean includeFiles)
+			throws Exception {
+		List ul = null;
+		if(includeFiles)
+			ul = getHibernateTemplate().find("from MyFile f where f.parentDirectory=? order by f.isDirectory desc, f.fileName asc", parent);
+		else
+			ul = getHibernateTemplate().find("from MyFile f where f.parentDirectory=? and f.isDirectory=1 order by f.fileName asc", parent);
+			
+		if(ul!=null && ul.size()>0)
+			return ul;
+		else
+			return null;
+	}
+
+	
 }

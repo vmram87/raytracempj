@@ -14,4 +14,7 @@ public interface FileManager {
 	public List getFilesByDirectory(int directoryId) throws Exception;
 	public MyFile getUserFolder() throws Exception;
 	public MyFile getUserLib() throws Exception;
+	public String getRelativePathById(Integer id) throws Exception;
+	public boolean newFolder(String newFolderName, Integer parentFileId) throws Exception;
+	public List getFolderListById(Integer id, boolean includeFiles) throws Exception;
 }

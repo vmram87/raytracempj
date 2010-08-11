@@ -6,14 +6,18 @@ import java.io.FileOutputStream;
 import java.sql.Timestamp;
 import java.util.List;
 
+import org.apache.commons.io.FileUtils;
 import org.qing.dao.FileDao;
 import org.qing.object.MyFile;
 import org.qing.service.FileManager;
 
 public class FileManagerImpl implements FileManager {
 	private FileDao fileDao;
+	private String userDirectory;
 	
-	
+	public void setUserDirectory(String userDirectory) {
+		this.userDirectory = userDirectory;
+	}
 
 	public void setFileDao(FileDao fileDao) {
 		this.fileDao = fileDao;
@@ -70,7 +74,7 @@ public class FileManagerImpl implements FileManager {
 		String savePath = pf.getFilePath();
 		for(int i = 0; i < files.length; i++){
 			MyFile f = new MyFile();
-			f.setDirectory(false);
+			f.setIsDirectory(false);
 			f.setFileName(fileName[i]);
 			f.setFilePath(savePath + File.separator + fileName[i]);
 			f.setParentDirectory(pf);
@@ -99,6 +103,47 @@ public class FileManagerImpl implements FileManager {
 		// TODO Auto-generated method stub
 		return fileDao.getUserLib();
 	}
+
+	@Override
+	public String getRelativePathById(Integer id) throws Exception {
+		MyFile myfile = fileDao.get(id);
+		String path = myfile.getFileName();
+		if(myfile.getIsDirectory())
+			path = path + "/";
+		MyFile parent = myfile.getParentDirectory();
+		while(parent != null){
+			path = parent.getFileName() + "/" + path;
+			parent = parent.getParentDirectory();
+		}
+		return path;
+	}
+
+	@Override
+	public boolean newFolder(String newFolderName, Integer parentFileId) throws Exception {
+		MyFile newFolder = new MyFile();
+		MyFile parentFolder = fileDao.get(parentFileId);
+		newFolder.setFileName(newFolderName);
+		newFolder.setIsDirectory(true);
+		newFolder.setParentDirectory(parentFolder);
+		newFolder.setFilePath("");
+		fileDao.save(newFolder);
+		
+		
+		String path = getRelativePathById(parentFileId);
+		path = userDirectory + path + newFolderName;
+		boolean success = (new File(path)).mkdir();
+		
+		return success;
+	}
+
+	@Override
+	public List getFolderListById(Integer id, boolean includeFiles)
+			throws Exception {
+		MyFile parent = fileDao.get(id);
+		return fileDao.getFolderListById(parent,includeFiles);
+	}
+	
+	
 	
 	
 

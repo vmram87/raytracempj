@@ -46,6 +46,18 @@
 			<result name="success">/WEB-INF/jsp/upload_success.jsp</result>
 		</action>
 		
+		<action name="folderList" class="org.qing.action.FileTreeAction" method="folderList">
+			<result name="success">/WEB-INF/jsp/folder_list.jsp</result>			
+		</action>
+		
+		<action name="newFolder" class="org.qing.action.FileTreeAction" method="getFolderPath">
+			<result name="success">/WEB-INF/jsp/new_folder.jsp</result>			
+		</action>
+		
+		<action name="addFolder" class="org.qing.action.FileTreeAction" method="addFolder">
+			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
+		</action>
+		
 	</package>
 
 </struts>

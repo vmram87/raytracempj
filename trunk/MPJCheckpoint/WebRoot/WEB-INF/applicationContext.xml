@@ -24,6 +24,7 @@
         <property name="mappingResources">
             <list>
 				<value>Context.hbm.xml</value>
+				<value>MyFile.hbm.xml</value>
             </list>
         </property>
         <property name="hibernateProperties">
@@ -79,6 +80,7 @@
     
     <bean id="fileMgr" class="org.qing.service.impl.FileManagerImpl" scope="singleton">
         <property name="fileDao" ref="fileDao"/>
+        <property name="userDirectory"><value>/usr/java/mpj-v0_36/user-folder/</value></property>
     </bean>
    
 

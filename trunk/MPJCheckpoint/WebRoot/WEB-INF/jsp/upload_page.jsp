@@ -186,7 +186,7 @@ function choose_folder(){
 </head>
 
 <body bgcolor="#FCFCFC" >
-<table width="100%" cellspacing="4" cellpadding="4" border="0" bgcolor="#FCFCFC">
+<table width="100%"  cellspacing="4" cellpadding="4" border="0" bgcolor="#FCFCFC">
 	<tr> 
 	<td class="DH1">
 	<table width="100%" cellspacing="4" cellpadding="4" border="0" bgcolor="#FCFCFC">
@@ -214,11 +214,21 @@ function choose_folder(){
 				<div class="button_right_border"></div>
 				<div class="clear"></div>				
 			</div>
+				
+			<div id="choose_folder_area">
+				<iframe id="fileFrame" name="fileFrame" border="0" frameBorder="0"  scrolling="auto"  width="100%" height="210px" src="fileTree.action"></iframe>
+				<input type="button" value="OK"/>
+				<input type="button" value="Cancel"/>
+			</div>
 		</div>
 		
 		</td>		
 		</tr></table>
-		<table id="idFileList" class="uploadFileList"><tr class="uploadTitle"><td><B>File Name</B></td><td><B>File Size</B></td><td width=100px><B>Status</B></td><td width=35px>&nbsp;</td></tr></table>
+		
+		<div id="listTable">
+			<table id="idFileList" class="uploadFileList"><tr class="uploadTitle"><td><B>File Name</B></td><td><B>File Size</B></td><td width=100px><B>Status</B></td><td width=35px>&nbsp;</td></tr></table>
+		</div>
+		
 		File Waiting:<span id="idFileListCount">0</span> , File Upload Successed: <span id="idFileListSuccessUploadCount">0</span>
 		<div id="divSWFUploadUI" style="visibility: hidden;"></div>
 		<noscript style="display: block; margin: 10px 25px; padding: 10px 15px;">
