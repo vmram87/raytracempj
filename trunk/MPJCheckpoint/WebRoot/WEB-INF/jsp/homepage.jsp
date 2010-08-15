@@ -9,9 +9,12 @@
 <link href="css/layout.css" type="text/css" rel="stylesheet"/>
 <link href="css/tree.css" type="text/css" rel="stylesheet"/>
 <link href="css/list.css" type="text/css" rel="stylesheet"/>
+<link href="css/upload_page.css" rel="stylesheet" type="text/css" />
 <script language="javascript" type="text/javascript" src="js/jquery.js"></script>
 <script type="text/javascript" src="js/jquery.simple.tree.js"></script>
 <script type="text/javascript" src="js/file_operation.js"></script>
+<script type="text/javascript" src="js/map.js"></script>
+<script type="text/javascript" src="js/update_file_list.js"></script>
 
 <link rel="stylesheet" type="text/css" href="css/dialog.css"/>
 <script language="javascript" type="text/javascript" src="js/dialog.js" ></script>
@@ -213,50 +216,19 @@ else
 function open_view(viewMode){
 	if(view_mode == "fileList"){
 		var list_head = document.getElementById("list_head");
-		list_head.parentNode.removeChild(list_head);
+		list_head.style.display="none";
 	}
 
 	if(viewMode == "fileList"){
-		var list_head = document.createElement("div");
-		list_head.id="list_head";
-		
-		var select_col_head = document.createElement("div");
-		select_col_head.id="select_col_head";
-		select_col_head.className = "select_col";
-
-		var name_col_head = document.createElement("div");
-		name_col_head.id = "name_col_head";
-		name_col_head.className = "name_col";
-		name_col_head.innerHTML = "Name";
-
-		var movable_divider = document.createElement("div");
-		movable_divider.className = "movable_divider";
-
-		var date_col_head = document.createElement("div");
-		date_col_head.id = "date_col_head";
-		date_col_head.className = "date_col";
-		date_col_head.innerHTML = "Date";
-
-		var clearTag = document.createElement("div");
-		clearTag.className = "clear";
-
-		list_head.appendChild(select_col_head);
-		list_head.appendChild(name_col_head);
-		list_head.appendChild(movable_divider);
-		list_head.appendChild(date_col_head);
-		list_head.appendChild(clearTag);
-
-		var listFrame = document.getElementById("listFrame");
-		document.getElementById("right_context").insertBefore(list_head, listFrame);
-			
-		listFrame.src="fileList.action";
-		
-		$(".movable_divider").mousedown(function(e){
-			doListHandleMouseDown(e);
-		});
+		var list_head = document.getElementById("list_head");
+		list_head.style.display="";
 	}
 
-	document.getElementById("listFrame").src = viewMode +".action";	
+	var path = viewMode +".action";	
+	if(viewMode == "fileList" && select_folder_id != null){
+		path = path + "?folder.id=" + select_folder_id + "&includeFiles=true";
+	}
+	document.getElementById("listFrame").src = path;	
 	view_mode = viewMode;
 	window.location.hash = view_mode;
 }
@@ -267,8 +239,13 @@ function open_upload_page(){
 	}	
 }
 
+function click_node(node){
+	select_folder_id = node.attr("id");
+	open_view("fileList");
+}
 
-
+var select_file_map = new Map();
+// update file list operation is in update_file_list.js
 </script>
 
 
@@ -330,7 +307,66 @@ function open_upload_page(){
 	
 		<div id="right_bar">
 			<div id="right_nav"></div>
-			<div id="right_option_area"></div>
+			<div id="right_option_area">
+				<div id="file_list_option">
+				
+					<div id="button_select_option" class="button_frame">
+						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="selectOptionButtonDown(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
+							<div class="button_left_border"></div>	
+							<div class="button_inner_border">
+									<span>Select</span><div class="down_triangle"></div>						
+							</div>	
+							<div class="button_right_border"></div>
+							<div class="clear"></div>				
+						</div>
+						
+						<div id="select_option_area" style="display:none">
+							<div id="select_all" class="select_option_item">Select All</div>
+							<div id="select_none" class="select_option_item">Select None</div>
+						</div>
+					</div>
+				
+					<div id="button_movto_folder" class="button_frame" onclick="move_multiple_file_page()">
+						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
+							<div class="button_left_border"></div>	
+							<div class="button_inner_border">
+									<span>Move to</span>						
+							</div>	
+							<div class="button_right_border"></div>
+							<div class="clear"></div>				
+						</div>
+						
+					</div>
+					
+					<div id="button_del_files" class="button_frame" onclick="del_multiple_file_page()">
+						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
+							<div class="button_left_border"></div>	
+							<div class="button_inner_border">
+									<span>Delete</span>			
+							</div>	
+							<div class="button_right_border"></div>
+							<div class="clear"></div>				
+						</div>
+
+					</div>
+					
+					
+					
+					<div id="button_rename_file" class="button_frame" onclick="rename_file_page()">
+						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
+							<div class="button_left_border"></div>	
+							<div class="button_inner_border">
+									<span>Rename</span>						
+							</div>	
+							<div class="button_right_border"></div>
+							<div class="clear"></div>				
+						</div>
+					</div>
+					
+					<div class="clear"></div>
+				</div><!-- file_list_option -->
+				
+			</div><!-- end of right_option_area -->
 			
 			<div id="right_context">
 				

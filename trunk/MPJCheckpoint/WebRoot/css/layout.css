@@ -101,8 +101,9 @@ background-color:#bbccff;
 #right_bar #right_option_area{
 margin-top:30px;
 width:100%;
-height:30px;
+height:31px;
 background-color:#e3e9ff;
+overflown:hidden;
 }
 
 #right_bar #right_context{

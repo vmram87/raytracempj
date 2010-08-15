@@ -1,5 +1,6 @@
 var select_folder_id = null;
 var delete_file_id = null;
+var moveto_file_id = null;
 //click new folder
 function create_new_folder(){
 	if(select_folder_id == null || select_folder_id == undefined)
@@ -47,5 +48,41 @@ function rename_file_page(){
 function rename_file(id, fileName){
 	window.frames["fileFrame"].rename_file(id, fileName);
 	close_dialog();
+}
+
+function click_moveto_node(){
+}
+
+
+//for select area
+function selectOptionButtonDown(b){
+	if(isDstBtnDown == false){
+		isDstBtnDown = true;
+		if(b.hasChildNodes()){
+			var x = b.childNodes;
+			for(i=0;i<x.length;i++){
+				if(x[i].className == "button_inner_border"){
+					x[i].style.backgroundPosition="left -19px";				
+				}
+				
+			}
+			
+		}
+
+		$("#select_option_area").show();
+	}
+	else{
+		isDstBtnDown = false;
+		if(b.hasChildNodes()){
+			var x = b.childNodes;
+			for(i=0;i<x.length;i++){
+				if(x[i].className == "button_inner_border"){
+					x[i].style.backgroundPosition="left top";
+				}
+			}
+		}
+		
+		$("#select_option_area").hide();
+	}
 }
 

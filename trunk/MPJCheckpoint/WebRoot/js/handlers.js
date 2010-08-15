@@ -86,7 +86,7 @@ function fileQueueError(file, errorCode, message) {
 		var tr = document.getElementById(file.id);
 		tr.style.color="red";
 		var bar = document.getElementById(file.id+"_bar");
-		var errInfo = "选择失败";
+		var errInfo = "Select Failed";
 		/* comment by stephen
 		var progress = new FileProgress(file, this.customSettings.progressTarget);
 		progress.setError();
@@ -96,23 +96,23 @@ function fileQueueError(file, errorCode, message) {
 		switch (errorCode) {
 		case SWFUpload.QUEUE_ERROR.FILE_EXCEEDS_SIZE_LIMIT:
 			//progress.setStatus("File is too big.");
-			errInfo = errInfo + ":文件太大";
+			errInfo = errInfo + ":File too big";
 			this.debug("Error Code: File too big, File name: " + file.name + ", File size: " + file.size + ", Message: " + message);
 			break;
 		case SWFUpload.QUEUE_ERROR.ZERO_BYTE_FILE:
 			//progress.setStatus("Cannot upload Zero Byte files.");
-			errInfo = errInfo + ":0字节文件";
+			errInfo = errInfo + ":0 byte file";
 			this.debug("Error Code: Zero byte file, File name: " + file.name + ", File size: " + file.size + ", Message: " + message);
 			break;
 		case SWFUpload.QUEUE_ERROR.INVALID_FILETYPE:
 			//progress.setStatus("Invalid File Type.");
-			errInfo = errInfo + ":文件类型错误";
+			errInfo = errInfo + ":file type error";
 			this.debug("Error Code: Invalid File Type, File name: " + file.name + ", File size: " + file.size + ", Message: " + message);
 			break;
 		default:
 			if (file !== null) {
 				//progress.setStatus("Unhandled Error");
-				errInfo = errInfo + ":系统未知错误";
+				errInfo = errInfo + ":unknown system error";
 			}
 			this.debug("Error Code: " + errorCode + ", File name: " + file.name + ", File size: " + file.size + ", Message: " + message);
 			break;
