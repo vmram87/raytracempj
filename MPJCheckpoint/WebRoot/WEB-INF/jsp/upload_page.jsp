@@ -9,6 +9,10 @@
 	uploadUrl.append(request.getHeader("Host"));
 	uploadUrl.append(request.getContextPath());
 	uploadUrl.append("/swfUpload.action");
+	Object  id =  request.getAttribute("folder.id");
+	if(id != null){
+		uploadUrl.append("?folder.id=" + id);
+	}	
 %>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -59,21 +63,24 @@ $(function() {
 });
 </script>
 
-
-
-
 <link href="css/layout.css" rel="stylesheet" type="text/css" />
+<link href="css/upload_page.css" rel="stylesheet" type="text/css" />
+
 <script type="text/javascript" src="js/swfupload.js"></script>
 <script type="text/javascript" src="js/swfupload.swfobject.js"></script>
 <script type="text/javascript" src="js/swfupload.queue.js"></script>
 <script type="text/javascript" src="js/fileprogress.js"></script>
 <script type="text/javascript" src="js/handlers.js"></script>
 
-<link href="css/upload_page.css" rel="stylesheet" type="text/css" />
-
 <script type="text/javascript">
-var swfu;
+function beforeUploadStart(){
+	//after click start upload button
+	swfu.addPostParam("folder.id",select_folder_id);
+	
+	return true;
+}
 
+var swfu;
 SWFUpload.onload = function () {
 	var settings = {
 		flash_url : "js/swfupload.swf",
@@ -107,6 +114,7 @@ SWFUpload.onload = function () {
 		file_queued_handler : fileQueued,
 		file_queue_error_handler : fileQueueError,
 		file_dialog_complete_handler : fileDialogComplete,
+		before_upload_start_handler : beforeUploadStart,
 		upload_start_handler : uploadStart,
 		upload_progress_handler : uploadProgress,
 		upload_error_handler : uploadError,
@@ -122,6 +130,8 @@ SWFUpload.onload = function () {
 
 	swfu = new SWFUpload(settings);
 }
+
+
 
 </script>
 
@@ -163,6 +173,8 @@ function mouseDownButton(b){
 			}
 			
 		}
+
+		$("#choose_folder_area").show();
 	}
 	else{
 		isDstBtnDown = false;
@@ -174,11 +186,34 @@ function mouseDownButton(b){
 				}
 			}
 		}
+		
+		$("#choose_folder_area").hide();
 	}
 }
 
-function choose_folder(){
-	
+
+var select_folder_id = null;
+var temp_select_id = null;
+var temp_select_name = null;
+function click_node(node){
+	temp_select_id = select_folder_id;
+	select_folder_id = node.attr("id");
+	temp_select_name = $(">span",node).html();
+}
+
+function click_select_ok(){
+	$("#dest_folder_name").html(temp_select_name);
+	var p = $("#dest_folder_name").parent();
+	p.css("background-position","left top");
+
+	$("#choose_folder_area").hide();
+}
+
+function click_select_cancel(){
+	select_folder_id = temp_select_id;
+	var p = $("#dest_folder_name").parent();
+	p.css("background-position","left top");
+	$("#choose_folder_area").hide();
 }
 
 </script>
@@ -208,17 +243,17 @@ function choose_folder(){
 				<div class="button_left_border"></div>	
 				<div class="button_inner_border">
 						<div class="folder_icon"></div>
-						<span>Destination Folder</span>
+						<span id="dest_folder_name">Destination Folder</span>
 						<div class="down_triangle"></div>						
 				</div>	
 				<div class="button_right_border"></div>
 				<div class="clear"></div>				
 			</div>
 				
-			<div id="choose_folder_area">
+			<div id="choose_folder_area" style="display:none">
 				<iframe id="fileFrame" name="fileFrame" border="0" frameBorder="0"  scrolling="auto"  width="100%" height="210px" src="fileTree.action"></iframe>
-				<input type="button" value="OK"/>
-				<input type="button" value="Cancel"/>
+				<input type="button" value="OK" onclick="click_select_ok()"/>
+				<input type="button" value="Cancel" onclick="click_select_cancel()"/>
 			</div>
 		</div>
 		
@@ -247,5 +282,6 @@ function choose_folder(){
 	</form>
 </div>
 </td></tr></table>
+
 </body>
 </html>

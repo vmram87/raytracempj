@@ -1,12 +1,14 @@
 package org.qing.service;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.List;
+import java.util.Map;
 
 import org.qing.object.MyFile;
 
 public interface FileManager {
-	public void uploadFile(File file, int parentDirectoryId) throws Exception;
+	public void uploadFile(File file, String tName, int parentDirectoryId) throws Exception;
 	public void uploadFiles(File[] files,String[] fileName, int parentDirectoryId) throws Exception;
 	public void deleteFile(int fileId) throws Exception;
 	public boolean renameFile(String fileName, int fileId) throws Exception;
@@ -17,4 +19,10 @@ public interface FileManager {
 	public String getRelativePathById(Integer id) throws Exception;
 	public boolean newFolder(String newFolderName, Integer parentFileId) throws Exception;
 	public List getFolderListById(Integer id, boolean includeFiles) throws Exception;
+	public List getFileTreeList(Integer id, Map openDirectoryIds, boolean includeFiles) throws Exception;
+	public InputStream getFileInputStreamById(Integer id) throws Exception;
+	public String getDestPath(Integer id) throws Exception;
+	public MyFile getFileById(Integer id) throws Exception;
+	public void delMultipleFiles(Integer[] selectFileIds)throws Exception;
+	public void moveMultipleFiles(Integer directoryId, Integer[] selectFileIds)throws Exception;
 }

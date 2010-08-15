@@ -13,6 +13,7 @@
 <script type="text/javascript" src="js/jquery.simple.tree.js"></script>
 <script type="text/javascript" src="js/update_file_tree.js"></script>
 <script type="text/javascript" src="js/jquery.contextmenu.r2.packed.js"></script>
+<script type="text/javascript" src="js/map.js"></script>
 
 <script language="javascript" type="text/javascript">
 $(function() {
@@ -31,17 +32,21 @@ $(function() {
 		
 	});
 
+	ajax_update_tree();
 
 });
 </script>
 
 <script type="text/javascript">
 var simpleTreeCollection;
-$(document).ready(function(){
+$(document).ready(init_simple_tree);
+
+function init_simple_tree(){
 	simpleTreeCollection = $('.simpleTree').simpleTree({
 		autoclose: true,
 		afterClick:function(node){
-			window.parent.select_folder_id = node.attr("id");
+			window.parent.click_node(node);
+			
 		},
 		afterDblClick:function(node){
 			//alert("text-"+$('span:first',node).text());
@@ -56,10 +61,49 @@ $(document).ready(function(){
 		afterContextMenu:function(node)
 		{
 		},
+		afterContextMenu:function(node)
+		{
+		},
 		animate:true
 		//,docToFolderConvert:true
 	});
-});
+}
+</script>
+
+<script type="text/javascript">
+var open_directory_ids = new Map();
+function ajax_update_tree(){
+	update_open_ids();
+	$.post("updateTree.action",{"openDirectoryIds":open_directory_ids.values()},
+		function(responseTest){		
+			$('.simpleTree').html(responseTest);			
+			init_simple_tree();
+			if(window.parent.select_folder_id != null){
+				var li = document.getElementById( window.parent.select_folder_id);
+				$('.active',simpleTreeCollection[0]).attr('class','text');
+				$('>span', li).attr("class","active");
+				
+			}
+			setTimeout("ajax_update_tree()",10000);
+		}
+	);	
+}
+
+function update_open_ids(){
+	open_directory_ids.clear();
+	
+	for(var i=0;i<$(".folder-open").size();i++){
+		var id = $(".folder-open").get(i).id;
+		open_directory_ids.put(id,id);
+	}
+
+	for(var i=0;i<$(".folder-open-last").size();i++){
+		var id = $(".folder-open-last").get(i).id;
+		open_directory_ids.put(id,id);
+	}
+}
+
+	
 </script>
 
 <style>
@@ -76,8 +120,9 @@ font-family:Arial, Helvetica, sans-serif;
 </head>
 
 <body>
-
+<ul class="simpleTree">
 <s:include value="tree_main.jsp"/>
+</ul>
 
  <div class="contextMenu" id="myMenu1">
   <ul>

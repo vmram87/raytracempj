@@ -12,6 +12,7 @@
 
 		<property name="fileName" column="fileName"	type="string" not-null="true"/>
 		<property name="filePath" column="filePath"	type="string" not-null="true"/>
+		<property name="fileType" column="fileType"	type="string" />
 		<property name="isDirectory" column="isDirectory" type="boolean" not-null="true"/>
 		
 		<many-to-one name="parentDirectory" column="parentDirectoryId" />

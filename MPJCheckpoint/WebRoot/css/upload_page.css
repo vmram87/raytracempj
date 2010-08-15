@@ -372,7 +372,7 @@ TR.uploadTitle{vertical-align: middle;font-weight:700;background-color: #CCCDDD;
 	font-size:14px;
 }
 
-#button_destination_folder .down_triangle{
+.button_frame .down_triangle{
 	background:url(../images/layout/icons.png) -400px top no-repeat;
 	width:16px;
 	height:14px;
@@ -380,7 +380,7 @@ TR.uploadTitle{vertical-align: middle;font-weight:700;background-color: #CCCDDD;
 	margin-left:3px;
 }
 
-#button_destination_folder #choose_folder_area{
+.button_frame #choose_folder_area{
 	position:absolute;
 	top:20px;
 	width:200px;
@@ -390,6 +390,22 @@ TR.uploadTitle{vertical-align: middle;font-weight:700;background-color: #CCCDDD;
 	border:1px solid #AAA;
 	background-color:#FFF;
 }
-#button_destination_folder #choose_folder_area iframe{
+.button_frame #choose_folder_area iframe{
 	border:1px solid #DDD;
 }
+
+.button_frame {
+	postion:relative;
+}
+
+.button_frame #select_option_area{
+	position:absolute;
+	top:20px;
+	width:80px;
+	height:60px;
+	z-index:100;
+	padding:10px;
+	border:1px solid #AAA;
+	background-color:#FFF;
+}
+

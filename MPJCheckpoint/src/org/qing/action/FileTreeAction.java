@@ -1,21 +1,34 @@
 package org.qing.action;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.qing.action.base.BaseActionInterface;
 import org.qing.object.MyFile;
 
 public class FileTreeAction extends BaseActionInterface {
-	private MyFile codeFolder;
+	private static MyFile codeFolder;
 	private MyFile libFolder;
-	private boolean includeFiles;
+	private Boolean includeFiles;
 	private MyFile folder;
 	private String folderName;
 	private int directoryId;
 	private String path;
 	private String tip;
 	private List fileList;
+	private Integer[] openDirectoryIds;
+	
+	private List libList;
 		
+	public Integer[] getOpenDirectoryIds() {
+		return openDirectoryIds;
+	}
+
+	public void setOpenDirectoryIds(Integer[] openDirectoryIds) {
+		this.openDirectoryIds = openDirectoryIds;
+	}
+
 	public String getFolderName() {
 		return folderName;
 	}
@@ -40,11 +53,11 @@ public class FileTreeAction extends BaseActionInterface {
 		this.libFolder = libFolder;
 	}
 
-	public boolean isIncludeFiles() {
+	public Boolean isIncludeFiles() {
 		return includeFiles;
 	}
 
-	public void setIncludeFiles(boolean includeFiles) {
+	public void setIncludeFiles(Boolean includeFiles) {
 		this.includeFiles = includeFiles;
 	}
 	
@@ -81,6 +94,15 @@ public class FileTreeAction extends BaseActionInterface {
 	public void setDirectoryId(int directoryId) {
 		this.directoryId = directoryId;
 	}
+	
+
+	public List getLibList() {
+		return libList;
+	}
+
+	public void setLibList(List libList) {
+		this.libList = libList;
+	}
 
 	@Override
 	public String execute() throws Exception{
@@ -91,12 +113,24 @@ public class FileTreeAction extends BaseActionInterface {
 	}
 
 	public String folderList() throws Exception{
+		if(folder == null){
+			folder = fileMgr.getUserFolder();
+		}
+		if(includeFiles == null)
+			includeFiles = true;
+			
 		fileList = fileMgr.getFolderListById(folder.getId(),includeFiles);		
+		
 		return SUCCESS;
 	}
 	
 	public String addFolder() throws Exception{
 		tip = null;
+		libFolder = fileMgr.getUserLib();
+		if(folder.getId().intValue() == libFolder.getId().intValue()){
+			tip = "Failed: Can not add folder to My_Lib folder";
+			return SUCCESS;
+		}
 		if(fileMgr.newFolder(folderName, folder.getId())==false)
 			tip = "Failed, Check file name to see whether it exists!";
 		return SUCCESS;
@@ -175,4 +209,79 @@ public class FileTreeAction extends BaseActionInterface {
 		return SUCCESS;
 
 	}
+	
+	public String updateTree() throws Exception{
+		tip = null;
+		codeFolder = fileMgr.getUserFolder();
+		libFolder = fileMgr.getUserLib();
+		HashMap<Integer, Integer> openIds = new HashMap<Integer, Integer>();
+		if(openDirectoryIds!=null){
+			for( Integer id : openDirectoryIds){
+				openIds.put(id, id);
+			}
+		}
+		tip = "";
+		
+		if(includeFiles == null)
+			includeFiles = false;
+		
+		List treeList = fileMgr.getFileTreeList(codeFolder.getId(), openIds, includeFiles);
+		if(treeList.size() > 1){
+			tip = generateTreeFromList(treeList, tip, openIds);
+		}
+		
+		libFolder = fileMgr.getUserLib();
+		if(openIds.get(libFolder.getId()) != null){
+			libList = fileMgr.getFolderListById(libFolder.getId(), true);			
+		}
+		
+		
+		return SUCCESS;
+	}
+	
+	private static String generateTreeFromList(List tree, String treeHTML, Map openIds){
+		//get root node
+		Object node = tree.get(0);
+		MyFile closeNode, openNode, rootNode;		
+		rootNode = (MyFile) node;
+		
+		if(rootNode.getId() != codeFolder.getId()){//if the first node is not the My_Class folder
+			treeHTML += "<li " + (openIds.get(rootNode.getId())==null?"":"class='open'") + " id='" +
+					rootNode.getId() + "'><span class='text'>" + rootNode.getFileName() + "</span>";
+			
+			if(rootNode.getIsDirectory())
+				treeHTML += "<ul>";
+		}
+		
+		
+		for(int i = 1; i < tree.size(); i++){
+			node = tree.get(i);
+			if(node instanceof MyFile){
+				closeNode = (MyFile) node;
+				treeHTML += "<li id='" + closeNode.getId() + "'><span class='text'>" + closeNode.getFileName() 
+				+ "</span>";
+				
+				if(closeNode.getIsDirectory())
+					treeHTML += "<ul class='ajax'><li id='"+ (-closeNode.getId().intValue()) + 
+						"'>{url:folderList.action?folder.id=" + closeNode.getId() + 
+						"&includeFiles=false}</li></ul>";
+				
+				treeHTML += "</li>";
+				
+			}
+			else
+			{// if it is an open directory
+				List expandTreeList = (List)node;
+				treeHTML = generateTreeFromList(expandTreeList, treeHTML, openIds);
+			}
+			
+		}
+		
+		if(rootNode.getId() != codeFolder.getId()){//if the first node is not the My_Class folder
+			treeHTML += "</ul></li>";
+		}
+		
+		return treeHTML;
+	}
+	
 }

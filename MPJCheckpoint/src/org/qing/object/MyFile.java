@@ -9,6 +9,7 @@ public class MyFile implements Serializable {
 	private Integer id;
 	private String fileName;
 	private String filePath;
+	private String fileType;
 	private boolean isDirectory;
 	private Timestamp updateTime;
 	
@@ -57,6 +58,12 @@ public class MyFile implements Serializable {
 	}
 	public void setFiles(Set files) {
 		this.files = files;
+	}
+	public String getFileType() {
+		return fileType;
+	}
+	public void setFileType(String fileType) {
+		this.fileType = fileType;
 	}
 	
 	

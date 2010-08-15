@@ -1,5 +1,6 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
+<%@taglib prefix="s" uri="/struts-tags"%>
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
@@ -19,6 +20,7 @@ font-family:Arial, Helvetica, sans-serif;
 <link href="css/list.css" type="text/css" rel="stylesheet"/>
 
 <script language="javascript" type="text/javascript" src="js/jquery.js"></script>
+<script language="javascript" type="text/javascript" src="js/map.js"></script>
 
 <script language="javascript" type="text/javascript">
 $(function() {
@@ -105,6 +107,27 @@ function get_nextSibling(n)
 	else
 		return null;
 }
+
+function click_folder(id){
+	window.location="fileList.action?folder.id=" + id + "&includeFiles=true";
+}
+
+function select_file(select){
+	if(select.checked){
+		select.parentNode.parentNode.className="list_content_item_selected";
+		window.parent.select_file_map.put(select.value,select.value);
+	}
+	else{
+		select.parentNode.parentNode.className="list_content_item";
+		window.parent.select_file_map.remove(select.value);
+	}
+
+}
+
+function del_multiple_file(){
+	
+}
+
 </script>
 
 </head>
@@ -112,299 +135,44 @@ function get_nextSibling(n)
 <body>
 
 <div id="list_content">
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			<div class="list_folder_close" onclick="click_folder(this)"></div>
-			<span>aaa</span>
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			aaa
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
-	
-	<div class="list_content_item">
-		<div id="select_col_box" class="select_col">
-			<input type="checkbox" />
-		</div>
-		<div id="name_col_content" class="name_col">
-			bbb
-		</div>
-		<div id="date_col_content" class="date_col">
-			July 27th
-		</div>
-	</div><!-- end of list_content_item -->
+<form id="selectForm" name="selectForm">
+	<s:iterator value="fileList" id="file">
+		
+		
+			<div class="list_content_item" >
+				<div id="select_col_box"  class="select_col">
+					<input type="checkbox" id="selectFileIds" name="selectFileIds" value="${file.id }" onchange="select_file(this)"/>
+				</div>
+				
+				<s:if test="%{#file.isDirectory==false}">
+					<a href="filedownload.action?file.id=${file.id }">
+				</s:if>
+				
+				<div id="name_col_content" <s:if test="%{#file.isDirectory}">onclick="click_folder(${file.id })"</s:if> class="name_col">
+					<s:if test="%{#file.isDirectory}">
+						<div class="folder_icon"></div>
+					</s:if>
+					<s:else>
+						<div class="file_icon"></div>
+					</s:else>
+					
+					<span>${file.fileName}</span>
+				</div>
+				
+				<s:if test="%{#file.isDirectory==false}">
+					</a>
+				</s:if>
+				
+				<div id="date_col_content" class="date_col">
+					<span>${file.updateTime}</span>
+				</div>
+			</div><!-- end of list_content_item -->
+			
+		
+	</s:iterator>
 
+</form>
 </div><!-- end of list_content -->
-
-
-
 
 </body>
 </html>

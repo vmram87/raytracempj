@@ -30,7 +30,7 @@
 			<result name="success">/WEB-INF/jsp/file_tree.jsp</result>
 		</action>
 		
-		<action name="fileList" class="org.qing.action.FileListAction" >
+		<action name="fileList" class="org.qing.action.FileTreeAction" method="folderList">
 			<result name="success">/WEB-INF/jsp/file_list.jsp</result>
 		</action>
 		
@@ -79,6 +79,36 @@
 		</action>
 		
 		<action name="moveFile" class="org.qing.action.FileTreeAction" method="moveFile">
+			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
+		</action>
+		
+		<action name="updateTree" class="org.qing.action.FileTreeAction" method="updateTree">
+			<result name="success">/WEB-INF/jsp/tree_main.jsp</result>			
+		</action>
+		
+		<action name="filedownload"
+            class="org.qing.action.FileDownloadAction">
+            <result name="success" type="stream">
+                <param name="inputName">inputStream</param>  
+                <param name="contentType">${contentType}</param>              
+                <param name="bufferSize">4096</param>
+                <param name="contentDisposition">attachment;filename="${filename}"</param>
+            </result>
+		</action>
+		
+		<action name="delMultipleFilePage" class="org.qing.action.FileListAction" >
+			<result name="success">/WEB-INF/jsp/del_multiple_file.jsp</result>			
+		</action>
+		
+		<action name="delMultipleFile" class="org.qing.action.FileListAction" method="delMultipleFile">
+			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
+		</action>
+		
+		<action name="moveMultipleFilePage" class="org.qing.action.FileListAction">
+			<result name="success">/WEB-INF/jsp/select_path_multiple_file_move.jsp</result>			
+		</action>
+		
+		<action name="moveMultipleFile" class="org.qing.action.FileListAction" method="moveMultipleFile">
 			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
 		</action>
 		

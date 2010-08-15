@@ -756,6 +756,14 @@ SWFUpload.prototype.fileDialogComplete = function (numFilesSelected, numFilesQue
 };
 
 SWFUpload.prototype.uploadStart = function (file) {
+	var returnValue;
+	if (typeof this.settings.before_upload_start_handler === "function") {
+		returnValue = this.settings.before_upload_start_handler.call(this);
+		if(returnValue == false){
+			return;
+		}
+	}
+	
 	file = this.unescapeFilePostParams(file);
 	this.queueEvent("return_upload_start_handler", file);
 };
