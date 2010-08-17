@@ -46,13 +46,12 @@ function move_file(){
 			function(responseText){		
 				if(responseText.indexOf("Successed")!=-1){
 					window.parent.select_file_map.clear();
+					window.parent.close_dialog();
+					window.parent.open_view("fileList");
 				}
 				else{
 					$("#waitDiv").html(responseText);
-				}
-
-				window.parent.close_dialog();
-				window.parent.open_view("fileList");
+				}				
 			}
 	);
 	

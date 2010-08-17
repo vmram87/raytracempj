@@ -18,7 +18,7 @@
 		<many-to-one name="parentDirectory" column="parentDirectoryId" />
 		<property name="updateTime" column="updateTime"	type="timestamp" not-null="false" />
 		
-		<set name="files" inverse="true">
+		<set name="files" inverse="true" lazy="true">
             <key column="parentDirectoryId"/>
             <one-to-many class="MyFile" />
         </set>

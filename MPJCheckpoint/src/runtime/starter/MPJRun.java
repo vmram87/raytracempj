@@ -64,11 +64,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.Vector;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 
 import javax.jws.soap.SOAPBinding.Use;
+import javax.transaction.Synchronization;
 
 import org.apache.log4j.DailyRollingFileAppender;
 import org.apache.log4j.Level;
@@ -86,15 +89,15 @@ public class MPJRun {
 
   public static String CONF_FILE_NAME = "mpjdev.conf" ;
   public static String MPJ_DIR_NAME = ".mpj" ;
-  private String USER_DIR = "user-folder";
+  private String USER_DIR = "user-folder/My_Class";
 
-  String configFileName = null ; 
+  String configFileName = null; 
 
   private static int MPJ_SERVER_PORT = 20000 ; 
   private static int mxBoardNum = 0 ; 
   private static int D_SER_PORT = getPortFromWrapper() ;
   private static int endPointID = 0 ;
-  private int CHECKPOINT_INTERVAL = 20000; //the default checkpoint interval is 20s
+  private long CHECKPOINT_INTERVAL = 20000; //the default checkpoint interval is 20s
 
   int S_PORT = 15000; 
   String machinesFile = "machines" ; 
@@ -118,6 +121,7 @@ public class MPJRun {
   private Vector machineVector = new Vector();
   private Map machineConnectedMap=new HashMap();
   private HashMap<String, SocketChannel> machineChannelMap = new HashMap<String, SocketChannel>();
+  private HashMap<Integer, String> rankMachineMap = new HashMap<Integer, String>();
   int nprocs = Runtime.getRuntime().availableProcessors() ; 
   String spmdClass = null;
   String deviceName = "multicore";
@@ -160,6 +164,9 @@ public class MPJRun {
   
   private HashMap<String,HashMap<Integer,Context>> machnineProcessMap = new HashMap<String,HashMap<Integer,Context>>();
   private Thread heartbeatThreadStarter = null;
+  private Thread timmerThreadStarter = null;
+  
+  private Timer timer;
 
   /**
    * Every thing is being inside this constructor :-)
@@ -197,6 +204,7 @@ public class MPJRun {
 	  
 	  if(isRestarting == false){
 
+		  
 	    if(deviceName.equals("multicore")) {
 	       
 	      System.out.println("MPJ Express ("+VERSION+") is started in the "+
@@ -309,6 +317,9 @@ public class MPJRun {
 	    
 	    heartbeatThreadStarter  = new Thread(heartBeatThread);
 	    heartbeatThreadStarter.start();
+	    
+	    timmerThreadStarter = new Thread(timerThread); 
+	    timmerThreadStarter.start();
     
     }// end of if isRestarting == false
 
@@ -683,8 +694,8 @@ public class MPJRun {
             //This code takes care of executing class files directly ....
             //although does not look like it ....
             applicationClassPathEntry = mpjHomeDir + File.separator + USER_DIR + File.separator;	      
- 	    className = args[i];
-	    parallelProgramNotYetEncountered = false ; 
+            className = args[i];
+            parallelProgramNotYetEncountered = false ; 
           }
 	}
 	
@@ -760,6 +771,7 @@ public class MPJRun {
     int rank = 0;
     String name = null;
     int port = MPJ_SERVER_PORT;
+    rankMachineMap.clear();
 
     try {
       cfos = new FileOutputStream(CONF_FILE);
@@ -793,6 +805,7 @@ public class MPJRun {
         procsPerMachineTable.put( (String) machineVector.get(i),
                                  new Integer(1));
 	 
+        rankMachineMap.put(rank, name);
 	if(deviceName.equals("niodev")) { 
           cout.println(name + "@" + port +
                        "@" + (rank++));
@@ -802,7 +815,7 @@ public class MPJRun {
                        "@" + (rank++));
 	} 
 	
-	
+		
         if(DEBUG && logger.isDebugEnabled()) { 
           logger.debug("procPerMachineTable==>" + procsPerMachineTable);
 	}
@@ -843,6 +856,9 @@ public class MPJRun {
           //name=InetAddress.getByName(name).getHostName();
 
           for (int j = 0; j < (divisor + 1); j++) {
+        	  
+        	  rankMachineMap.put(rank, (String) machineVector.get(i));
+        	  
             if(deviceName.equals("niodev")) { 		  
               cout.println( (String) machineVector.get(i) + "@" +
                            port + "@" + (rank++));
@@ -851,6 +867,8 @@ public class MPJRun {
               cout.println( (String) machineVector.get(i) + "@" +
                            (mxBoardNum+j) + "@" + (rank++));
 	    }
+            
+            
           }
 	  
         }
@@ -866,6 +884,9 @@ public class MPJRun {
           //name=(String)machineVector.get(i);
           //name=InetAddress.getByAddress( name.getBytes() ).getHostName();
           for (int j = 0; j < divisor; j++) {
+        	  
+        	  rankMachineMap.put(rank, (String) machineVector.get(i));
+        	  
             if(deviceName.equals("niodev")) { 		  
               cout.println( (String) machineVector.get(i) + "@" +
                            port + "@" + (rank++));
@@ -888,6 +909,9 @@ public class MPJRun {
       }
       
       for (int i = 0; i < nprocs; i++) {
+    	  
+    	  rankMachineMap.put(rank, (String) machineVector.get(i));
+    	  
         procsPerMachineTable.put( (String) machineVector.get(i), 
                                   new Integer(1));
 	if(deviceName.equals("niodev")) { 
@@ -1061,19 +1085,13 @@ public class MPJRun {
 		
 		//find the latest complete version
 		ContextManager mgr = (ContextManager)SpringContextUtil.getBean("mgr");
-		Integer ver = mgr.getLatestVersionId();
+		Integer ver = mgr.getLatestCompleteVersion(nprocs);
 		
 		if(ver == null){
 			return restartFromBegining();
 		}
 		
 		List<Context> contextList = mgr.getContextsByVersion(ver);
-		while(contextList.size()!=nprocs){
-			ver = mgr.getNextLatestVersionId(ver);
-			if(ver == null)
-				return restartFromBegining();
-			contextList = mgr.getContextsByVersion(ver);				
-		}
 		
 		machnineProcessMap.clear();
 		for(int i = 0; i < machineVector.size(); i++){
@@ -1132,6 +1150,7 @@ public class MPJRun {
 		PrintStream cout = null;
 	    int rank = 0;
 	    String name = null;
+	    rankMachineMap.clear();
 	    int port = MPJ_SERVER_PORT;
 
 	    try {
@@ -1163,6 +1182,7 @@ public class MPJRun {
 		        procsPerMachineTable.put( (String) machineVector.get(i),
 		                                 new Integer(1));
 			 
+		        rankMachineMap.put(rank, name);
 				if(deviceName.equals("niodev")) { 
 			          cout.println(name + "@" + port +
 			                       "@" + (rank++));
@@ -1208,6 +1228,9 @@ public class MPJRun {
 	          Arrays.sort(rankArray);
 	          
 	          for(int j=0; j < rankArray.length; j++){
+	        	  
+	        	  rankMachineMap.put((Integer)rankArray[j], name);
+	        	  
 	        	  if(deviceName.equals("niodev")) { 		  
 		              cout.println( name + "@" +
 		                           port + "@" + rankArray[j]);
@@ -1650,8 +1673,16 @@ private void machinesSanityCheck() throws Exception {
 	         logger.debug("stop heartbeartthread");
 	         
 	   	 }
-    	isFinished = true;
+    	synchronized (finishLock) {
+    		isFinished = true;
+		}
+    	
     	heartbeatThreadStarter.join();
+    	if(timmerThreadStarter != null && (timmerThreadStarter.getState().equals(Thread.State.BLOCKED)||
+    			timmerThreadStarter.getState().equals(Thread.State.WAITING))){
+    		timmerThreadStarter.interrupt();
+    	}
+    	timmerThreadStarter.join();
     	
     	
       if(DEBUG && logger.isDebugEnabled())
@@ -1962,6 +1993,17 @@ if(DEBUG && logger.isDebugEnabled())
 						if(DEBUG && logger.isDebugEnabled())
 						 logger.debug("Notify and exit"); 
 						
+						//notify the versionComplete if it is not notify
+						synchronized(versionComplete){
+							if(isVersionCompleteWaiting == true){
+								isVersionCompleteWaiting = false;
+								if (DEBUG && logger.isDebugEnabled()) {
+						              logger.debug("notify timer thread");
+						        }
+								versionComplete.notify();
+							}
+						}
+						
 						ByteBuffer endMsg = ByteBuffer.allocate(4);
 						endMsg.putInt(END_APP);
 						endMsg.flip();
@@ -1984,7 +2026,7 @@ if(DEBUG && logger.isDebugEnabled())
 								logger.debug("finish send END_APP to the checkpiont server");
 							}	
 							Notify();
-						}
+						}					
 						
 			        }
 			        
@@ -2043,6 +2085,34 @@ if(DEBUG && logger.isDebugEnabled())
 				if (DEBUG && logger.isDebugEnabled()) {
 		              logger.debug("\n---Heartbeat Event---");
 		        }
+				
+				synchronized(versionComplete){
+					if(isVersionCompleteWaiting == true){
+						
+						ContextManager mgr = (ContextManager)SpringContextUtil.getBean("mgr");
+						Integer ver;
+						try {
+							ver = mgr.getLatestCompleteVersion(nprocs);
+						} catch (Exception e) {
+							e.printStackTrace();
+							continue;
+						}
+						
+						if(ver == null ){
+							System.out.println("There is no version complete in database, yet");
+						}
+						else if(ver > versionNum){
+							isVersionCompleteWaiting = false;
+							versionNum = ver;
+							if (DEBUG && logger.isDebugEnabled()) {
+					              logger.debug("notify timer thread");
+					        }
+							versionComplete.notify();							
+						}
+						
+					}
+				}
+				
 				try {
 					heartBeatLock.acquire();
 				} catch (InterruptedException e) {
@@ -2174,7 +2244,7 @@ if(DEBUG && logger.isDebugEnabled())
 		
 	}
 	
-	public void setCheckpointInterval(int timeInterval){
+	public void setCheckpointInterval(long timeInterval){
 		CHECKPOINT_INTERVAL = timeInterval;
 	}
 	
@@ -2182,6 +2252,97 @@ if(DEBUG && logger.isDebugEnabled())
 		if(isCanCheckpoint == false)
 			return false;
 		
+		
 		return true;
 	}
+	
+    Runnable timerThread = new Runnable() {
+		
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			while(!isFinished){	
+			
+				try {
+					Thread.currentThread().sleep(CHECKPOINT_INTERVAL);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+					break;
+				}
+				
+				if (DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("\n---Timer Event---");
+		        }
+				
+				
+				synchronized (finishLock) {
+					if(isFinished)
+						break;
+					
+					int rank = 0;
+					String machine = rankMachineMap.get(rank);
+					SocketChannel socketChannel = machineChannelMap.get(machine);
+					
+					ByteBuffer buf = ByteBuffer.allocate(12);
+					buf.put("scpv".getBytes());
+					buf.putInt(rank);
+					
+					ContextManager mgr = (ContextManager)SpringContextUtil.getBean("mgr");
+					try {
+						versionNum = mgr.getLatestCompleteVersion(nprocs);
+					} catch (Exception e) {
+						e.printStackTrace();
+						continue;
+					}
+				
+					if(versionNum == null)
+						versionNum = 0;
+					else
+						versionNum = versionNum.intValue() + 1 ;
+					
+					buf.putInt(versionNum.intValue());
+					buf.flip();
+					while(buf.hasRemaining()){
+						try{
+							if(socketChannel.write(buf) == -1)
+								throw new ClosedChannelException();
+						}
+						catch(Exception e){
+							e.printStackTrace();
+							break;
+						}
+					}
+					
+					synchronized(versionComplete){
+						isVersionCompleteWaiting = true;
+						try {
+							versionComplete.wait();
+							if (DEBUG && logger.isDebugEnabled()) {
+					              logger.debug("timer wait end");
+					        }
+						} catch (InterruptedException e) {
+							e.printStackTrace();
+							break;
+						}
+						
+					}
+				}				
+				
+				
+				
+			}// end  of wile
+			
+			if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("exit timer thread");
+	        }
+		}//end of run
+	};
+	
+	private Object versionComplete = new Object();
+	private Object finishLock = new Object();
+	private Integer versionNum;
+	boolean isVersionCompleteWaiting = false;
+	
+    
+    
 }

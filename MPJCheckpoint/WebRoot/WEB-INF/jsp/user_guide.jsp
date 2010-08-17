@@ -6,9 +6,10 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>Delete File</title>
+<title>User Guide</title>
 
-<script type="text/javascript" src="js/jquery.js"></script>
+<script type="text/javascript" src="js/ajax.js"></script>
+
 <style>
 html, body{
 margin:0;
@@ -22,13 +23,6 @@ font-family:Arial, Helvetica, sans-serif;
 
 <script type="text/javascript">
 
-function del_multiple_file(){
-	$("#waitDiv").show();
-	$("#delForm").hide();
-	window.parent.del_multiple_file();	
-}
-
-
 
 
 
@@ -38,14 +32,9 @@ function del_multiple_file(){
 
 <body>
 <div id="delForm">
-	<p>Are you sure to delete the selected files or folders!(the operation can not be recovered!)</p>
-	<input type="button" value="OK" onclick="del_multiple_file()"/>
-	<input type="button" value="Cancel" onclick="window.parent.close_dialog()"/>
+	<p>not implemented</p>
 </div>
 
-<div id="waitDiv" style="display:none">
-	<p>Please Wait...</p>
-</div>
 					
 </body>
 

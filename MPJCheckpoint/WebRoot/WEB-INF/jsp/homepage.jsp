@@ -14,6 +14,7 @@
 <script type="text/javascript" src="js/jquery.simple.tree.js"></script>
 <script type="text/javascript" src="js/file_operation.js"></script>
 <script type="text/javascript" src="js/map.js"></script>
+<script type="text/javascript" src="js/run.js"></script>
 <script type="text/javascript" src="js/update_file_list.js"></script>
 
 <link rel="stylesheet" type="text/css" href="css/dialog.css"/>
@@ -63,8 +64,8 @@ $(function() {
 
 var doResize = function() {
 $("#right_bar").width($("body").width()-$("#left_bar").width()-$("#handle_container").width());
-$("#fileFrame").height($("#container").height()-$("#top_line").height()-$("#top_title").height()-$("#left_button_area").height()-$("#left_option_area").height()-37);
-$("#listFrame").height($("body").height()-$("#top_line").height()-$("#top_title").height()-$("#right_nav").height()-$("#right_option_area").height()-$("#list_head").height()-63);
+$("#fileFrame").height($("#container").height()-$("#top_line").height()-$("#top_title").height()-$("#left_button_area").height()-$("#left_option_area").height()-14);
+$("#listFrame").height($("body").height()-$("#top_line").height()-$("#top_title").height()-$("#right_nav").height()-$("#right_option_area").height()-$("#list_head").height()-39);
 
 }
 
@@ -160,7 +161,7 @@ function mouseOutButton(b){
 		for(i=0;i<x.length;i++){
 			if(x[i].nodeType == 1){
 				x[i].style.borderColor="#bbbbbb";
-				if(x[i].className == "button_inner_border"){
+				if(x[i].className == "button_inner_border" && b.parentNode.id != "button_select_option"){
 					x[i].style.backgroundPosition="left top";
 				}
 			}
@@ -210,18 +211,33 @@ function selectOption(opt, viewMode){
 var view_mode;
 if(window.location.hash == "")
 	view_mode = "fileList";
-else
+else{
 	view_mode = window.location.hash.substring(1);
+}
+
+$(document).ready(init_document);
+
+function init_document(){
+	if(view_mode != "fileList")
+		$("#file_list_option").hide();
+}
 
 function open_view(viewMode){
 	if(view_mode == "fileList"){
-		var list_head = document.getElementById("list_head");
-		list_head.style.display="none";
+		$("#list_head").hide();
+		$("#file_list_option").hide();
 	}
 
 	if(viewMode == "fileList"){
-		var list_head = document.getElementById("list_head");
-		list_head.style.display="";
+		$("#list_head").show();
+		$("#file_list_option").show();
+	}
+
+	if(viewMode == "graphicView"){
+		$("#run_option_area").show();
+	}
+	else{
+		$("#run_option_area").hide();
 	}
 
 	var path = viewMode +".action";	
@@ -286,8 +302,8 @@ var select_file_map = new Map();
 			<div id="left_option_area">
 				<div class="option_item" onclick="selectOption(this,'graphicView')">Nodes Status View</div>
 				<div class="option_item" onclick="selectOption(this,'fileList')">Files View</div>
-				<div class="option_item" onclick="selectOption(this,4)">System Configuration</div>	
-				<div class="option_item" onclick="selectOption(this,5)">User Guide</div>				
+				<div class="option_item" onclick="selectOption(this,'sysConfig')">System Configuration</div>	
+				<div class="option_item" onclick="selectOption(this,'userGuide')">User Guide</div>				
 			</div><!-- end of left_option_area-->
 			
 			<div id="file_tree">
@@ -311,7 +327,7 @@ var select_file_map = new Map();
 				<div id="file_list_option">
 				
 					<div id="button_select_option" class="button_frame">
-						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="selectOptionButtonDown(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
+						<div id="select_option_button_item" class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="selectOptionButtonDown(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
 							<div class="button_left_border"></div>	
 							<div class="button_inner_border">
 									<span>Select</span><div class="down_triangle"></div>						
@@ -321,8 +337,8 @@ var select_file_map = new Map();
 						</div>
 						
 						<div id="select_option_area" style="display:none">
-							<div id="select_all" class="select_option_item">Select All</div>
-							<div id="select_none" class="select_option_item">Select None</div>
+							<div id="select_all" class="select_option_item" onclick="select_all()">Select All</div>
+							<div id="select_none" class="select_option_item" onclick="select_none()">Select None</div>
 						</div>
 					</div>
 				
@@ -365,6 +381,43 @@ var select_file_map = new Map();
 					
 					<div class="clear"></div>
 				</div><!-- file_list_option -->
+				
+				<div id="run_option_area" style="display:none">
+					<div id="button_run_program" class="button_frame" onclick="run_program()">
+						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
+							<div class="button_left_border"></div>	
+							<div class="button_inner_border">
+									<span>Run</span>						
+							</div>	
+							<div class="button_right_border"></div>
+							<div class="clear"></div>				
+						</div>
+					</div>
+					
+					<div id="button_checkpoint_program" class="button_frame" onclick="checkpoint()">
+						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
+							<div class="button_left_border"></div>	
+							<div class="button_inner_border">
+									<span>Checkpoint</span>						
+							</div>	
+							<div class="button_right_border"></div>
+							<div class="clear"></div>				
+						</div>
+					</div>
+					
+					<div id="button_stop_program" class="button_frame" onclick="stop_program()">
+						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
+							<div class="button_left_border"></div>	
+							<div class="button_inner_border">
+									<span>Stop</span>						
+							</div>	
+							<div class="button_right_border"></div>
+							<div class="clear"></div>				
+						</div>
+					</div>
+					
+					<div class="clear"></div>
+				</div>
 				
 			</div><!-- end of right_option_area -->
 			

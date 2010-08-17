@@ -1,6 +1,7 @@
 package org.qing.action.base;
 
 import org.qing.service.ContextManager;
+import org.qing.service.FileManager;
 
 import com.opensymphony.xwork2.ActionSupport;
 
@@ -15,10 +16,15 @@ import com.opensymphony.xwork2.ActionSupport;
 
 public class BaseAction extends ActionSupport
 {
-    protected ContextManager mgr;
+	protected ContextManager mgr;
+    protected FileManager fileMgr;
 
     public void setMgr(ContextManager mgr)
     {
         this.mgr = mgr;
     }
+
+	public void setFileMgr(FileManager fileMgr) {
+		this.fileMgr = fileMgr;
+	}
 }

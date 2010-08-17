@@ -18,7 +18,11 @@
 			<result name="success">/index.jsp</result>
 		</action>
 		
-		<action name="kill" class="org.qing.action.StartAction" method="kill">
+		<action name="checkpoint" class="org.qing.action.StartAction" method="checkpoint">
+			<result name="success">/index.jsp</result>
+		</action>
+		
+		<action name="stop" class="org.qing.action.StartAction" method="stop">
 			<result name="success">/index.jsp</result>
 		</action>
 		
@@ -110,6 +114,18 @@
 		
 		<action name="moveMultipleFile" class="org.qing.action.FileListAction" method="moveMultipleFile">
 			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
+		</action>
+		
+		<action name="sysConfig" class="org.qing.action.SystemConfigAction"  method="sysConfig">
+			<result name="success">/WEB-INF/jsp/sys_config.jsp</result>
+		</action>
+		
+		<action name="userGuide" class="org.qing.action.SystemConfigAction" method="userGuide">
+			<result name="success">/WEB-INF/jsp/user_guide.jsp</result>
+		</action>
+		
+		<action name="saveConfig" class="org.qing.action.SystemConfigAction" method="saveConfig">
+			<result name="success">/WEB-INF/jsp/sys_config.jsp</result>
 		</action>
 		
 	</package>

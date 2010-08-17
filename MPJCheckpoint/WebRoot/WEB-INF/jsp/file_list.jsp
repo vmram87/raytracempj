@@ -124,8 +124,37 @@ function select_file(select){
 
 }
 
-function del_multiple_file(){
+function select_all(){
+	var selectInputs = document.selectForm.select_check_box;
+	if(selectInputs.length == undefined){
+		selectInputs.checked = true;
+		selectInputs.parentNode.parentNode.className="list_content_item_selected";
+		window.parent.select_file_map.put(selectInputs.value,selectInputs.value);
+		return;
+	}
 	
+	for(i=0;i<selectInputs.length;i++){
+		selectInputs[i].checked = true;
+		selectInputs[i].parentNode.parentNode.className="list_content_item_selected";
+		window.parent.select_file_map.put(selectInputs[i].value,selectInputs[i].value);
+	}
+}
+
+function select_none(){
+	var selectInputs = document.selectForm.select_check_box;
+	if(selectInputs.length == undefined){
+		selectInputs.checked = false;
+		selectInputs.parentNode.parentNode.className="list_content_item";
+		window.parent.select_file_map.clear();
+		return;
+	}
+	
+	for(i=0;i<selectInputs.length;i++){
+		selectInputs[i].checked = false;
+		selectInputs[i].parentNode.parentNode.className="list_content_item";
+		
+	}
+	window.parent.select_file_map.clear();
 }
 
 </script>
@@ -141,7 +170,7 @@ function del_multiple_file(){
 		
 			<div class="list_content_item" >
 				<div id="select_col_box"  class="select_col">
-					<input type="checkbox" id="selectFileIds" name="selectFileIds" value="${file.id }" onchange="select_file(this)"/>
+					<input type="checkbox" id="select_check_box" name="select_check_box" value="${file.id }" onchange="select_file(this)"/>
 				</div>
 				
 				<s:if test="%{#file.isDirectory==false}">

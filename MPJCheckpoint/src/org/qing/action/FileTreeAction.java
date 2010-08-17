@@ -131,7 +131,7 @@ public class FileTreeAction extends BaseActionInterface {
 			tip = "Failed: Can not add folder to My_Lib folder";
 			return SUCCESS;
 		}
-		if(fileMgr.newFolder(folderName, folder.getId())==false)
+		if(fileMgr.newFolder(folderName, folder.getId()) == false)
 			tip = "Failed, Check file name to see whether it exists!";
 		return SUCCESS;
 
@@ -199,7 +199,7 @@ public class FileTreeAction extends BaseActionInterface {
 		
 		try{
 			if(fileMgr.moveto(folder.getId(), directoryId) == false)
-				tip = "Failed: can not rename!";
+				tip = "Failed: can not move file!";
 		}
 		catch(Exception e){
 			e.printStackTrace();

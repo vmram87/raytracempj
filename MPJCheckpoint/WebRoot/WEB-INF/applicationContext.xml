@@ -81,6 +81,7 @@
     <bean id="fileMgr" class="org.qing.service.impl.FileManagerImpl" scope="singleton">
         <property name="fileDao" ref="fileDao"/>
         <property name="userDirectory"><value>/usr/java/mpj-v0_36/user-folder/</value></property>
+        <property name="configFilePath"><value>/usr/java/mpj-v0_36/user-folder/sys.properties</value></property>
     </bean>
    
 

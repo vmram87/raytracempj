@@ -6,11 +6,12 @@ import java.util.List;
 import java.util.Map;
 
 import org.qing.object.MyFile;
+import org.qing.util.SystemConfig;
 
 public interface FileManager {
-	public void uploadFile(File file, String tName, int parentDirectoryId) throws Exception;
-	public void uploadFiles(File[] files,String[] fileName, int parentDirectoryId) throws Exception;
-	public void deleteFile(int fileId) throws Exception;
+	public boolean uploadFile(File file, String tName, int parentDirectoryId) throws Exception;
+	public boolean uploadFiles(File[] files,String[] fileName, int parentDirectoryId) throws Exception;
+	public boolean deleteFile(int fileId) throws Exception;
 	public boolean renameFile(String fileName, int fileId) throws Exception;
 	public boolean moveto(int fileId, int directoryId) throws Exception;
 	public List getFilesByDirectory(int directoryId) throws Exception;
@@ -24,5 +25,7 @@ public interface FileManager {
 	public String getDestPath(Integer id) throws Exception;
 	public MyFile getFileById(Integer id) throws Exception;
 	public void delMultipleFiles(Integer[] selectFileIds)throws Exception;
-	public void moveMultipleFiles(Integer directoryId, Integer[] selectFileIds)throws Exception;
+	public boolean moveMultipleFiles(Integer directoryId, Integer[] selectFileIds)throws Exception;
+	public SystemConfig getConfig()throws Exception;
+	public void saveConfig(SystemConfig config)throws Exception;
 }

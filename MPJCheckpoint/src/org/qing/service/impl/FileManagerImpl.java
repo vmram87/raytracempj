@@ -6,20 +6,29 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.io.FileUtils;
 import org.qing.dao.FileDao;
 import org.qing.object.MyFile;
 import org.qing.service.FileManager;
+import org.qing.util.PropertyUtil;
+import org.qing.util.SystemConfig;
 
 public class FileManagerImpl implements FileManager {
 	private FileDao fileDao;
 	private String userDirectory;
+	private String configFilePath;
 	private Map openIds;
 	private boolean isIncludeFiles;
+	
+	
+
+	public void setConfigFilePath(String configFilePath) {
+		this.configFilePath = configFilePath;
+	}
 
 	public void setUserDirectory(String userDirectory) {
 		this.userDirectory = userDirectory;
@@ -37,7 +46,7 @@ public class FileManagerImpl implements FileManager {
 	}
 
 	@Override
-	public void deleteFile(int fileId) throws Exception {
+	public boolean deleteFile(int fileId) throws Exception {
 		MyFile f = fileDao.get(fileId);
 		MyFile parent = f.getParentDirectory();
 		fileDao.delete(fileId);
@@ -47,6 +56,8 @@ public class FileManagerImpl implements FileManager {
 		File file = new File(path);
 		if (file.exists())
 			file.delete();
+		
+		return true;
 	}
 
 	@Override
@@ -58,6 +69,9 @@ public class FileManagerImpl implements FileManager {
 	public boolean moveto(int fileId, int directoryId) throws Exception {
 		MyFile srcf = fileDao.get(fileId);
 		MyFile dstf = fileDao.get(directoryId);
+		
+		if(checkFileExist(dstf, srcf.getFileName()) == true)
+			return false;
 
 		File srcfile = new File(userDirectory
 				+ getRelativePathById(srcf.getId()));
@@ -65,15 +79,31 @@ public class FileManagerImpl implements FileManager {
 				+ srcf.getFileName());
 
 		srcf.setParentDirectory(dstf);
+		
 		fileDao.saveOrUpdate(srcf);
 
 		return srcfile.renameTo(dir);
+	}
+
+	private boolean checkFileExist(MyFile directory, String fileName) {
+		Set childSet = directory.getFiles();
+		MyFile f = null;
+		for(Object child : childSet){
+			f = (MyFile) child;
+			if(f.getFileName().equals(fileName))
+				return true;
+		}
+		return false;
 	}
 
 	@Override
 	public boolean renameFile(String fileName, int fileId) throws Exception {
 		MyFile srcf = fileDao.get(fileId);
 		MyFile dstf = srcf.getParentDirectory();
+		
+		if(fileDao.getByFileNameAndParent(fileName, dstf) != null){
+			return false;
+		}
 
 		File srcfile = new File(userDirectory
 				+ getRelativePathById(srcf.getId()));
@@ -97,26 +127,36 @@ public class FileManagerImpl implements FileManager {
 	}
 
 	@Override
-	public void uploadFile(File file, String tName, int parentDirectoryId) throws Exception {
+	public boolean uploadFile(File file, String tName, int parentDirectoryId) throws Exception {
+		MyFile p = fileDao.get(parentDirectoryId);
+	
 		String destPathString = userDirectory+ getRelativePathById(parentDirectoryId)+tName;
 		String fileType = tName.substring(tName.lastIndexOf(".") + 1,tName.length()).toLowerCase();
 		
 		System.out.println("Temp save path:"+file.getPath()+"\n"+"Save Path:"+destPathString);
-		MyFile newFile = new MyFile();
-		newFile.setFileName(tName);
-		newFile.setFilePath("");
-		newFile.setIsDirectory(false);
-		MyFile p = fileDao.get(parentDirectoryId);
-		newFile.setParentDirectory(p);
-		newFile.setFileType(fileType);
-		newFile.setUpdateTime(new Timestamp(System.currentTimeMillis()));
-		fileDao.save(newFile);
-		
+		MyFile f=fileDao.getByFileNameAndParent(tName, p);
+		if(f == null){
+			MyFile newFile = new MyFile();
+			newFile.setFileName(tName);
+			newFile.setFilePath("");
+			newFile.setIsDirectory(false);		
+			newFile.setParentDirectory(p);
+			newFile.setFileType(fileType);
+			newFile.setUpdateTime(new Timestamp(System.currentTimeMillis()));
+			fileDao.save(newFile);
+		}
+		else{
+			f.setUpdateTime(new Timestamp(System.currentTimeMillis()));
+			fileDao.saveOrUpdate(f);
+		}
+			
 		FileUtils.copyFile(file, new File(destPathString));
+		
+		return true;
 	}
 
 	@Override
-	public void uploadFiles(File[] files, String[] fileName,
+	public boolean uploadFiles(File[] files, String[] fileName,
 			int parentDirectoryId) throws Exception {
 		MyFile pf = fileDao.get(parentDirectoryId);
 		String savePath = pf.getFilePath();
@@ -139,6 +179,8 @@ public class FileManagerImpl implements FileManager {
 				fos.write(buffer, 0, len);
 			}
 		}
+		
+		return true;
 
 	}
 
@@ -265,11 +307,34 @@ public class FileManagerImpl implements FileManager {
 	}
 
 	@Override
-	public void moveMultipleFiles(Integer directoryId, Integer[] selectFileIds)
+	public boolean moveMultipleFiles(Integer directoryId, Integer[] selectFileIds)
 			throws Exception {
 		for(int i = 0; i < selectFileIds.length; i++){
-			moveto(selectFileIds[i], directoryId);
+			if(moveto(selectFileIds[i], directoryId) == false)
+				return false;
 		}
+		
+		return true;
+	}
+
+	@Override
+	public SystemConfig getConfig() throws Exception {
+		SystemConfig config = new SystemConfig();
+		config.setRunType(PropertyUtil.readValue(configFilePath, "runType"));
+		config.setRunFile(PropertyUtil.readValue(configFilePath, "runFile"));
+		config.setNproc(Integer.parseInt(PropertyUtil.readValue(configFilePath, "nproc")));
+		ArrayList outputFile = new ArrayList();
+		outputFile.add(PropertyUtil.readValue(configFilePath, "outputFile"));
+		config.setOutputFile(outputFile);
+		return config;
+	}
+
+	@Override
+	public void saveConfig(SystemConfig config) throws Exception {
+		PropertyUtil.writeProperties(configFilePath, "runType", config.getRunType());
+		PropertyUtil.writeProperties(configFilePath, "runFile", config.getRunFile());
+		PropertyUtil.writeProperties(configFilePath, "nproc", config.getNproc().toString());
+		PropertyUtil.writeProperties(configFilePath, "outputFile", config.getOutputFile().get(0).toString());
 		
 	}
 	

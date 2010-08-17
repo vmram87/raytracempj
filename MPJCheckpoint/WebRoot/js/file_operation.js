@@ -55,9 +55,10 @@ function click_moveto_node(){
 
 
 //for select area
+var isSelectBtnDown = false
 function selectOptionButtonDown(b){
-	if(isDstBtnDown == false){
-		isDstBtnDown = true;
+	if(isSelectBtnDown == false){
+		isSelectBtnDown = true;
 		if(b.hasChildNodes()){
 			var x = b.childNodes;
 			for(i=0;i<x.length;i++){
@@ -72,7 +73,7 @@ function selectOptionButtonDown(b){
 		$("#select_option_area").show();
 	}
 	else{
-		isDstBtnDown = false;
+		isSelectBtnDown = false;
 		if(b.hasChildNodes()){
 			var x = b.childNodes;
 			for(i=0;i<x.length;i++){
@@ -84,5 +85,21 @@ function selectOptionButtonDown(b){
 		
 		$("#select_option_area").hide();
 	}
+}
+
+function select_all(){
+	window.frames["listFrame"].select_all();
+	if(isSelectBtnDown == true){
+		selectOptionButtonDown(document.getElementById("select_option_button_item"));
+	}
+	$("#select_option_area").hide();
+}
+
+function select_none(){
+	window.frames["listFrame"].select_none();
+	if(isSelectBtnDown == true){
+		selectOptionButtonDown(document.getElementById("select_option_button_item"));
+	}
+	$("#select_option_area").hide();
 }
 

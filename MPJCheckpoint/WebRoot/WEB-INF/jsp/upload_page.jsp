@@ -92,7 +92,7 @@ SWFUpload.onload = function () {
 		file_size_limit : "<%=perMaxSize%> <%=sizeUnit%>",
 		file_types : "<%=ext%>",
 		file_types_description : "<%=ext%>",
-		file_upload_limit : 100,
+		file_upload_limit : 0,
 		file_queue_limit : 0,
 		custom_settings : {
 			progressTarget : "fsUploadProgress",
