@@ -135,6 +135,14 @@ public class MPJDaemon {
   private final int CHECK_VALID = -71;
   private final int START_CHECKPOINT_WAVE = -31;
   
+  private final int DAEMON_STATUS = -50;
+  private final int DAEMON_STATUS_RUNNING = -51;
+  private final int DAEMON_STATUS_CHECKPOINTING = -52;
+  private final int DAEMON_STATUS_RESTARTING = -53;
+  
+  private int daemonStatus = DAEMON_STATUS_RUNNING;
+  private static String machineName = null;
+  
   private final int MAX_CHECKPOINT_INVALID_TIME = 4;
   private boolean isRestartFromCheckpoint = false;
   private boolean hasSendRequest = false;  
@@ -656,6 +664,7 @@ private void restoreVariables() {
 
     if(host.getHostName().equals(myHost.getHostName()) || 
        host.getHostAddress().equals(myHost.getHostAddress())) {
+    	machineName = hostName;
       return true;
     }
 
@@ -1104,7 +1113,9 @@ private void restoreVariables() {
               if(read.equals("cvl-")){
             	  if(DEBUG && logger.isDebugEnabled()) { 
                       logger.debug ("heartbeat check from main host.");
-            	  }            	  
+            	  }    
+            	  
+            	  doResponseCheckValid((SocketChannel) keyChannel);
               }
               
               
@@ -1415,8 +1426,32 @@ private void restoreVariables() {
     } //end run()
 
 	
+
+	
   }; //end selectorThread which is an inner class 
   
+  
+  private void doResponseCheckValid(SocketChannel socketChannel) {
+		ByteBuffer buf = ByteBuffer.allocate(100);
+		buf.putInt(DAEMON_STATUS);
+		buf.putInt(machineName.getBytes().length);
+		buf.put(machineName.getBytes());
+		buf.putInt(daemonStatus);
+		
+		buf.flip();
+		
+		while(buf.hasRemaining()){
+			try{
+				if(peerChannel.write(buf) == -1)
+					throw new ClosedChannelException();
+			}
+			catch(Exception e){
+				e.printStackTrace();
+				return;
+			}
+		}
+		
+	}
   
   Runnable renewThread = new Runnable() {
 		
