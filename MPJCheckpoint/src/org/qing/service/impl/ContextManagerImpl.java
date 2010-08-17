@@ -25,6 +25,17 @@ public class ContextManagerImpl implements ContextManager {
 		MPJRunThreadStarter = new Thread(MPJRunThread);
 		MPJRunThreadStarter.start();
 	}
+	
+
+	@Override
+	public List getDaemonStausList() throws Exception {
+		MPJRun client = ClientFactory.getClient();
+		if(client == null)
+			return null;
+		else
+			return client.getDaemonStatus();
+	}
+
 
 	@Override
 	public void delAllPrevContextsByVersion(int versionId) throws Exception{

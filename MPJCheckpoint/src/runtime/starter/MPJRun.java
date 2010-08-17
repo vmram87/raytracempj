@@ -67,6 +67,7 @@ import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.Vector;
+import java.util.Map.Entry;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
 
@@ -80,6 +81,7 @@ import org.apache.log4j.PatternLayout;
 import org.qing.object.Context;
 import org.qing.service.ContextManager;
 import org.qing.service.SpringContextUtil;
+import org.qing.util.DaemonStatus;
 
 import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
 
@@ -155,6 +157,10 @@ public class MPJRun {
   private final int REQUEST_RESTART = -70;
   private final int CHECK_VALID = -71;
   
+  private final int DAEMON_STATUS = -50;
+  private final int DAEMON_STATUS_RUNNING = -51;
+  private final int DAEMON_STATUS_CHECKPOINTING = -52;
+  private final int DAEMON_STATUS_RESTARTING = -53;
   
   private boolean isFinished = false;
   private boolean isRestarting = false;
@@ -163,6 +169,8 @@ public class MPJRun {
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
   
   private HashMap<String,HashMap<Integer,Context>> machnineProcessMap = new HashMap<String,HashMap<Integer,Context>>();
+  private HashMap<String,DaemonStatus> machineStatusMap = new HashMap<String,DaemonStatus>();
+  
   private Thread heartbeatThreadStarter = null;
   private Thread timmerThreadStarter = null;
   
@@ -929,6 +937,12 @@ public class MPJRun {
       }
 
     }
+    
+    for(int i = 0; i < nprocs; i++){
+    	String machine = rankMachineMap.get(i);
+    	machineStatusMap.get(machine).setDaemonStatus("Running");
+    	machineStatusMap.get(machine).getProcess().add(i);
+    }
 
     cout.close(); 
     cfos.close(); 
@@ -960,6 +974,7 @@ public class MPJRun {
 		    machineConnectedMap.clear();
 		    peerChannels.clear();
 		    readMachineFile();
+		    machinesSanityCheck();
 		    
 		    if(DEBUG && logger.isDebugEnabled())
 			{
@@ -1219,7 +1234,7 @@ public class MPJRun {
 	          Iterator it = map.entrySet().iterator();
 	          ArrayList<Integer> rankList = new ArrayList<Integer>();
 	          while(it.hasNext()){
-	        	  java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+	        	  Entry entry = (Entry)it.next();
 	        	  Context c = (Context)entry.getValue();
 	        	  rankList.add(c.getRank());
 	          }
@@ -1250,7 +1265,7 @@ public class MPJRun {
 	    
 	    Iterator it = machnineProcessMap.entrySet().iterator();
         while(it.hasNext()){
-        	java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+        	Entry entry = (Entry)it.next();
         	
         	String daemon = (String)entry.getKey();
         	Map map = (Map) entry.getValue();
@@ -1276,7 +1291,7 @@ public class MPJRun {
 	        	
 	        	Iterator mIt = map.entrySet().iterator();
 	        	while(mIt.hasNext()){
-	        		java.util.Map.Entry mEntry = (java.util.Map.Entry)mIt.next();
+	        		Entry mEntry = (Entry)mIt.next();
 	        		
 	        		Context c = (Context) mEntry.getValue();
 	        		buffer.putInt(c.getContextFilePath().getBytes().length);
@@ -1364,6 +1379,8 @@ private void machinesSanityCheck() throws Exception {
   /* assume 'machines'is in the current directory */
   public void readMachineFile() throws Exception {
 
+	  machineStatusMap.clear();
+	  
     BufferedReader reader = null;
 
     try {
@@ -1435,6 +1452,12 @@ private void machinesSanityCheck() throws Exception {
         //machineVector.add(addressT);
         machineVector.add(nameT);
         machineConnectedMap.put(nameT, false);
+        DaemonStatus status = new DaemonStatus();
+        status.setName(nameT);
+        status.setDaemonStatus("Disconnected");
+        List process = new ArrayList();
+        status.setProcess(process);
+        machineStatusMap.put(nameT, status);
 
         if(DEBUG && logger.isDebugEnabled()) {
           logger.debug("Line " + line.trim() +
@@ -1712,7 +1735,13 @@ private void machinesSanityCheck() throws Exception {
 
 
       }
-
+      
+      if(DEBUG && logger.isDebugEnabled())
+ 	 {       
+ 	   logger.debug("Clear the machineStatusMap " + peerChannel);
+ 	 }
+      
+      machineStatusMap.clear();
       peerChannel = null;
     }
     catch (Exception e) {
@@ -2044,6 +2073,12 @@ if(DEBUG && logger.isDebugEnabled())
               		
               		break;
               		
+              		
+              	case DAEMON_STATUS:              		
+              		doUpdateDaemonStatus(socketChannel);
+              		
+              		break;
+              		
             	
               	default:
               		System.out.println("Impossible");
@@ -2086,6 +2121,7 @@ if(DEBUG && logger.isDebugEnabled())
 		              logger.debug("\n---Heartbeat Event---");
 		        }
 				
+				//update version complete
 				synchronized(versionComplete){
 					if(isVersionCompleteWaiting == true){
 						
@@ -2124,13 +2160,18 @@ if(DEBUG && logger.isDebugEnabled())
 				ByteBuffer buf = ByteBuffer.allocate(8);
 				buf.put("cvl-proc".getBytes());
 				
-				synchronized (peerChannels) {
+				synchronized (machineChannelMap) {
 					SocketChannel c ;
-					for(int i = 0; i < peerChannels.size(); i++){
+					Iterator it = machineChannelMap.entrySet().iterator();
+					
+					while(it.hasNext()){
+						Entry entry = (Entry) it.next();
+						String machine = (String) entry.getKey();
+						c = (SocketChannel) entry.getValue();
+						
 						buf.flip();
 						int s = 0;
 						int w = 0;
-						c = peerChannels.get(i);
 						synchronized (c) {
 							while(buf.hasRemaining()){
 								try{								
@@ -2140,10 +2181,12 @@ if(DEBUG && logger.isDebugEnabled())
 									s += w;
 								}
 								catch(IOException ioe){
+									machineStatusMap.get(machine).setDaemonStatus("Disconnected");
+									
 									ioe.printStackTrace();
-									System.out.println("Some daemon has been down! So Restart");
+									System.out.println("daemon <+" + machine + "+ has been down! So Restart");
 									if (DEBUG && logger.isDebugEnabled()) {
-							              logger.debug("Some daemon has been down! So Restart");
+							              logger.debug("daemon <+" + machine + "+ has been down! So Restart");
 							        }								
 									
 									
@@ -2161,8 +2204,9 @@ if(DEBUG && logger.isDebugEnabled())
 						
 						if(s != 8)
 							break;
-						
-					}//end for
+					}// end of while it.hasnext
+					
+					
 				}//end syn 
 				
 		
@@ -2244,6 +2288,59 @@ if(DEBUG && logger.isDebugEnabled())
 		
 	}
 	
+	protected void doUpdateDaemonStatus(SocketChannel socketChannel) {
+		ByteBuffer buf = ByteBuffer.allocate(4);
+		while(buf.hasRemaining()){
+  			try{
+  				if(socketChannel.read(buf) == -1)
+  					throw new ClosedChannelException();
+  			}
+  			catch(Exception e){
+  				e.printStackTrace();
+  				return;
+  			}              			
+  		}
+  		
+		buf.position(0);
+  		int len = buf.getInt();
+  		
+  		buf = ByteBuffer.allocate(len +4);
+  		while(buf.hasRemaining()){
+  			try{
+  				if(socketChannel.read(buf) == -1)
+  					throw new ClosedChannelException();
+  			}
+  			catch(Exception e){
+  				e.printStackTrace();
+  				return;
+  			}              			
+  		}
+  		
+  		byte[] tempArray = new byte[len];
+  		buf.flip();
+  		buf.get(tempArray, 0, len);
+  	 	String machine = new String(tempArray);
+  	 	int status = buf.getInt();
+  	 	
+  	 	switch(status){
+  	 		case DAEMON_STATUS_RUNNING:
+  	 			machineStatusMap.get(machine).setDaemonStatus("Running");
+  	 			break;
+  	 			
+  	 		case DAEMON_STATUS_CHECKPOINTING:
+  	 			machineStatusMap.get(machine).setDaemonStatus("Checkpointing");
+  	 			break;
+  	 			
+  	 		case DAEMON_STATUS_RESTARTING:
+  	 			machineStatusMap.get(machine).setDaemonStatus("Restarting");
+  	 			break;
+  	 			
+  	 		default:
+  	 			System.out.println("Status Impossible");
+  	 	}
+		
+	}
+
 	public void setCheckpointInterval(long timeInterval){
 		CHECKPOINT_INTERVAL = timeInterval;
 	}
@@ -2343,6 +2440,18 @@ if(DEBUG && logger.isDebugEnabled())
 	private Integer versionNum;
 	boolean isVersionCompleteWaiting = false;
 	
-    
+    public List getDaemonStatus(){
+    	List statusList = new ArrayList();
+    	Iterator it = machineStatusMap.entrySet().iterator();
+    	
+    	Object[] nameArray = machineStatusMap.keySet().toArray();
+    	Arrays.sort(nameArray);
+    	
+    	for(int i = 0; i < nameArray.length; i++){
+    		statusList.add(machineStatusMap.get(nameArray[i]));
+    	}
+    	
+    	return statusList;
+    }
     
 }

@@ -42,6 +42,10 @@
 			<result name="success">/WEB-INF/jsp/graphic_view.jsp</result>
 		</action>
 		
+		<action name="nodesInfo" class="org.qing.action.GraphicViewAction" method="getNodesInfo">
+			<result name="success">/WEB-INF/jsp/node_main.jsp</result>
+		</action>
+		
 		<action name="uploadPage" class="org.qing.action.SwfUploadAction">
 			<result name="success">/WEB-INF/jsp/upload_page.jsp</result>
 		</action>
