@@ -10,9 +10,12 @@ function del_multiple_file_page(){
 
 function del_multiple_file(){
 	$.post("delMultipleFile.action",{"selectFileIds":select_file_map.values()},
-			function(responseTest){		
-				if(responseTest.indexOf("Successed")!=-1){				
+			function(responseText){		
+				if(responseText.indexOf("Successed")!=-1){				
 					open_view("fileList");
+				}
+				else{
+					alert(responseText);
 				}
 				close_dialog();
 			}
@@ -33,18 +36,14 @@ function rename_file(id, fileName){
 					open_view("fileList");
 					select_file_map.clear();
 				}
+				else{
+					alert(responseText);
+				}
 				close_dialog();
 			}
 	);
 }
 
-
-function move_to_folder_page(){
-	if(select_file_map.size() == 0)
-		dialog("Move File","text:Please first select the files or directories to be moved!","400px","200px","text");
-	else
-		dialog("Move File","iframe:moveMultipleFilePage.action","300px","360px","iframe");
-}
 
 function move_multiple_file_page(){
 	if(select_file_map == null || select_file_map.size() == 0 ){

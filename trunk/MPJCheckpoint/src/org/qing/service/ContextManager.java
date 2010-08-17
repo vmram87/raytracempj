@@ -12,5 +12,6 @@ public interface ContextManager {
 	List<Context> getContextsByVersion(int versionId) throws Exception;
 	Integer getNextLatestVersionId(int versionId) throws Exception;
 	void killProccesses() throws Exception;
+	Integer getLatestCompleteVersion(int nprocs)throws Exception;
 	
 }

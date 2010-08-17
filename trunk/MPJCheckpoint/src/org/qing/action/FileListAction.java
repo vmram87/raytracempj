@@ -100,7 +100,8 @@ public class FileListAction extends BaseActionInterface {
 	}
 	
 	public String moveMultipleFile() throws Exception{
-		fileMgr.moveMultipleFiles(directoryId, selectFileIds);
+		if(fileMgr.moveMultipleFiles(directoryId, selectFileIds) == false)
+			tip="Some File Name Exits, Move operation exits!";
 		
 		return SUCCESS;
 	}

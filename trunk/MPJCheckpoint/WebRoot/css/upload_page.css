@@ -395,17 +395,26 @@ TR.uploadTitle{vertical-align: middle;font-weight:700;background-color: #CCCDDD;
 }
 
 .button_frame {
-	postion:relative;
+	position:relative;
 }
 
 .button_frame #select_option_area{
 	position:absolute;
 	top:20px;
-	width:80px;
-	height:60px;
+	width:70px;
+	height:40px;
 	z-index:100;
-	padding:10px;
 	border:1px solid #AAA;
 	background-color:#FFF;
+}
+
+#select_option_area .select_option_item{
+	height:20px;
+	line-height:20px;
+}
+
+#select_option_area .select_option_item:hover{
+	background-color:#e3e9ff;
+	cursor:pointer;
 }
 

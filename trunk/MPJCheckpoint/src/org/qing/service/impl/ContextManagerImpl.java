@@ -94,4 +94,23 @@ public class ContextManagerImpl implements ContextManager {
 			}			
 		}
 	};
+
+	
+	@Override
+	public Integer getLatestCompleteVersion(int nprocs) throws Exception {
+		Integer ver = getLatestVersionId();
+		if(ver == null)
+			return null;
+		
+		List<Context> contextList = getContextsByVersion(ver);
+		while(contextList.size()!=nprocs){
+			ver = getNextLatestVersionId(ver);
+			if(ver == null)
+				return null;
+			contextList = getContextsByVersion(ver);				
+		}
+		return ver;
+	}
+	
+	
 }
