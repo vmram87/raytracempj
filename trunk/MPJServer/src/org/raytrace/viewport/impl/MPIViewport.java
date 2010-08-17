@@ -67,29 +67,7 @@ public class MPIViewport extends AbstractViewPort {
 			this.locHeight = this.height/this.size;
 		
 		this.datasize = this.width * this.locHeight; 
-		
-		
-		//test error
-		//if(rank == 2) 
-		//	System.exit(1);
-		
-		//checkpoint
-		if(this.rank == 0){
-			
-			MPI.COMM_WORLD.checkpoint();
-			try {
-				Thread.currentThread().sleep(500);
-			} catch (InterruptedException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			
-			
-		}
-		
-		
-		
-		
+
 		
 		System.out.println("before dataSizeCollection");
 		//send and receieve the data size
