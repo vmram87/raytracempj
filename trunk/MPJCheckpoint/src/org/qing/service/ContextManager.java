@@ -13,5 +13,6 @@ public interface ContextManager {
 	Integer getNextLatestVersionId(int versionId) throws Exception;
 	void killProccesses() throws Exception;
 	Integer getLatestCompleteVersion(int nprocs)throws Exception;
+	List getDaemonStausList() throws Exception;
 	
 }

@@ -1,5 +1,8 @@
-<%@ page language="java" contentType="text/html; charset=UTF-8"
-    pageEncoding="UTF-8"%>
+<%@ page language="java" contentType="text/html; charset=UTF-8" %>
+<%@taglib prefix="s" uri="/struts-tags"%>
+<%@ taglib uri="http://java.sun.com/jsp/jstl/functions"  prefix="fn"%>
+<%@ page pageEncoding="UTF-8" %>
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
@@ -38,6 +41,16 @@ $(function() {
 
 
 });
+
+$(document).ready(update_view);
+function update_view(){
+	$.get("nodesInfo.action",{},
+			function(responseText){		
+				$("#nodes").html(responseText);
+				setTimeout("update_view()",5000);
+			}
+	);
+}
 </script>
 
 </head>
@@ -46,101 +59,30 @@ $(function() {
 
 <div id="nodes">
 
-	<div class="machine_node">
-		<div class="machine_id">
-			<span>pc01</span>
-		</div>
-		
-		<div class="machine_frame">
-			<div class="node_info">
-				<p>node status: </p>
-				<p>no. of processes: </p>
-				<table>
-					<tr>
-						<th>Rank</th><th>Status</th>
-					</tr>
-					<tr>
-						<td>0</td><td>Running</td>
-					</tr>
-					<tr>
-						<td>1</td><td>Running</td>
-					</tr>
-				</table>
+	<s:iterator value="nodeList" id="node">
+		<div class="machine_node">
+			<div class="machine_id">
+				<span>${node.name}</span>
 			</div>
-		</div>
-	</div><!-- end of machine_node -->
+			
+			<div class="machine_frame">
+				<div class="node_info">
+					<p>node status: ${node.daemonStatus }</p>
+					<p>no. of processes: ${fn:length(node.process)}</p>
+					<p>Process Rank:</p>
+					<table>					
+						<s:iterator value="#node.process" id="rank">
+							<tr>
+								<td>Rank</td><td>${rank }</td>
+							</tr>
+						</s:iterator>
 	
-	<div class="machine_node">
-		<div class="machine_id"></div>
+					</table>
+				</div><!-- end of node_info -->
+			</div><!-- end of machine_frame -->
+		</div><!-- end of machine_node -->
 		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
-	
-	<div class="machine_node">
-		<div class="machine_id"></div>
-		
-		<div class="machine_frame"></div>
-	</div><!-- end of machine_node -->
+	</s:iterator>
 	
 </div>
 
