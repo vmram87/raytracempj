@@ -4036,9 +4036,7 @@ public class NIODevice
 	    		}
 	    		
 	    		startCheckpoint = false;
-	    		isCheckpointing = true;
-	
-	    		versionNum = 8;	    		
+	    		isCheckpointing = true;    		
 	    		
 	    		sendMarkers();
 	    		
@@ -4448,7 +4446,22 @@ public class NIODevice
                 	  break;
                 
                   case START_CHECKPOINT_WAVE:
+                	  //not synchronized, need improve
                 	  startCheckpoint = true;
+                	  ByteBuffer verBuffer = ByteBuffer.allocate(4);
+	              		while (verBuffer.hasRemaining()) {
+	              	      try {
+	              	        if (socketChannel.read(verBuffer) == -1) {
+	              	          throw new ClosedChannelException();
+	              	        }
+	              	      }
+	              	      catch(Exception e){
+	              	    	  e.printStackTrace();
+	              	    	  return;
+	              	      }
+	              	    }
+	              		verBuffer.position(0);
+	              		versionNum = verBuffer.getInt();
                 	  break;
 
                   case END_OF_STREAM:

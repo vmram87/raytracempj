@@ -91,8 +91,8 @@ public class MPJDaemon {
   private Process p[] = null ; 
   static Logger logger = null ; 
   private String mpjHomeDir = null ;  
-  private String USER_DIR = "user-folder";
-  private String SYSTEM_LIB_DIR = "lib";
+  private String SYSTEM_LIB_DIR = "user-folder/System_Lib";
+  private String BLCR_LIB_DIR = "/usr/local/lib";
   String configFileName = null ;
   
   //Vector<SocketChannel> writableChannels = null;
@@ -237,8 +237,10 @@ public class MPJDaemon {
 		        String rank = null; 
 		        
 		        if(isRestartFromCheckpoint == false){
-		        	jvmArgs.add("-Djava.library.path=."+File.pathSeparator+"/usr/local/lib"+
-		        		File.pathSeparator+ mpjHomeDir + File.separator + SYSTEM_LIB_DIR);
+		        	if(j == 0){
+		        		jvmArgs.add("-Djava.library.path=."+File.pathSeparator + BLCR_LIB_DIR +
+		        				File.pathSeparator+ mpjHomeDir + File.separator + SYSTEM_LIB_DIR);
+		        	}
 		        }
 		
 		        while((line = bufferedReader.readLine()) != null) {
@@ -267,59 +269,55 @@ public class MPJDaemon {
 		        ProcessBuilder pb = null;
 		        
 		        if(isRestartFromCheckpoint == false){
-		        	
-			        boolean now = false;
-			        boolean noSwitch = true ;
-			
-			        for(int e=0 ; e<jArgs.length; e++) {
-			
-			          if(DEBUG && logger.isDebugEnabled()) { 
-			            //logger.debug("jArgs["+e+"]="+jArgs[e]);
-				  }
-			
-			          if(now) {
-			            String cp = jvmArgs.remove(e);
-				      
-			            cp = "."+File.pathSeparator+""+
-			                  mpjHomeDir+"/lib/loader1.jar"+
-			                  File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
-			                  File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
-			                  File.pathSeparator+applicationClassPathEntry+
-			                  File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
-			                  File.pathSeparator+applicationClassPathEntry+"/bin"+
-			                  File.pathSeparator+cp;
-				      
-			            jvmArgs.add(e,cp);
-			            now = false;
-			          }
-			
-			          if(jArgs[e].equals("-cp")) {
-			            now = true;
-			            noSwitch = false;
-			          }
-			        }
-			
-			        if(noSwitch) {
-			          jvmArgs.add("-cp");
-				  jvmArgs.add("."+File.pathSeparator+""
-			  	        +mpjHomeDir+"/lib/loader1.jar"+
-			                File.pathSeparator+""+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
-			                File.pathSeparator+""+mpjHomeDir+"/lib/wrapper.jar"+
-			                File.pathSeparator+applicationClassPathEntry+
-			                File.pathSeparator+applicationClassPathEntry+"/dom4j-1.6.1.jar"+
-			                File.pathSeparator+applicationClassPathEntry+"/bin") ; 
-			        }
+		        	if(j == 0){
+				        boolean now = false;
+				        boolean noSwitch = true ;
+				
+				        for(int e=0 ; e<jArgs.length; e++) {
+				
+				          if(DEBUG && logger.isDebugEnabled()) { 
+				            logger.debug("jArgs["+e+"]="+jArgs[e]);
+					  }
+				
+				          if(now) {
+				            String cp = jvmArgs.remove(e);
+					      
+				            cp = "."+
+				            	  File.pathSeparator+mpjHomeDir+"/lib/loader1.jar"+
+				                  File.pathSeparator+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
+				                  File.pathSeparator+mpjHomeDir+"/lib/wrapper.jar"+
+				                  File.pathSeparator+applicationClassPathEntry+
+				                  File.pathSeparator+cp;
+					      
+				            jvmArgs.add(e,cp);
+				            now = false;
+				          }
+				
+				          if(jArgs[e].equals("-cp")) {
+				            now = true;
+				            noSwitch = false;
+				          }
+				        }
+				
+				        if(noSwitch) {
+				          jvmArgs.add("-cp");
+					  jvmArgs.add("."+
+			            	  File.pathSeparator+mpjHomeDir+"/lib/loader1.jar"+
+			                  File.pathSeparator+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
+			                  File.pathSeparator+mpjHomeDir+"/lib/wrapper.jar"+
+			                  File.pathSeparator+applicationClassPathEntry) ; 
+				        }
+				
+				        jArgs = jvmArgs.toArray(new String[0]);
 			        
-			        
-			
-			        jArgs = jvmArgs.toArray(new String[0]);
+		        	}// end of if j > 0
 		        
 		        
-			        jvmArgs.clear();
+			       
 			 
 			        for(int e=0 ; e<jArgs.length; e++) {
 			          if(DEBUG && logger.isDebugEnabled()) { 
-			            //logger.debug("modified: jArgs["+e+"]="+jArgs[e]);
+			            logger.debug("modified: jArgs["+e+"]="+jArgs[e]);
 				  }
 			        }
 				  
@@ -911,6 +909,7 @@ private void restoreVariables() {
           readyItor = readyKeys.iterator();
 
           while (readyItor.hasNext()) {
+        	  try{
 
             key = (SelectionKey) readyItor.next();
             readyItor.remove();
@@ -1097,7 +1096,7 @@ private void restoreVariables() {
               //receive start checkpoint wave from MPJRun host 
               if(read.equals("scpv")){
             	  int rank = lilBuffer.getInt();
-            	  doStartCheckpointWave(rank);
+            	  doStartCheckpointWave((SocketChannel) keyChannel,rank);
               }
               
               
@@ -1396,6 +1395,12 @@ private void restoreVariables() {
               key.interestOps(SelectionKey.OP_READ);
 
             }
+            
+            
+          	}
+            catch(Exception e){
+            	e.printStackTrace();
+            }
 
           } //end while iterator
         } //end while
@@ -1516,17 +1521,34 @@ private void restoreVariables() {
 		}
 	};// end renew thread
 	
-	private void doStartCheckpointWave(int rank) {
+	private void doStartCheckpointWave(SocketChannel mainHostChannel, int rank) throws Exception {
 		if (DEBUG && logger.isDebugEnabled()) {
             logger.debug("---do start checkpoint wave---");
         }
+		
+		ByteBuffer verBuffer = ByteBuffer.allocate(4);
+		while (verBuffer.hasRemaining()) {
+	      try {
+	        if (mainHostChannel.read(verBuffer) == -1) {
+	          throw new ClosedChannelException();
+	        }
+	      }
+	      catch(Exception e){
+	    	  e.printStackTrace();
+	    	  return;
+	      }
+	    }
+		
+		verBuffer.position(0);
+		int versionNum = verBuffer.getInt();
 		
 		UUID ruid = pids[rank];
 		if(ruid != null){
 			SocketChannel socketChannel = worldProcessTable.get(ruid);
 			if(socketChannel != null){
-				ByteBuffer buf = ByteBuffer.allocate(4);
+				ByteBuffer buf = ByteBuffer.allocate(8);
 				buf.putInt(START_CHECKPOINT_WAVE);
+				buf.putInt(versionNum);
 				buf.flip();
 				while(buf.hasRemaining()){
 					try{
