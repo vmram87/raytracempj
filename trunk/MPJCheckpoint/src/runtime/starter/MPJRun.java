@@ -1692,6 +1692,13 @@ private void machinesSanityCheck() throws Exception {
 	}
     try {
     	if(DEBUG && logger.isDebugEnabled())
+	   	 {       
+	   	   logger.debug("Clear the machineStatusMap");
+	   	 }
+        
+        machineStatusMap.clear();
+        
+    	if(DEBUG && logger.isDebugEnabled())
 	   	 {
 	         logger.debug("stop heartbeartthread");
 	         
@@ -1700,7 +1707,10 @@ private void machinesSanityCheck() throws Exception {
     		isFinished = true;
 		}
     	
+
     	heartbeatThreadStarter.join();
+    	    	 
+          
     	if(timmerThreadStarter != null && (timmerThreadStarter.getState().equals(Thread.State.BLOCKED)||
     			timmerThreadStarter.getState().equals(Thread.State.WAITING))){
     		timmerThreadStarter.interrupt();
@@ -1736,12 +1746,7 @@ private void machinesSanityCheck() throws Exception {
 
       }
       
-      if(DEBUG && logger.isDebugEnabled())
- 	 {       
- 	   logger.debug("Clear the machineStatusMap " + peerChannel);
- 	 }
-      
-      machineStatusMap.clear();
+     
       peerChannel = null;
     }
     catch (Exception e) {
@@ -2213,7 +2218,7 @@ if(DEBUG && logger.isDebugEnabled())
 
 				heartBeatLock.signal();
 				try {
-					Thread.currentThread().sleep(5000);
+					Thread.currentThread().sleep(2000);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					return;
