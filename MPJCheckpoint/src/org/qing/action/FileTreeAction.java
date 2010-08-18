@@ -245,7 +245,7 @@ public class FileTreeAction extends BaseActionInterface {
 		MyFile closeNode, openNode, rootNode;		
 		rootNode = (MyFile) node;
 		
-		if(rootNode.getId() != codeFolder.getId()){//if the first node is not the My_Class folder
+		if(rootNode.getId().intValue() != codeFolder.getId().intValue()){//if the first node is not the My_Class folder
 			treeHTML += "<li " + (openIds.get(rootNode.getId())==null?"":"class='open'") + " id='" +
 					rootNode.getId() + "'><span class='text'>" + rootNode.getFileName() + "</span>";
 			
@@ -277,7 +277,7 @@ public class FileTreeAction extends BaseActionInterface {
 			
 		}
 		
-		if(rootNode.getId() != codeFolder.getId()){//if the first node is not the My_Class folder
+		if(rootNode.getId().intValue() != codeFolder.getId().intValue()){//if the first node is not the My_Class folder
 			treeHTML += "</ul></li>";
 		}
 		
