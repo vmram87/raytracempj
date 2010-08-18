@@ -1094,11 +1094,13 @@ private void restoreVariables() {
               
               //receive process checkpoint, send check cehckpoint ack back to the channel
               if(read.equals("che-")){
+            	  daemonStatus = DAEMON_STATUS_CHECKPOINTING;
             	  doSendBackCheckpointAck((SocketChannel) keyChannel);
               }
               
               //receive restart from a certain checkpoint command 
               if(read.equals("rst-")){
+            	  daemonStatus = DAEMON_STATUS_RESTARTING;
             	  isRestartFromCheckpoint = true;
               }
               
@@ -1676,6 +1678,9 @@ private void restoreVariables() {
 	          if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("notify table");
 	          }
+	          
+	          //reconnect is finish so set the status to running
+	          daemonStatus = DAEMON_STATUS_RUNNING;
 	        }
 	        catch (Exception e) {
 	          throw new Exception(e);
