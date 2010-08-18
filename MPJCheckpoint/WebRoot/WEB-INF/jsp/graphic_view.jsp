@@ -47,7 +47,7 @@ function update_view(){
 	$.get("nodesInfo.action",{},
 			function(responseText){		
 				$("#nodes").html(responseText);
-				setTimeout("update_view()",5000);
+				setTimeout("update_view()",2000);
 			}
 	);
 }
