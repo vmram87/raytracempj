@@ -2136,6 +2136,9 @@ if(DEBUG && logger.isDebugEnabled())
 							ver = mgr.getLatestCompleteVersion(nprocs);
 						} catch (Exception e) {
 							e.printStackTrace();
+							if (DEBUG && logger.isDebugEnabled()) {
+					              logger.debug("\n getLatestCompleteVersion Error");
+					        }
 							continue;
 						}
 						
