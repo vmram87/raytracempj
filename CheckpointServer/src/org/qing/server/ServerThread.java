@@ -714,7 +714,7 @@ public class ServerThread {
 			}
 			catch(IOException e){
 				e.printStackTrace();
-				throw e;
+				return;
 			}
 		}
 		
