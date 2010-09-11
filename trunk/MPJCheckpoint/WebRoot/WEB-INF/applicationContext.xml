@@ -12,9 +12,9 @@
 		<!-- 指定连接数据库的URL -->
 		<property name="url" value="jdbc:mysql://localhost:3306/checkpoint?useUnicode=true&amp;characterEncoding=utf-8"/>
 		<!-- 指定连接数据库的用户名 -->
-		<property name="username" value="root"/>
+		<property name="username" value="jqchen"/>
 		<!-- 指定连接数据库的密码 -->
-		<property name="password" value="1234"/>
+		<property name="password" value="admin"/>
 
 	</bean>
 
@@ -80,8 +80,8 @@
     
     <bean id="fileMgr" class="org.qing.service.impl.FileManagerImpl" scope="singleton">
         <property name="fileDao" ref="fileDao"/>
-        <property name="userDirectory"><value>/usr/java/mpj-v0_36/user-folder/</value></property>
-        <property name="configFilePath"><value>/usr/java/mpj-v0_36/user-folder/sys.properties</value></property>
+        <property name="userDirectory"><value>/gospub2/mpj-v0_36/user-folder/</value></property>
+        <property name="configFilePath"><value>/gospub2/mpj-v0_36/user-folder/sys.properties</value></property>
     </bean>
    
 
