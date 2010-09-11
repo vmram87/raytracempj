@@ -292,7 +292,15 @@ public class MPJDaemon {
 					      
 				            cp = "."+
 				            	  File.pathSeparator+mpjHomeDir+"/lib/loader1.jar"+
+				            	  File.pathSeparator+mpjHomeDir+"/lib/loader2.jar"+
 				                  File.pathSeparator+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
+				                  File.pathSeparator+mpjHomeDir+"/lib/mpj.jar"+
+				                  File.pathSeparator+mpjHomeDir+"/lib/mpiExp.jar"+
+				                  File.pathSeparator+mpjHomeDir+"/lib/mpi.jar"+
+				                  File.pathSeparator+mpjHomeDir+"/lib/mpjbuf.jar"+
+				                  File.pathSeparator+mpjHomeDir+"/lib/mpjdev.jar"+
+				                  File.pathSeparator+mpjHomeDir+"/lib/xdev.jar"+
+				                  File.pathSeparator+mpjHomeDir+"/lib/smpdev.jar"+				                  
 				                  File.pathSeparator+mpjHomeDir+"/lib/wrapper.jar"+
 				                  File.pathSeparator+applicationClassPathEntry+
 				                  File.pathSeparator+cp;
@@ -310,8 +318,16 @@ public class MPJDaemon {
 				        if(noSwitch) {
 				          jvmArgs.add("-cp");
 					  jvmArgs.add("."+
-			            	  File.pathSeparator+mpjHomeDir+"/lib/loader1.jar"+
+							  File.pathSeparator+mpjHomeDir+"/lib/loader1.jar"+
+			            	  File.pathSeparator+mpjHomeDir+"/lib/loader2.jar"+
 			                  File.pathSeparator+mpjHomeDir+"/lib/log4j-1.2.11.jar"+
+			                  File.pathSeparator+mpjHomeDir+"/lib/mpj.jar"+
+			                  File.pathSeparator+mpjHomeDir+"/lib/mpiExp.jar"+
+			                  File.pathSeparator+mpjHomeDir+"/lib/mpi.jar"+
+			                  File.pathSeparator+mpjHomeDir+"/lib/mpjbuf.jar"+
+			                  File.pathSeparator+mpjHomeDir+"/lib/mpjdev.jar"+
+			                  File.pathSeparator+mpjHomeDir+"/lib/xdev.jar"+
+			                  File.pathSeparator+mpjHomeDir+"/lib/smpdev.jar"+				                  
 			                  File.pathSeparator+mpjHomeDir+"/lib/wrapper.jar"+
 			                  File.pathSeparator+applicationClassPathEntry) ; 
 				        }
