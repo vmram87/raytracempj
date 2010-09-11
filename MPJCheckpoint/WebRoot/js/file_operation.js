@@ -6,7 +6,7 @@ function create_new_folder(){
 	if(select_folder_id == null || select_folder_id == undefined)
 		dialog("New Folder","text:Please first select the destination folder in the left bottom corner!","400px","200px","text");
 	else
-		dialog("New Folder","iframe:newFolder.action?folder.id=" + select_folder_id,"400px","200px","iframe");
+		dialog("New Folder","iframe:newFolder.action?folder.id=" + select_folder_id,"400px","250px","iframe");
 }
 
 function addFolder(parent_id){
@@ -18,7 +18,7 @@ function delete_file(){
 	if(select_folder_id == null || select_folder_id == undefined)
 		dialog("Delete File","text:Please first select the destination folder or file in the left bottom corner!","400px","200px","text");
 	else
-		dialog("Delete File","iframe:delFilePage.action?folder.id=" + select_folder_id,"400px","200px","iframe");
+		dialog("Delete File","iframe:delFilePage.action?folder.id=" + select_folder_id,"400px","250px","iframe");
 }
 
 function delFile(file_id){
@@ -42,7 +42,7 @@ function rename_file_page(){
 	if(select_folder_id == null || select_folder_id == undefined)
 		dialog("Rename File","text:Please first select the destination folder or file in the left bottom corner!","400px","200px","text");
 	else
-		dialog("Rename File","iframe:renameFilePage.action?folder.id=" + select_folder_id,"400px","200px","iframe");
+		dialog("Rename File","iframe:renameFilePage.action?folder.id=" + select_folder_id,"400px","250px","iframe");
 }
 
 function rename_file(id, fileName){
