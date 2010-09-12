@@ -92,7 +92,7 @@ public class MPJDaemon {
   static Logger logger = null ; 
   private String mpjHomeDir = null ;  
   private String SYSTEM_LIB_DIR = "user-folder/System_Lib";
-  private String BLCR_LIB_DIR = "/usr/local/lib";
+  private String BLCR_LIB_DIR = "/home/jqchen/local/lib";
   String configFileName = null ;
   
   //Vector<SocketChannel> writableChannels = null;
