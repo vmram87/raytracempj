@@ -22,14 +22,14 @@ function del_multiple_file(){
 	);
 }
 
-function rename_file_page(){
+function rename_file_for_list_page(){
 	if(select_file_map.size() != 1)
 		dialog("Rename File","text:Please select one and only one file to rename","400px","200px","text");
 	else
-		dialog("Rename File","iframe:renameFilePage.action?folder.id=" + select_file_map.values(),"400px","200px","iframe");
+		dialog("Rename File","iframe:renameFilePage.action?folder.id=" + select_file_map.values(),"400px","250px","iframe");
 }
 
-function rename_file(id, fileName){
+function rename_file_for_list(id, fileName){
 	$.post("renameFile.action",{"folder.id":id, "folderName":fileName},
 			function(responseText){		
 				if(responseText.indexOf("Successed")!=-1){				

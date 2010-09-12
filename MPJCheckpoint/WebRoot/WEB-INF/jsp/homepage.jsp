@@ -368,7 +368,7 @@ var select_file_map = new Map();
 					
 					
 					
-					<div id="button_rename_file" class="button_frame" onclick="rename_file_page()">
+					<div id="button_rename_file" class="button_frame" onclick="rename_file_for_list_page()">
 						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
 							<div class="button_left_border"></div>	
 							<div class="button_inner_border">

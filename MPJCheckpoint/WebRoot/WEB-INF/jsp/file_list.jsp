@@ -115,7 +115,8 @@ function click_folder(id){
 function select_file(select){
 	if(select.checked){
 		select.parentNode.parentNode.className="list_content_item_selected";
-		window.parent.select_file_map.put(select.value,select.value);
+		if(!window.parent.select_file_map.containsKey(select.value))
+			window.parent.select_file_map.put(select.value,select.value);
 	}
 	else{
 		select.parentNode.parentNode.className="list_content_item";

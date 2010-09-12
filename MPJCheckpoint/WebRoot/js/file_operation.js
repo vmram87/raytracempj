@@ -38,15 +38,16 @@ function move_file(file_id){
 	close_dialog();
 }
 
-function rename_file_page(){
+function rename_file_for_tree_page(){
 	if(select_folder_id == null || select_folder_id == undefined)
 		dialog("Rename File","text:Please first select the destination folder or file in the left bottom corner!","400px","200px","text");
 	else
 		dialog("Rename File","iframe:renameFilePage.action?folder.id=" + select_folder_id,"400px","250px","iframe");
 }
 
-function rename_file(id, fileName){
+function rename_file_for_tree(id, fileName){
 	window.frames["fileFrame"].rename_file(id, fileName);
+	open_view("fileList");
 	close_dialog();
 }
 

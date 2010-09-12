@@ -2292,6 +2292,7 @@ if(DEBUG && logger.isDebugEnabled())
 	     catch(Exception e){
 	     }
 	        
+	    isFinished=true;
 		this.Notify();
 		
 	}

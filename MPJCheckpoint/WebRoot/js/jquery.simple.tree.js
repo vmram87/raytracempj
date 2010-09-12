@@ -229,7 +229,7 @@ $.fn.simpleTree = function(opt){
 			            },
 			            'rename': function(t) {
 			            	window.parent.select_folder_id = t.parentNode.id;
-							window.parent.rename_file_page();
+							window.parent.rename_file_for_tree_page();
 			            },
 			            'delete': function(t) {
 			            	window.parent.select_folder_id = t.parentNode.id;

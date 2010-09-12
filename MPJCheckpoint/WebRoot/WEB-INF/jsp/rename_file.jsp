@@ -23,7 +23,7 @@ font-family:Arial, Helvetica, sans-serif;
 
 <script type="text/javascript">
 
-function addFolder(){
+function renameFile(){
 	var uri="renameFile.action";
 
 	xmlrequest.open("POST",uri,true);
@@ -51,7 +51,7 @@ function processResponse()
 			if(xmlrequest.responseText.indexOf("Successed")!=-1){
 				var folderName=document.getElementById("folderName");
 				var id = document.getElementById("folder.id");
-				window.parent.rename_file(id.value,folderName.value);
+				window.parent.rename_file_for_tree(id.value,folderName.value);
 			}
 			else{
 				var waitDiv = document.getElementById("waitDiv");
@@ -80,7 +80,7 @@ function processResponse()
 	<input id="folderName" name="folderName" type="text" value="<s:if test='%{folderName!=null}'>${floderName }</s:if><s:else>New Folder</s:else>"/>
 	<p>Destination Folder:${path}</p>
 	<input type="hidden" id="folder.id" name="folder.id" value="${folder.id }"/>
-	<input type="button" value="OK" onclick="addFolder()"/>
+	<input type="button" value="OK" onclick="renameFile()"/>
 	<input type="button" value="Cancel" onclick="window.parent.close_dialog()"/>
 </div>
 

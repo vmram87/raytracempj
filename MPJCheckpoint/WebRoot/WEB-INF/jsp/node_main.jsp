@@ -11,7 +11,10 @@
 		
 		<div class="machine_frame">
 			<div class="node_info">
-				<p>node status: ${node.daemonStatus }</p>
+				<p>node status: 
+					<font color="<s:if test="%{#node.daemonStatus=='Checkpointing'}">#00FF00</s:if>">						 
+						${node.daemonStatus }</p>
+					</font>					
 				<p>no. of processes: ${fn:length(node.process)}</p>
 				<p>Process Rank:</p>
 				<table>					
