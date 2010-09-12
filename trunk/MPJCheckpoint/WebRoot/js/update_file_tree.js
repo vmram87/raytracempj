@@ -35,11 +35,13 @@ function moveToFolder(){
 
 function rename_file(id, fileName){
 	var p = document.getElementById(id);
-	var childNodes = p.childNodes;
-	for(var i = 0; i < childNodes.length; i++){
-		if(childNodes[i].nodeName == "SPAN" || childNodes[i].nodeName == "span"){
-			childNodes[i].innerHTML = fileName;
-			break;
+	if(p != null && p != undefined){
+		var childNodes = p.childNodes;
+		for(var i = 0; i < childNodes.length; i++){
+			if(childNodes[i].nodeName == "SPAN" || childNodes[i].nodeName == "span"){
+				childNodes[i].innerHTML = fileName;
+				break;
+			}
 		}
 	}
 }
