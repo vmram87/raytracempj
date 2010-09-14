@@ -466,9 +466,9 @@ public class MPJDaemon {
 	            }
 	      	  if(worldProcessTable.size() != processes){
 	      		  if(DEBUG && logger.isDebugEnabled()) { 
-	                    logger.debug("wait 12s for worldProcessTable"); 
+	                    logger.debug("wait 30s for worldProcessTable"); 
 	                }
-	      		  worldProcessTable.wait(12000);
+	      		  worldProcessTable.wait(30000);
 	      		  if(DEBUG && logger.isDebugEnabled()) { 
 	                    logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
 	                }

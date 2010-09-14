@@ -20,11 +20,11 @@ public class mpiTest1 {
 		
 		IViewPort viewport=new MPIViewport(scene);
 		
-		String param="1 mpj.conf niodev";
+		String param="0 mpj.conf niodev single";
 		String[] params=param.split(" ");
 		viewport.init(params);
 		try {
-			viewport.configureFromFile("/usr/java/mpj-v0_36/08.xml");
+			viewport.configureFromFile("08.xml");
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
