@@ -741,6 +741,27 @@ public class NIODevice
     Map<String,String> map = System.getenv() ;
     mpjHomeDir = map.get("MPJ_HOME");
     
+    if(this.args.length == 4){
+    	if(this.args[3].equals("single")){
+    		hasDaemon = false;
+    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+    	        logger.info("Single mode, Runing without daemon and checkpoint server");
+    	    }
+    	}
+    	else if(this.args[3].equals("daemon")){
+    		hasDaemon = true;
+    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+    	        logger.info("Daemon mode, Runing with daemon and checkpoint server");
+    	    }
+    	}
+    	else{
+    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+    	        logger.info("Args mode error!");
+    	    }
+    		throw new XDevException("Args mode error!");
+    	}
+    }
+    
     tempDstFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
     			File.separator + pId + "_Rank_" + rank;
     contextSrcFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
@@ -875,8 +896,6 @@ public class NIODevice
 	     * we want to bind is already in use */
 	    boolean isOK = false; 
 	    boolean isError = false ;
-	    
-	    
 
 	    while(isOK != true) { 
 
@@ -923,7 +942,8 @@ public class NIODevice
 	        else if(isError == false)
 	          isOK = true;
 	      }
-	    }
+	    }//end of while
+	    
 
 	    /* This is connection-code for data-channels. */
 	    boolean connected = false;
@@ -1112,113 +1132,112 @@ public class NIODevice
 	    } //end while
 	    
 	    
-	    connected = false;
-    	//conect the readable checkpoint server channel
-    	while (!connected) {
-
-          try {
-            readableCheckpointServer = SocketChannel.open();
-            readableCheckpointServer.configureBlocking(true);
-            
-            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	              logger.debug("Connecting to " + cp_host +
-	                           "@" + cp_port);
-	        }
-          }
-          catch (Exception e) {
-            throw new XDevException(e);
-          }
-
-          try {
-            connected = readableCheckpointServer.connect(
-                new InetSocketAddress(cp_host, cp_port));
-          }
-          catch (IOException ioe) {
-	            // this is continuing coz process 1 alwayz connect to process 0
-	            // server socket. If process 0 is not up, then this exception
-	            connected = false;
-
+	    if(hasDaemon == true){
+		    connected = false;
+	    	//conect the readable checkpoint server channel
+	    	while (!connected) {
+	
+	          try {
+	            readableCheckpointServer = SocketChannel.open();
+	            readableCheckpointServer.configureBlocking(true);
+	            
 	            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	              logger.debug("connecting error ->" + ioe.getMessage());
-	            }
-
-	            continue;
-	      }
-	      catch (Exception e) {
-		            throw new XDevException(e);
-		  }
-
-          try {
-        	  readableCheckpointServer.configureBlocking(false);
-        	  readableCheckpointServer.register(selector,SelectionKey.OP_READ);
-        	  readableCheckpointServer.socket().setTcpNoDelay(true);
-	    //these are useful if running MPJ on gigabit ethernet.
-        	  readableCheckpointServer.socket().setSendBufferSize(524288);
-        	  readableCheckpointServer.socket().setReceiveBufferSize(524288);
-          }
-          catch (Exception e) {
-            throw new XDevException(e);
-          }
-          connected = true;
-        } //end while
-    	
-    	
-    	
-    	connected = false;
-    	//conect the writable checkpoint server channel
-    	while (!connected) {
-
-          try {
-            writableCheckpointServer = SocketChannel.open();
-            writableCheckpointServer.configureBlocking(true);
-            
-            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	              logger.debug("Connecting to " + cp_host +
-	                           "@" + (cp_port+1));
-	        }
-          }
-          catch (Exception e) {
-            throw new XDevException(e);
-          }
-
-          try {
-            connected = writableCheckpointServer.connect(
-                new InetSocketAddress(cp_host, cp_port+1));
-          }
-          catch (IOException ioe) {
-	            // this is continuing coz process 1 alwayz connect to process 0
-	            // server socket. If process 0 is not up, then this exception
-	            connected = false;
-
+		              logger.debug("Connecting to " + cp_host +
+		                           "@" + cp_port);
+		        }
+	          }
+	          catch (Exception e) {
+	            throw new XDevException(e);
+	          }
+	
+	          try {
+	            connected = readableCheckpointServer.connect(
+	                new InetSocketAddress(cp_host, cp_port));
+	          }
+	          catch (IOException ioe) {
+		            // this is continuing coz process 1 alwayz connect to process 0
+		            // server socket. If process 0 is not up, then this exception
+		            connected = false;
+	
+		            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("connecting error ->" + ioe.getMessage());
+		            }
+	
+		            continue;
+		      }
+		      catch (Exception e) {
+			            throw new XDevException(e);
+			  }
+	
+	          try {
+	        	  readableCheckpointServer.configureBlocking(false);
+	        	  readableCheckpointServer.register(selector,SelectionKey.OP_READ);
+	        	  readableCheckpointServer.socket().setTcpNoDelay(true);
+		    //these are useful if running MPJ on gigabit ethernet.
+	        	  readableCheckpointServer.socket().setSendBufferSize(524288);
+	        	  readableCheckpointServer.socket().setReceiveBufferSize(524288);
+	          }
+	          catch (Exception e) {
+	            throw new XDevException(e);
+	          }
+	          connected = true;
+	        } //end while
+	    	
+	    	
+	    	
+	    	connected = false;
+	    	//conect the writable checkpoint server channel
+	    	while (!connected) {
+	
+	          try {
+	            writableCheckpointServer = SocketChannel.open();
+	            writableCheckpointServer.configureBlocking(true);
+	            
 	            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	              logger.debug("connecting error ->" + ioe.getMessage());
-	            }
-
-	            continue;
-	      }
-	      catch (Exception e) {
-		            throw new XDevException(e);
-		  }
-
-          try {
-        	  writableCheckpointServer.configureBlocking(true);
-        	  writableCheckpointServer.socket().setTcpNoDelay(true);
-	    //these are useful if running MPJ on gigabit ethernet.
-        	  writableCheckpointServer.socket().setSendBufferSize(524288);
-        	  writableCheckpointServer.socket().setReceiveBufferSize(524288);
-          }
-          catch (Exception e) {
-            throw new XDevException(e);
-          }
-          connected = true;
-        } //end while
+		              logger.debug("Connecting to " + cp_host +
+		                           "@" + (cp_port+1));
+		        }
+	          }
+	          catch (Exception e) {
+	            throw new XDevException(e);
+	          }
+	
+	          try {
+	            connected = writableCheckpointServer.connect(
+	                new InetSocketAddress(cp_host, cp_port+1));
+	          }
+	          catch (IOException ioe) {
+		            // this is continuing coz process 1 alwayz connect to process 0
+		            // server socket. If process 0 is not up, then this exception
+		            connected = false;
+	
+		            if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("connecting error ->" + ioe.getMessage());
+		            }
+	
+		            continue;
+		      }
+		      catch (Exception e) {
+			            throw new XDevException(e);
+			  }
+	
+	          try {
+	        	  writableCheckpointServer.configureBlocking(true);
+	        	  writableCheckpointServer.socket().setTcpNoDelay(true);
+		    //these are useful if running MPJ on gigabit ethernet.
+	        	  writableCheckpointServer.socket().setSendBufferSize(524288);
+	        	  writableCheckpointServer.socket().setReceiveBufferSize(524288);
+	          }
+	          catch (Exception e) {
+	            throw new XDevException(e);
+	          }
+	          connected = true;
+	        } //end while
+	    	
+	    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("read and write checkpoint server channel connected!");
+	          }
     	
-    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-            logger.debug("read and write checkpoint server channel connected!");
-          }
-    	
-    	
-    	if(hasDaemon == true){
 	    	connected = false;
 	    	//conect the daemon channel
 	    	while (!connected) {
@@ -1494,57 +1513,58 @@ public class NIODevice
 	    //readableServerChannel.close();
 	    pids[rank] = id;
 	    
-	    if(isCheckpointing == true){
-	    	initMsgBuffer.limit(32);
-		    initMsgBuffer.position(0);
-		    initMsgBuffer.putInt(CHECKPOINT_RECONNECT);
-		    initMsgBuffer.putInt(rank);
-		    initMsgBuffer.putLong(msb);
-		    initMsgBuffer.putLong(lsb);
-		    initMsgBuffer.putInt(Integer.parseInt(pId));
-		    initMsgBuffer.putInt(versionNum);
-	    }
+	    if(hasDaemon == true){
+		    if(isCheckpointing == true){
+		    	initMsgBuffer.limit(32);
+			    initMsgBuffer.position(0);
+			    initMsgBuffer.putInt(CHECKPOINT_RECONNECT);
+			    initMsgBuffer.putInt(rank);
+			    initMsgBuffer.putLong(msb);
+			    initMsgBuffer.putLong(lsb);
+			    initMsgBuffer.putInt(Integer.parseInt(pId));
+			    initMsgBuffer.putInt(versionNum);
+		    }
 	    
 
-	      initMsgBuffer.flip();
-	      /* send the the writable checkpoint channel */
-	      while (initMsgBuffer.hasRemaining()) {
-	        try {
-	          if (writableCheckpointServer.write(initMsgBuffer) == -1) {
-	            throw new XDevException(new ClosedChannelException());
-	          }
-	        }
-	        catch (Exception e) {
-	          throw new XDevException(e);
-	        }
-	      } //end while.
+		      initMsgBuffer.flip();
+		      /* send the the writable checkpoint channel */
+		      while (initMsgBuffer.hasRemaining()) {
+		        try {
+		          if (writableCheckpointServer.write(initMsgBuffer) == -1) {
+		            throw new XDevException(new ClosedChannelException());
+		          }
+		        }
+		        catch (Exception e) {
+		          throw new XDevException(e);
+		        }
+		      } //end while.
+		      
+		      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	 		      logger.debug("send checkpoint reconnect to writable checkpoint server ");
+		      }
+		      
+	
+		      initMsgBuffer.limit(24);
+		      initMsgBuffer.flip();
+		      /* send the the readable checkpoint channel */
+		      while (initMsgBuffer.hasRemaining()) {
+		        try {
+		          if (readableCheckpointServer.write(initMsgBuffer) == -1) {
+		            throw new XDevException(new ClosedChannelException());
+		          }
+		        }
+		        catch (Exception e) {
+		          throw new XDevException(e);
+		        }
+		      } //end while.
+		      
+		      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	 		      logger.debug("send checkpoint reconnect to readabel checkpoint server ");
+		      }
+		      
+		      
+		      /* send init info to the daemonchannel */
 	      
-	      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
- 		      logger.debug("send checkpoint reconnect to writable checkpoint server ");
-	      }
-	      
-
-	      initMsgBuffer.limit(24);
-	      initMsgBuffer.flip();
-	      /* send the the readable checkpoint channel */
-	      while (initMsgBuffer.hasRemaining()) {
-	        try {
-	          if (readableCheckpointServer.write(initMsgBuffer) == -1) {
-	            throw new XDevException(new ClosedChannelException());
-	          }
-	        }
-	        catch (Exception e) {
-	          throw new XDevException(e);
-	        }
-	      } //end while.
-	      
-	      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
- 		      logger.debug("send checkpoint reconnect to readabel checkpoint server ");
-	      }
-	      
-	      
-	      /* send init info to the daemonchannel */
-	      if(hasDaemon == true){
 	    	  initMsgBuffer = ByteBuffer.allocate(28);;
 	    	  if(isCheckpointing == false)
 	    		  initMsgBuffer.put("pro-Init".getBytes());
@@ -2785,66 +2805,71 @@ public class NIODevice
       }
     }
     
-    ByteBuffer exitBuffer = ByteBuffer.allocate(24);
-    exitBuffer.putInt(EXIT_PROCESS);
-    exitBuffer.putInt(this.rank);
-    exitBuffer.putLong(id.uuid().getMostSignificantBits());
-    exitBuffer.putLong(id.uuid().getLeastSignificantBits());
-    
-    //send exit request to the checkpoint server
-    exitBuffer.flip();
-    while(exitBuffer.hasRemaining()){
-    	try{
-    		if(writableCheckpointServer.write(exitBuffer) == -1){
-    			throw new ClosedChannelException();
-    		}
-    	}
-    	catch(IOException e){
-    		e.printStackTrace();
-    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-    		      logger.debug("Checkpoint close the channel, you should ensure the checkpoint server is running");
-    		}
-    		break;
-    	}
-    }
-    
-    
-    //send exit request to the daemon
-    exitBuffer.position(0);
-    exitBuffer.put("exit".getBytes());
-    exitBuffer.putInt(this.rank);
-    exitBuffer.putLong(id.uuid().getMostSignificantBits());
-    exitBuffer.putLong(id.uuid().getLeastSignificantBits());
-    exitBuffer.flip();
-
-    while(exitBuffer.hasRemaining()){
-    	try{
-    		if(daemonChannel.write(exitBuffer) == -1){
-    			throw new ClosedChannelException();
-    		}
-    	}
-    	catch(IOException e){
-    		e.printStackTrace();
-    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-    		      logger.debug("daemon close the channel, you should ensure the daemon is running");
-    		}
-    		break;
-    	}
-    }
-    
-    synchronized (selectorFinishLock) {
-    	while(!(recvDaemonFinishAck == true && recvServerFinishAck == true)){
-	    	try {
-	    		selectorFinishLock.wait();
-	    	} catch (InterruptedException e) {
-	    		e.printStackTrace();
+    if(hasDaemon == true){
+	    ByteBuffer exitBuffer = ByteBuffer.allocate(24);
+	    exitBuffer.putInt(EXIT_PROCESS);
+	    exitBuffer.putInt(this.rank);
+	    exitBuffer.putLong(id.uuid().getMostSignificantBits());
+	    exitBuffer.putLong(id.uuid().getLeastSignificantBits());
+	    
+	    //send exit request to the checkpoint server
+	    exitBuffer.flip();
+	    while(exitBuffer.hasRemaining()){
+	    	try{
+	    		if(writableCheckpointServer.write(exitBuffer) == -1){
+	    			throw new ClosedChannelException();
+	    		}
 	    	}
-    	}
-	}
+	    	catch(IOException e){
+	    		e.printStackTrace();
+	    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	    		      logger.debug("Checkpoint close the channel, you should ensure the checkpoint server is running");
+	    		}
+	    		break;
+	    	}
+	    }
+	    
+	    
+	    //send exit request to the daemon
+	    exitBuffer.position(0);
+	    exitBuffer.put("exit".getBytes());
+	    exitBuffer.putInt(this.rank);
+	    exitBuffer.putLong(id.uuid().getMostSignificantBits());
+	    exitBuffer.putLong(id.uuid().getLeastSignificantBits());
+	    exitBuffer.flip();
 	
-    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	      logger.debug("wake up the selectorFinishLock");
-	}
+	    while(exitBuffer.hasRemaining()){
+	    	try{
+	    		if(daemonChannel.write(exitBuffer) == -1){
+	    			throw new ClosedChannelException();
+	    		}
+	    	}
+	    	catch(IOException e){
+	    		e.printStackTrace();
+	    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+	    		      logger.debug("daemon close the channel, you should ensure the daemon is running");
+	    		}
+	    		break;
+	    	}
+	    }
+	    
+	    synchronized (selectorFinishLock) {
+	    	while(!(recvDaemonFinishAck == true && recvServerFinishAck == true)){
+		    	try {
+		    		selectorFinishLock.wait();
+		    	} catch (InterruptedException e) {
+		    		e.printStackTrace();
+		    	}
+	    	}
+		}
+	    
+	    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		      logger.debug("wake up the selectorFinishLock");
+		}
+	    
+    }//end of if hasdaemon == true
+	
+    
     
     
     selectorFlag = false;
