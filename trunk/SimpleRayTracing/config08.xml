@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<inputset filename="output.xml">
+	<image>
+		<width>1280</width>
+		<height>800</height>
+		<objects>
+			<object id="1" type="sphere">
+				<shape>
+					<center>(1187.09, 699.43, 6377.85)</center>
+					<radius>39.5911</radius>
+				</shape>
+				<materialproperty> 
+					<ambient>(0, 0, 0)</ambient>
+					<diffusion>(0.412231, 0.570312, 0.894287)</diffusion>
+					<specular>(0.642853, 0.072998, 0.758789)</specular>
+					<shininess>(0, 0, 0)</shininess>
+					<emission>(0, 0, 0)</emission>
+					<reflection>0.917114</reflection>
+					<refraction>0</refraction>
+					<density>0</density>
+					<power>96</power>
+				</materialproperty>
+			</object>
+			<object id="2" type="sphere">
+				<shape>
+					<center>(682.634, 667.223, 825.695)</center>
+					<radius>46.2415</radius>
+				</shape>
+				<materialproperty> 
+					<ambient>(0, 0, 0)</ambient>
+					<diffusion>(0.417114, 0.339783, 0.478241)</diffusion>
+					<specular>(0.97226, 0.79245, 0.843323)</specular>
+					<shininess>(0, 0, 0)</shininess>
+					<emission>(0, 0, 0)</emission>
+					<reflection>0.764648</reflection>
+					<refraction>0</refraction>
+					<density>0</density>
+					<power>3</power>
+				</materialproperty>
+			</object>
+			
+		</objects>
+		<lights>
+			<light id="1">
+				<origin>(-4223.02, -9053.96, -4895.63)</origin>
+				<intensity>(0.108246, 0.0907898, 0.2453)</intensity>
+			</light>
+			<light id="2">
+				<origin>(3400.88, 5758.67, -5111.69)</origin>
+				<intensity>(0.531158, 0.577881, 0.234772)</intensity>
+			</light>
+			
+		</lights>
+	</image>
+</inputset>
