@@ -30,8 +30,11 @@ public class TRayTrace implements IRayTraceAlgorithm {
 			//load
 			cLoad .add(2);
 			
-			returnColor.selfAdd(exposure(sceneRaytrace(lights, objects, rayInfinity, 
-					rayMaxLevel,new TRay(new TPoint3D(fracx,fracy, rayNegInfinity), new TVector(0.0f, 0.0f, 1.0f)), cLoad))
+			returnColor.selfAdd(
+					exposure(
+							sceneRaytrace(lights, objects, rayInfinity, rayMaxLevel,
+									new TRay(new TPoint3D(fracx,fracy, rayNegInfinity), new TVector(0.0f, 0.0f, 1.0f)), cLoad)
+					)
 					.multiply(ONE_OVER_SRAY_SUPERSAMPLING_COEF));
 		}
 	
@@ -169,7 +172,7 @@ public class TRayTrace implements IRayTraceAlgorithm {
 		if(innerProduct == 0.0f)
 			return color;
 
-		float Blinn = (float) (1/Math.sqrt(innerProduct) * Math.max(lightProjection - viewProjection, 0.0f));
+		float Blinn = (float) (invSqrt(innerProduct) * Math.max(lightProjection - viewProjection, 0.0f));
 		Blinn = (float) (coef * Math.pow(Blinn, matPower));
 
 		color.selfAdd(specular.multiply(lightIntensity).multiply(Blinn));
@@ -225,6 +228,14 @@ public class TRayTrace implements IRayTraceAlgorithm {
 		TRayTrace a= new TRayTrace();
 		a.sRGBEncode(color);
 		System.out.println(color);
+	}
+	
+	public static float invSqrt(float x){
+		float xhalf = 0.5f * x;
+		int i = 0x5F3759DF - (Float.floatToIntBits(x)>>1);
+		x = Float.intBitsToFloat(i);
+		x = x * (1.5f - xhalf * x * x);
+		return x;
 	}
 
 }

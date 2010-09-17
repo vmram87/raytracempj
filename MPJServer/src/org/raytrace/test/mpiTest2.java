@@ -14,7 +14,7 @@ public class mpiTest2 {
 	 */
 	public static void main(String[] args) {
 		
-		IRayTraceAlgorithm alg=new TRayTrace();
+		IRayTraceAlgorithm alg=new TRayTrace(); 
 		
 		IScene scene = new TScene(alg);
 		

@@ -7,7 +7,7 @@ public class RayTraceContext {
 	private float rayInfinity=10000;
 	private float nearestVPointDist=0.1f;
 	private int rayMaxLevel=50;
-	private int superSamplingCoef=8;
+	private int superSamplingCoef=4;
 	
 	private RayTraceContext(){}
 	

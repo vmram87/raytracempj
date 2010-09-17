@@ -7,8 +7,7 @@ import org.raytrace.scene.impl.TScene;
 import org.raytrace.viewport.IViewPort;
 import org.raytrace.viewport.impl.MPIViewport;
 
-public class mpiTest1 {
-
+public class mpiTest3 {
 	/**
 	 * @param args
 	 */
@@ -20,7 +19,7 @@ public class mpiTest1 {
 		
 		IViewPort viewport=new MPIViewport(scene);
 		
-		String param="0 mpj.conf niodev single";
+		String param="2 mpj.conf niodev single";
 		String[] params=param.split(" ");
 		viewport.init(params);
 		try {
@@ -31,11 +30,10 @@ public class mpiTest1 {
 		}
 		viewport.render();
 		System.out.println("Finish render!");
-		viewport.saveToIMGFile("test2.bmp");
+		viewport.saveToIMGFile("test2.gif");
 		System.out.println("Finish ray tracing!");
 		viewport.viewportFinalize();
 		//viewport.saveConfigToFile("09.xml");
 
 	}
-
 }
