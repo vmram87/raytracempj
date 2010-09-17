@@ -7,35 +7,35 @@
 			<object id="1" type="org.raytrace.object.impl.Sphere">
 				<shape>
 					<center type='org.raytrace.vector.impl.TPoint3D'>(1187.09, 699.43, 6377.85)</center>
-					<radius type='java.lang.Float'>100.6877</radius>
+					<radius type='java.lang.Float'>39.5911</radius>
 				</shape>
-				<materialproperty>
-					<ambient>(0.0, 0.0, 0.0)</ambient>
-					<diffusion>(0.344757, 0.808807, 0.120911)</diffusion>
-					<specular>(0.839386, 0.455231, 0.589111)</specular>
-					<shininess>(0.0, 0.0, 0.0)</shininess>
-					<emission>(0.0, 0.0, 0.0)</emission>
-					<reflection>0.624573</reflection>
-					<refraction>0.0</refraction>
-					<density>0.0</density>
-					<power>54</power>
+				<materialproperty> 
+					<ambient>(0, 0, 0)</ambient>
+					<diffusion>(0.412231, 0.570312, 0.894287)</diffusion>
+					<specular>(0.642853, 0.072998, 0.758789)</specular>
+					<shininess>(0, 0, 0)</shininess>
+					<emission>(0, 0, 0)</emission>
+					<reflection>0.917114</reflection>
+					<refraction>0</refraction>
+					<density>0</density>
+					<power>96</power>
 				</materialproperty>
 			</object>
 			<object id="2" type="org.raytrace.object.impl.Sphere">
 				<shape>
 					<center type='org.raytrace.vector.impl.TPoint3D'>(682.634, 667.223, 825.695)</center>
-					<radius type='java.lang.Float'>100.6877</radius>
+					<radius type='java.lang.Float'>46.2415</radius>
 				</shape>
-				<materialproperty>
-					<ambient>(0.0, 0.0, 0.0)</ambient>
-					<diffusion>(0.344757, 0.808807, 0.120911)</diffusion>
-					<specular>(0.839386, 0.455231, 0.589111)</specular>
-					<shininess>(0.0, 0.0, 0.0)</shininess>
-					<emission>(0.0, 0.0, 0.0)</emission>
-					<reflection>0.624573</reflection>
-					<refraction>0.0</refraction>
-					<density>0.0</density>
-					<power>54</power>
+				<materialproperty> 
+					<ambient>(0, 0, 0)</ambient>
+					<diffusion>(0.417114, 0.339783, 0.478241)</diffusion>
+					<specular>(0.97226, 0.79245, 0.843323)</specular>
+					<shininess>(0, 0, 0)</shininess>
+					<emission>(0, 0, 0)</emission>
+					<reflection>0.764648</reflection>
+					<refraction>0</refraction>
+					<density>0</density>
+					<power>3</power>
 				</materialproperty>
 			</object>
 			<object id="3" type="org.raytrace.object.impl.Sphere">
