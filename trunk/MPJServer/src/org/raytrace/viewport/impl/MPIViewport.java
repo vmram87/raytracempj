@@ -82,7 +82,7 @@ public class MPIViewport extends AbstractViewPort {
 		
 		ReferIntValue cLoad = new ReferIntValue(0);
 
-		for(int y = rank, ly=0; y < this.height-1; y+=size, ly++)
+		for(int y = rank, ly=0; y <= this.height-1; y+=size, ly++)
 		{
 			for(int x = 0; x < this.width; x++)
 			{
