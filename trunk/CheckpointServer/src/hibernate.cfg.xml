@@ -8,8 +8,8 @@
 
         <!-- Database connection settings -->
         <property name="connection.driver_class">com.mysql.jdbc.Driver</property>
-        <property name="connection.url">jdbc:mysql://pc01:3306/checkpoint?useUnicode=true&amp;characterEncoding=utf8&amp;useServerPrepStmts=false</property>
-        <property name="connection.username">root</property>
+        <property name="connection.url">jdbc:mysql://gos2:3306/checkpoint?useUnicode=true&amp;characterEncoding=utf8&amp;useServerPrepStmts=false</property>
+        <property name="connection.username">jqchen</property>
         <property name="connection.password">1234</property>
 
         <!-- JDBC connection pool (use the built-in) -->
