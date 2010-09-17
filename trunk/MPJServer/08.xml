@@ -6,7 +6,7 @@
 		<objects>
 			<object id="1" type="org.raytrace.object.impl.Sphere">
 				<shape>
-					<center type='org.raytrace.vector.impl.TPoint3D'>(0.0, 0.0, 5780.39)</center>
+					<center type='org.raytrace.vector.impl.TPoint3D'>(1187.09, 699.43, 6377.85)</center>
 					<radius type='java.lang.Float'>100.6877</radius>
 				</shape>
 				<materialproperty>
@@ -23,7 +23,7 @@
 			</object>
 			<object id="2" type="org.raytrace.object.impl.Sphere">
 				<shape>
-					<center type='org.raytrace.vector.impl.TPoint3D'>(300.0, 0.0, 1000.39)</center>
+					<center type='org.raytrace.vector.impl.TPoint3D'>(682.634, 667.223, 825.695)</center>
 					<radius type='java.lang.Float'>100.6877</radius>
 				</shape>
 				<materialproperty>
