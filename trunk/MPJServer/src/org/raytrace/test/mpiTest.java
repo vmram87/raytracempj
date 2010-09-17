@@ -31,7 +31,7 @@ public class mpiTest {
 		}
 		viewport.render();
 		System.out.println("Finish render!");
-		viewport.saveToIMGFile("test2.gif");
+		viewport.saveToIMGFile("test2.bmp");
 		System.out.println("Finish ray tracing!");
 		viewport.viewportFinalize();
 		//viewport.saveConfigToFile("09.xml");
