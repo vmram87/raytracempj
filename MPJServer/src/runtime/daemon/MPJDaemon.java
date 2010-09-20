@@ -1108,7 +1108,7 @@ private void restoreVariables() {
             	  doSendBackExitAck( (SocketChannel) keyChannel);
               }
               
-              //receive process checkpoint, send check cehckpoint ack back to the channel
+              //receive process checkpoint, send checkpoint ack back to the channel
               if(read.equals("che-")){
             	  daemonStatus = DAEMON_STATUS_CHECKPOINTING;
             	  doSendBackCheckpointAck((SocketChannel) keyChannel);

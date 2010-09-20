@@ -762,10 +762,6 @@ public class NIODevice
     	}
     }
     
-    tempDstFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
-    			File.separator + pId + "_Rank_" + rank;
-    contextSrcFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME +
-    			File.separator + "context." + pId + "_Rank_" + rank;
 
     try {
 
@@ -4795,8 +4791,12 @@ public class NIODevice
 			writableCheckpointServer.close();
 			
 			selector.close();
-			contextSrcFilePath = contextSrcFilePath + "_Ver_" + versionNum; 
-			tempDstFilePath = tempDstFilePath + "_Ver_" + versionNum; 
+			
+			tempDstFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME 
+								+ File.separator + pId + "_Rank_" + rank + "_Ver_" + versionNum; 
+			contextSrcFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME
+								+ File.separator + "context." + pId + "_Rank_" + rank + "_Ver_" + versionNum; 
+			
 			File src = new File(tempSrcFilePath);
 			File dst = new File(tempDstFilePath);
 			if(dst.exists())
