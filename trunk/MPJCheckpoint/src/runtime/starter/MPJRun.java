@@ -63,16 +63,12 @@ import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.Timer;
-import java.util.TimerTask;
 import java.util.Vector;
-import java.util.Map.Entry;
 import java.util.jar.Attributes;
 import java.util.jar.JarFile;
-
-import javax.jws.soap.SOAPBinding.Use;
-import javax.transaction.Synchronization;
 
 import org.apache.log4j.DailyRollingFileAppender;
 import org.apache.log4j.Level;
@@ -80,10 +76,8 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.qing.object.Context;
 import org.qing.service.ContextManager;
-import org.qing.service.SpringContextUtil;
+import org.qing.service.ServiceLocator;
 import org.qing.util.DaemonStatus;
-
-import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
 
 import runtime.MPJRuntimeException;
 
@@ -100,7 +94,8 @@ public class MPJRun {
   private static int D_SER_PORT = getPortFromWrapper() ;
   private static int endPointID = 0 ;
   private long CHECKPOINT_INTERVAL = 20000; //the default checkpoint interval is 20s
-
+  protected long HEARTBEAT_INTERVAL = 3000;
+  
   int S_PORT = 15000; 
   String machinesFile = "machines" ; 
   ArrayList<String> jvmArgs = new ArrayList<String>() ; 
@@ -974,13 +969,43 @@ public class MPJRun {
 		    machineConnectedMap.clear();
 		    peerChannels.clear();
 		    readMachineFile();
-		    machinesSanityCheck();
+		    //should not check the machine sanity, because may be there is a machine broken down
+		    //machinesSanityCheck();
 		    
 		    if(DEBUG && logger.isDebugEnabled())
 			{
 				logger.debug("machineVector.size():" + machineVector.size());
 			}
 		    
+		    //close the channel that is not in the machine file
+		    SocketChannel c ;
+			Iterator it = machineChannelMap.entrySet().iterator();			
+			while(it.hasNext()){
+				Entry entry = (Entry) it.next();
+				String machine = (String) entry.getKey();
+				if(machineConnectedMap.get(machine) == null){
+					c = (SocketChannel) entry.getValue();
+					
+					synchronized (c) {
+
+						killMsg.flip();
+		    			while(killMsg.hasRemaining()){
+			    			try{
+			    				if((c.write(killMsg)) == -1)
+			    					throw new ClosedChannelException();
+			    			}
+			    			catch(IOException e){			    				
+			    				break;
+			    			}	    
+			    		}
+		    			c.close();
+					}
+					
+					machineChannelMap.remove(machine);
+				}		    	
+		    }
+		    
+		    //validate the connection for the machine in the machine file
 		    for(int i = 0; i < machineVector.size(); i++){
 		    	String daemon = (String) machineVector.get(i);
 		    	socketChannel = machineChannelMap.get(daemon);
@@ -1083,24 +1108,29 @@ public class MPJRun {
 		ByteBuffer restartMsg = ByteBuffer.allocate(4);
 		restartMsg.putInt(REQUEST_RESTART);
 		restartMsg.flip();
-		while(restartMsg.hasRemaining()){
-			try{
-				if(checkpiontChannel.write(restartMsg) == -1)
-					throw new ClosedChannelException();
-			}
-			catch(IOException e){
-				e.printStackTrace();
-				if(DEBUG && logger.isDebugEnabled())
-				{
-					logger.debug("checkpoint server channel close!");
+		synchronized (checkpiontChannel){
+			while(restartMsg.hasRemaining()){
+				try{
+					if(checkpiontChannel.write(restartMsg) == -1)
+						throw new ClosedChannelException();
 				}
-				break;
-			}			
+				catch(IOException e){
+					e.printStackTrace();
+					if(DEBUG && logger.isDebugEnabled())
+					{
+						logger.debug("checkpoint server channel close!");
+					}
+					break;
+				}			
+			}
 		}
 		
 		//find the latest complete version
-		ContextManager mgr = (ContextManager)SpringContextUtil.getBean("mgr");
+		ContextManager mgr = (ContextManager)ServiceLocator.getInstance().getService("mgr"); 
 		Integer ver = mgr.getLatestCompleteVersion(nprocs);
+		
+		
+
 		
 		if(ver == null){
 			return restartFromBegining();
@@ -1142,8 +1172,10 @@ public class MPJRun {
 						k++;
 					}
 					
-					if(k >= contextList.size())
-						break;
+					if(k >= contextList.size()){
+						//it is a problem should be considered in a large system
+						throw new MPJRuntimeException("Some process can't be assign the some machine, because the same process ID can't be coordinated!");
+					}
 				}// end of while
 			}// end of for
 		}
@@ -1194,8 +1226,10 @@ public class MPJRun {
 	      }
 
 	      for (int i = 0; i < nprocs; i++) {
-		        procsPerMachineTable.put( (String) machineVector.get(i),
-		                                 new Integer(1));
+	    	  
+	    	    name=(String)machineVector.get(i);
+	    	  
+		        procsPerMachineTable.put( name, new Integer(1));
 			 
 		        rankMachineMap.put(rank, name);
 				if(deviceName.equals("niodev")) { 
@@ -1320,7 +1354,7 @@ public class MPJRun {
 	    	      logger.debug("nprocs " + nprocs);
 	    	    }
 	        	
-	        	buffer.put("*GO**Go*".getBytes(), 0, "*GO**Go*".getBytes().length);    
+	        	buffer.put("*GO**GO*".getBytes(), 0, "*GO**GO*".getBytes().length);    
 	
 	            buffer.flip();
         	
@@ -1344,8 +1378,9 @@ private boolean restartFromBegining() {
 	}
 
 	try{
-		ContextManager mgr = (ContextManager)SpringContextUtil.getBean("mgr");
+		ContextManager mgr = (ContextManager)ServiceLocator.getInstance().getService("mgr");
 		Integer ver = mgr.getLatestVersionId();
+		
 		if(ver != null)
 			mgr.delAllPrevContextsByVersion(ver + 1);
 		
@@ -1690,6 +1725,11 @@ private void machinesSanityCheck() throws Exception {
 	{
     logger.debug("\n---finish---");
 	}
+   
+   synchronized (finishLock) {
+	   isFinished = true;
+   }
+   
     try {
     	if(DEBUG && logger.isDebugEnabled())
 	   	 {       
@@ -1703,9 +1743,6 @@ private void machinesSanityCheck() throws Exception {
 	         logger.debug("stop heartbeartthread");
 	         
 	   	 }
-    	synchronized (finishLock) {
-    		isFinished = true;
-		}
     	
 
     	heartbeatThreadStarter.join();
@@ -1852,7 +1889,7 @@ if(DEBUG && logger.isDebugEnabled())
       ByteBuffer bigBuffer = ByteBuffer.allocateDirect(10000);
 
       try {
-        while (endCount < machineVector.size() && selector.select() > -1 && selectorFlag == true) {
+        while ( selector.select() > -1 && selectorFlag == true) {
 
           readyKeys = selector.selectedKeys();
           readyItor = readyKeys.iterator();
@@ -2032,7 +2069,7 @@ if(DEBUG && logger.isDebugEnabled())
 							if(isVersionCompleteWaiting == true){
 								isVersionCompleteWaiting = false;
 								if (DEBUG && logger.isDebugEnabled()) {
-						              logger.debug("notify timer thread");
+						              logger.debug("notify timer thread when all daemon send exit to MPJRUn");
 						        }
 								versionComplete.notify();
 							}
@@ -2068,7 +2105,7 @@ if(DEBUG && logger.isDebugEnabled())
               		
               	case REQUEST_RESTART:
               		//retrive the database and assign job and version number
-              		synchronized (peerChannels) {
+              		synchronized (machineChannelMap) {
               			restartTasks();
               		}
               		//send "kill" to the daemon
@@ -2097,8 +2134,8 @@ if(DEBUG && logger.isDebugEnabled())
                   "In, WRITABLE, so changing the interestOps to READ_ONLY");
               key.interestOps(SelectionKey.OP_READ);
             }
-          }
-        }
+          }//while
+        }//while
       }
       catch (Exception ioe1) {
 	  if(DEBUG && logger.isDebugEnabled())
@@ -2107,10 +2144,11 @@ if(DEBUG && logger.isDebugEnabled())
         System.exit(0);
       }
 	  if(DEBUG && logger.isDebugEnabled())
-      logger.debug("Thread getting out");
+      logger.debug("\n\n---Selector Thread getting out!---\n\n");
     }
 
   };
+
   
   
   Runnable heartBeatThread = new Runnable() {
@@ -2130,35 +2168,42 @@ if(DEBUG && logger.isDebugEnabled())
 				synchronized(versionComplete){
 					if(isVersionCompleteWaiting == true){
 						
-						ContextManager mgr = (ContextManager)SpringContextUtil.getBean("mgr");
+						ContextManager mgr = (ContextManager)ServiceLocator.getInstance().getService("mgr");
 						Integer ver;
+						
 						try {
 							ver = mgr.getLatestCompleteVersion(nprocs);
+							if (DEBUG && logger.isDebugEnabled()) {
+					              logger.debug("ver = " + ver);
+					              logger.debug("versionNum = " + versionNum);
+					        }
+							if(ver == null ){
+								System.out.println("There is no version complete in database, yet");
+							}
+							else if(ver > versionNum){
+								isVersionCompleteWaiting = false;
+								versionNum = ver;
+								if (DEBUG && logger.isDebugEnabled()) {
+						              logger.debug("notify timer thread when version complete");
+						        }
+								versionComplete.notify();							
+							}
+							
 						} catch (Exception e) {
 							e.printStackTrace();
 							if (DEBUG && logger.isDebugEnabled()) {
 					              logger.debug("\n getLatestCompleteVersion Error");
 					        }
-							continue;
-						}
+						}					
 						
-						if(ver == null ){
-							System.out.println("There is no version complete in database, yet");
-						}
-						else if(ver > versionNum){
-							isVersionCompleteWaiting = false;
-							versionNum = ver;
-							if (DEBUG && logger.isDebugEnabled()) {
-					              logger.debug("notify timer thread");
-					        }
-							versionComplete.notify();							
-						}
-						
-					}
+					}//end of syn versionComplete
 				}
 				
 				try {
 					heartBeatLock.acquire();
+					if (DEBUG && logger.isDebugEnabled()) {
+			              logger.debug("\n Acquire heartBeatLock");
+			        }
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					//if the lock is interrupted then exit the thread
@@ -2192,9 +2237,9 @@ if(DEBUG && logger.isDebugEnabled())
 									machineStatusMap.get(machine).setDaemonStatus("Disconnected");
 									
 									ioe.printStackTrace();
-									System.out.println("daemon <+" + machine + "+ has been down! So Restart");
+									System.out.println("daemon <" + machine + "> has been down! So Restart");
 									if (DEBUG && logger.isDebugEnabled()) {
-							              logger.debug("daemon <+" + machine + "+ has been down! So Restart");
+							              logger.debug("daemon <" + machine + ">+ has been down! So Restart");
 							        }								
 									
 									
@@ -2203,6 +2248,9 @@ if(DEBUG && logger.isDebugEnabled())
 									} catch (Exception e) {
 										e.printStackTrace();
 										heartBeatLock.signal();
+										if (DEBUG && logger.isDebugEnabled()) {
+								              logger.debug("\n signal heartBeatLock");
+								        }
 										return;
 									}
 									break;
@@ -2220,8 +2268,11 @@ if(DEBUG && logger.isDebugEnabled())
 		
 
 				heartBeatLock.signal();
+				if (DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("\n signal heartBeatLock");
+		        }
 				try {
-					Thread.currentThread().sleep(2000);
+					Thread.currentThread().sleep(HEARTBEAT_INTERVAL);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 					return;
@@ -2292,8 +2343,8 @@ if(DEBUG && logger.isDebugEnabled())
 	     catch(Exception e){
 	     }
 	        
-	    isFinished=true;
-		this.Notify();
+	    //isFinished=true;
+		//this.Notify();
 		
 	}
 	
@@ -2331,21 +2382,28 @@ if(DEBUG && logger.isDebugEnabled())
   	 	String machine = new String(tempArray);
   	 	int status = buf.getInt();
   	 	
-  	 	switch(status){
-  	 		case DAEMON_STATUS_RUNNING:
-  	 			machineStatusMap.get(machine).setDaemonStatus("Running");
-  	 			break;
-  	 			
-  	 		case DAEMON_STATUS_CHECKPOINTING:
-  	 			machineStatusMap.get(machine).setDaemonStatus("Checkpointing");
-  	 			break;
-  	 			
-  	 		case DAEMON_STATUS_RESTARTING:
-  	 			machineStatusMap.get(machine).setDaemonStatus("Restarting");
-  	 			break;
-  	 			
-  	 		default:
-  	 			System.out.println("Status Impossible");
+  	 	try{
+  	 		if(machineStatusMap.get(machine) != null){
+		  	 	switch(status){
+		  	 		case DAEMON_STATUS_RUNNING:
+		  	 			machineStatusMap.get(machine).setDaemonStatus("Running");
+		  	 			break;
+		  	 			
+		  	 		case DAEMON_STATUS_CHECKPOINTING:
+		  	 			machineStatusMap.get(machine).setDaemonStatus("Checkpointing");
+		  	 			break;
+		  	 			
+		  	 		case DAEMON_STATUS_RESTARTING:
+		  	 			machineStatusMap.get(machine).setDaemonStatus("Restarting");
+		  	 			break;
+		  	 			
+		  	 		default:
+		  	 			System.out.println("Status Impossible");
+		  	 	}
+  	 		}
+  	 	}
+  	 	catch(Exception e){
+  	 		e.printStackTrace();
   	 	}
 		
 	}
@@ -2385,40 +2443,41 @@ if(DEBUG && logger.isDebugEnabled())
 					if(isFinished)
 						break;
 					
-					int rank = 0;
-					String machine = rankMachineMap.get(rank);
-					SocketChannel socketChannel = machineChannelMap.get(machine);
-					
-					ByteBuffer buf = ByteBuffer.allocate(12);
-					buf.put("scpv".getBytes());
-					buf.putInt(rank);
-					
-					ContextManager mgr = (ContextManager)SpringContextUtil.getBean("mgr");
-					try {
-						versionNum = mgr.getLatestCompleteVersion(nprocs);
-					} catch (Exception e) {
-						e.printStackTrace();
-						continue;
-					}
+					synchronized (machineChannelMap){
+						int rank = 0;
+						String machine = rankMachineMap.get(rank);
+						SocketChannel socketChannel = machineChannelMap.get(machine);
+						
+						ByteBuffer buf = ByteBuffer.allocate(12);
+						buf.put("scpv".getBytes());
+						buf.putInt(rank);
+						
+						ContextManager mgr = (ContextManager)ServiceLocator.getInstance().getService("mgr");
 				
-					if(versionNum == null)
-						versionNum = 0;
-					else
-						versionNum = versionNum.intValue() + 1 ;
-					
-					buf.putInt(versionNum.intValue());
-					buf.flip();
-					while(buf.hasRemaining()){
-						try{
-							if(socketChannel.write(buf) == -1)
-								throw new ClosedChannelException();
-						}
-						catch(Exception e){
+						try {
+							versionNum = mgr.getLatestCompleteVersion(nprocs);
+						} catch (Exception e) {
 							e.printStackTrace();
-							break;
+							continue;
 						}
-					}
 					
+						if(versionNum == null)
+							versionNum = -1;
+										
+						buf.putInt(versionNum.intValue() + 1);
+						buf.flip();
+						while(buf.hasRemaining()){
+							try{
+								if(socketChannel.write(buf) == -1)
+									throw new ClosedChannelException();
+							}
+							catch(Exception e){
+								e.printStackTrace();
+								break;
+							}
+						}
+					}// end of syn machineChannelMaps
+						
 					synchronized(versionComplete){
 						isVersionCompleteWaiting = true;
 						try {
@@ -2427,15 +2486,19 @@ if(DEBUG && logger.isDebugEnabled())
 					              logger.debug("timer wait end");
 					        }
 						} catch (InterruptedException e) {
+							if (DEBUG && logger.isDebugEnabled()) {
+					              logger.debug("--interupt timer wait--");
+					        }
 							e.printStackTrace();
 							break;
 						}
 						
-					}
-				}				
-				
-				
-				
+					}// end of syn versionComplete
+						
+					
+					
+				}// end of syn finishLock
+	
 			}// end  of wile
 			
 			if (DEBUG && logger.isDebugEnabled()) {
