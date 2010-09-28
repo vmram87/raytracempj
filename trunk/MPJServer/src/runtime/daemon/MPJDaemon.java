@@ -1,5 +1,4 @@
-/*
- The MIT License
+/*The MIT License
 
  Copyright (c) 2005 - 2008
    1. Distributed Systems Group, University of Portsmouth (2005)
@@ -67,7 +66,7 @@ public class MPJDaemon {
   private SocketChannel peerChannel; 
   private BufferedReader reader = null;
   private InputStream outp = null;
-  private int D_SER_PORT = 10000;
+  private int D_SER_PORT = getPortFromWrapper();
   private boolean loop = true;
   private Selector selector = null;
   private volatile boolean selectorAcceptConnect = true;
@@ -94,6 +93,7 @@ public class MPJDaemon {
   private String SYSTEM_LIB_DIR = "user-folder/System_Lib";
   private String BLCR_LIB_DIR = "/home/jqchen/local/lib";
   String configFileName = null ;
+  private long HEARTBEAT_INTERVAL = 5000;
   
   //Vector<SocketChannel> writableChannels = null;
   //Vector<SocketChannel> tempWritableChannels = new Vector<SocketChannel> ();
@@ -173,9 +173,6 @@ public class MPJDaemon {
       D_SER_PORT = new Integer(args[0]).intValue();
 
     }
-    else {
-      throw new MPJRuntimeException("Usage: java MPJDaemon daemonServerPort");
-    }
 
     serverSocketInit();
     Thread selectorThreadStarter = new Thread(selectorThread);
@@ -185,8 +182,6 @@ public class MPJDaemon {
     }
 
     selectorThreadStarter.start();
-    
-    int exit = 0;
 
     while (loop) {
     	
@@ -195,6 +190,7 @@ public class MPJDaemon {
     	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
     	processStartLock = new CustomSemaphore(1);
+    	finishLock = new CustomSemaphore(1);
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
@@ -458,7 +454,7 @@ public class MPJDaemon {
 	          e.printStackTrace() ; 
 	        } 
 	        
-	  	  //when init, and worldprocessTable is not init properly
+	  	  //when init, and worldprocessTable is not init properly, it's should be init to be 0 in selector thread
 	        Thread.currentThread().sleep(1000);
 	        synchronized (worldProcessTable) {
 	      	  if(DEBUG && logger.isDebugEnabled()) { 
@@ -493,8 +489,8 @@ public class MPJDaemon {
 	      
       
       
-      //if process finish before the heartbeat thread start, then check the 
-      //processFinishmap to see if they are normal finish or not, 
+      //if process finish before the heartbeat thread, then check the 
+      //processFinishmap to see whether they are normal finish or not, 
       if(processFinishMap.size() != processes){
     	  isRestarting = true;
     	  //need to be fix latter
@@ -549,6 +545,7 @@ public class MPJDaemon {
 	                    peerChannel.isOpen());
 		}
 	        
+	        //wait for peerChannel is closed.
 	        while(peerChannel.isConnected()){
 	        	/*
 	        	if(DEBUG && logger.isDebugEnabled()) { 
@@ -561,10 +558,8 @@ public class MPJDaemon {
 	            if(DEBUG && logger.isDebugEnabled()) { 
 	              logger.debug ("Closing it ..."+peerChannel );
 	  	  }
-	            //peerChannel.close();
+	            peerChannel.close();
 	          }
-	        	
-	        peerChannel.close();
 	
 	        if(DEBUG && logger.isDebugEnabled()) { 
 	          logger.debug("Was already closed, or i closed it");
@@ -885,7 +880,7 @@ private void restoreVariables() {
       if (channelCollection.size() == processes) {
         channelCollection.notify();
         if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-          logger.debug(" notifying and returning true");
+          logger.debug("notifying and returning true");
         }
         return true;
       }
@@ -897,7 +892,7 @@ private void restoreVariables() {
     }
     peerChannel = null;
     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-      logger.debug(" returning false");
+      logger.debug("returning false when the processChannels are still all complete");
     }
     return false;
   }
@@ -989,7 +984,7 @@ private void restoreVariables() {
     	            	  }
                 	}
                     
-                    doAccept(keyChannel, tempProcessChannels);
+                    doAccept(keyChannel, processChannels);
                 }
                     
               
@@ -1347,13 +1342,17 @@ private void restoreVariables() {
 
               } 
               else if (read.equals("kill")) {
-            	  
-            	  processStartLock.acquire();
-            	  finishLock.acquire();            	  
+            	  try{
+            		  processStartLock.acquire();
+            		  finishLock.acquire();
+            	  }catch (InterruptedException e1){
+            		  e1.printStackTrace();
+            	  } 	   	  
+          	  
             	  isRestarting = true;
             	  checkpointingProcessTable.clear();
             	  synchronized (startLock) {
-            		//unnomal terminate 
+            		//innormal terminate 
 					startLock.notify();
             	  }
             	  if(renewThreadStarter != null && (renewThreadStarter.getState() == Thread.State.BLOCKED
@@ -1363,39 +1362,18 @@ private void restoreVariables() {
                 if(DEBUG && logger.isDebugEnabled()) { 
                   logger.debug ("processing kill event");
 		}
-                //MPJProcessPrintStream.stop();
-                if(DEBUG && logger.isDebugEnabled()) { 
-                  logger.debug ("Stopping the output In kill event");
-		}
-
-                try {
-                  if(DEBUG && logger.isDebugEnabled()) { 
-                    logger.debug ("peerChannel is closed or what ?" +
-                                peerChannel.isOpen());
-		  }
-
-                  if (peerChannel.isOpen()) {
-                    if(DEBUG && logger.isDebugEnabled()) { 
-                      logger.debug ("Closing it ...");
-		    }
-                    //peerChannel.close();
-                  }
-                }
-                catch (Exception e) {}
 
                   if(DEBUG && logger.isDebugEnabled()) { 
                     logger.debug ("Killling the process");
 		  }
                 try {
-                  synchronized (MPJDaemon.this) {
-                    if (p != null) {
+                    if (kill_signal == false) {
                       synchronized (p) {
 
                         for(int i=0 ; i<processes ; i++) 
                          p[i].destroy() ;                         
                       }
                     }
-                  }
                 }
                 catch (Exception e) {e.printStackTrace(); } 
 //no matter what happens, we cant let this thread
@@ -1489,11 +1467,11 @@ private void restoreVariables() {
             logger.debug("renew thread start");
           }
 				
-			 synchronized (tempProcessChannels) {
+			 synchronized (processChannels) {
 
-		      if (tempProcessChannels.size() != processes) {
+		      if (processChannels.size() != processes) {
 		        try {
-		        	tempProcessChannels.wait();
+		        	processChannels.wait();
 		        }
 		        catch (Exception e) {
 		        	e.printStackTrace();
@@ -1506,28 +1484,11 @@ private void restoreVariables() {
 		      }
 
 		    } //end sync.
-			 for(int i=0;i < processChannels.size();i++){
-				try {
-					processChannels.get(i).close();
-				} catch (IOException e) {
-					e.printStackTrace();
-					initializing = false;
-		        	initLock.signal();
-		        	heartBeatBeginLock.signal();
-		        	return;
-				}
-			 }
 			 
-			 processChannels.clear();
-			 processChannels = tempProcessChannels;
 		    
 			 if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("processChannels renewed, processes:" + processes);
 	            }
-
-		   
-		    
-			tempProcessChannels =  new Vector<SocketChannel> ();
 		        
 		    /*
 		     * At this point, all-to-all connectivity has been acheived.
@@ -1717,6 +1678,7 @@ private void restoreVariables() {
 				initLock.acquire();
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
+				return;
 			}
 			
 			if (DEBUG && logger.isDebugEnabled()) {
@@ -1753,7 +1715,8 @@ private void restoreVariables() {
 			synchronized(worldProcessTable){
 				worldProcessTable.remove(ruid);
 				processValidMap.put(ruid, false);
-				checkpointingProcessTable.remove(ruid);
+				//note needed here
+				//checkpointingProcessTable.remove(ruid);
 				processFinishMap.put(ruid, true);
 			}
 			
@@ -1798,11 +1761,27 @@ private void restoreVariables() {
 		//while in the channel and table initial period, can't send ack
 		  	try {
 				initLock.acquire();
-				heartBeatLock.acquire();
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
+				if (DEBUG && logger.isDebugEnabled()) {
+		            logger.debug("Interrupted whne acquire initLock, return");
+		        }
 				return;
 			}
+			
+			//we should seperated acquire the lock.
+			try{
+				heartBeatLock.acquire();
+			}
+			catch (InterruptedException e2){
+				initLock.signal();
+				e2.printStackTrace();
+				if (DEBUG && logger.isDebugEnabled()) {
+		            logger.debug("Interrupted when acqure heartBeatLock, return");
+		        }
+				return;
+			}
+			
 			
 			long lsb, msb, versionNum;
 			ByteBuffer uuidBuffer = ByteBuffer.allocate(20);
@@ -1923,9 +1902,16 @@ private void restoreVariables() {
 			while(!isFinished){
 				try {
 					heartBeatLock.acquire();
+				} catch (InterruptedException e1) {
+					e1.printStackTrace();
+					//if the lock is interrupted then exit the thread
+					return;
+				}
+				try {
 					processStartLock.acquire();
-				} catch (InterruptedException e) {
-					e.printStackTrace();
+				} catch (InterruptedException e2) {
+					heartBeatLock.signal();
+					e2.printStackTrace();
 					//if the lock is interrupted then exit the thread
 					return;
 				}
@@ -1985,16 +1971,16 @@ private void restoreVariables() {
 												ioe.printStackTrace();
 												System.out.println("You should ensure the MPJRun host is running!");
 												if (DEBUG && logger.isDebugEnabled()) {
-										              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
+										              logger.debug("MPJRun host sockect close, this should not happen!");
 										        }
 												
-												heartBeatLock.signal();		
-												processStartLock.signal();
-												return;
+												//heartBeatLock.signal();		
+												//processStartLock.signal();
+												break;
 											}
-										}
-									}
-								}
+										} // end of while
+									} //end of if hasSendRequest == false
+								}// end of syn sendRestartRequestLock
 								
 								isRestarting = true;
 								checkpointingProcessTable.clear();
@@ -2045,13 +2031,13 @@ private void restoreVariables() {
 											              logger.debug("MPJRun host sockect close, exit heartbeat thread!");
 											        }
 													
-													heartBeatLock.signal();
-													processStartLock.signal();
-													return;
+													//heartBeatLock.signal();
+													//processStartLock.signal();
+													break;
 												}
-											}
-										}
-									}
+											}// end while
+										}//end if hasSendRequest == false
+									}// end syn sendRestartRequestLock
 									
 									isRestarting = true;
 									checkpointingProcessTable.clear();
@@ -2063,15 +2049,15 @@ private void restoreVariables() {
 									return;
 									
 									
-								}
+								}// end if t == MAX_CHECKPOINT_INVALID_TIME
 								else{
 									checkpointingProcessTable.put(ruid, t);
 								}
 									
-							}
+							}// end if worldProcessTable.get(ruid) == null
 						}//end checkpointingProcessTable iterator
 						
-					}//end syn
+					}//end syn worldProcessTable
 					
 					
 				}//end of if kill_signal == false
@@ -2080,7 +2066,7 @@ private void restoreVariables() {
 				heartBeatLock.signal();
 				processStartLock.signal();
 				try {
-					Thread.currentThread().sleep(5000);
+					Thread.currentThread().sleep(HEARTBEAT_INTERVAL);
 				} catch (InterruptedException e) {
 					e.printStackTrace();
 				}
@@ -2118,7 +2104,40 @@ private void restoreVariables() {
         outBuff.close();
         output.close();
         input.close();
-    } 
+    }
+	
+	private static int getPortFromWrapper() {
+
+	    int port = 0;
+	    FileInputStream in = null;
+	    DataInputStream din = null;
+	    BufferedReader reader = null;
+	    String line = "";
+
+	    try {
+
+	      String path = System.getenv("MPJ_HOME")+"/conf/wrapper.conf";
+	      in = new FileInputStream(path);
+	      din = new DataInputStream(in);
+	      reader = new BufferedReader(new InputStreamReader(din));
+
+	      while ((line = reader.readLine()) != null)   {
+	        if(line.startsWith("wrapper.app.parameter.2")) {
+	          String trimmedLine=line.replaceAll("\\s+", "");
+	          port = Integer.parseInt(trimmedLine.substring(24));
+	          break;
+	        }
+	      }
+
+	      in.close();
+
+	    } catch (Exception e) {
+	      e.printStackTrace();
+	    }
+
+	    return port;
+
+	  }
 }
 
 class OutputHandler extends Thread { 
