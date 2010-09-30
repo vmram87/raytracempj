@@ -1172,12 +1172,17 @@ public class MPJRun {
 						k++;
 					}
 					
-					if(k >= contextList.size()){
+					if(contextList.size() > 0 && k >= contextList.size()){
 						//it is a problem should be considered in a large system
 						throw new MPJRuntimeException("Some process can't be assign the some machine, because the same process ID can't be coordinated!");
 					}
 				}// end of while
 			}// end of for
+		}
+		
+		if(DEBUG && logger.isDebugEnabled())
+		{
+			logger.debug("Finish init machnineProcessMap: " + machnineProcessMap);
 		}
 		
 		try{
@@ -1194,6 +1199,11 @@ public class MPJRun {
 	}
 
 	private void assignRestartTaskAndSendCommand() throws Exception {
+		if(DEBUG && logger.isDebugEnabled())
+		{
+			logger.debug("--assignRestartTaskAndSendCommand--");
+		}
+		
 		PrintStream cout = null;
 	    int rank = 0;
 	    String name = null;
