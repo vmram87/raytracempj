@@ -647,12 +647,10 @@ public class NIODevice
   
   private int versionNum = 0;
   private boolean isCheckpointing = false;
-  private boolean startCheckpoint = false;
   private String[] args = null;
   CustomSemaphore cLockRendezSend = new CustomSemaphore(1);
   CustomSemaphore cLockUserSend = new CustomSemaphore(1);
   CustomSemaphore cLockSelector = new CustomSemaphore(1);
-  CustomSemaphore markerLock = new CustomSemaphore(1);
   boolean recvDeamonCheckpointAck = false;
   boolean recvMarkerAck = false;
   boolean recvDaemonFinishAck = false;
@@ -1524,16 +1522,18 @@ public class NIODevice
 
 		      initMsgBuffer.flip();
 		      /* send the the writable checkpoint channel */
-		      while (initMsgBuffer.hasRemaining()) {
-		        try {
-		          if (writableCheckpointServer.write(initMsgBuffer) == -1) {
-		            throw new XDevException(new ClosedChannelException());
-		          }
-		        }
-		        catch (Exception e) {
-		          throw new XDevException(e);
-		        }
-		      } //end while.
+		      synchronized(writableCheckpointServer){
+			      while (initMsgBuffer.hasRemaining()) {
+			        try {
+			          if (writableCheckpointServer.write(initMsgBuffer) == -1) {
+			            throw new XDevException(new ClosedChannelException());
+			          }
+			        }
+			        catch (Exception e) {
+			          throw new XDevException(e);
+			        }
+			      } //end while.
+		      }
 		      
 		      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
 	 		      logger.debug("send checkpoint reconnect to writable checkpoint server ");
@@ -1573,21 +1573,23 @@ public class NIODevice
 		  	  
 	    	  initMsgBuffer.flip();
 		      
-		      while (initMsgBuffer.hasRemaining()) {
-		        try {
-		          if (daemonChannel.write(initMsgBuffer) == -1) {
-		            throw new XDevException(new ClosedChannelException());
-		          }
-		        }
-		        catch (Exception e) {
-		          throw new XDevException(e);
-		        }
-		      } //end while.
-		      
-		      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	 		      logger.debug("send process init info to daemon ");
-		      }
-	      }
+	    	  synchronized(daemonChannel){
+			      while (initMsgBuffer.hasRemaining()) {
+			        try {
+			          if (daemonChannel.write(initMsgBuffer) == -1) {
+			            throw new XDevException(new ClosedChannelException());
+			          }
+			        }
+			        catch (Exception e) {
+			          throw new XDevException(e);
+			        }
+			      } //end while.
+			      
+			      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		 		      logger.debug("send process init info to daemon ");
+			      }
+	    	  }
+	      }// end if(hasDaemon == true)
 	    
 
 	    if(isCheckpointing == false)
@@ -2656,7 +2658,7 @@ public class NIODevice
         logger.debug("shutdownHook thread");
         try {
           selector.wakeup();
-          selectorFlag = false;
+          //selectorFlag = false;
           try {
             //serverChannel.close();
             SocketChannel peerChannel = null;
@@ -2696,13 +2698,13 @@ public class NIODevice
 			e.printStackTrace();
 		}
 		
-		if(selectorFlag == false)
-			realFinish();
+		//if(selectorFlag == false)
+			//realFinish();
 	}
 
   private void realFinish() throws XDevException {
   
-    selectorFlag = false;
+    //selectorFlag = false;
 
     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
       logger.debug("---finish---");
@@ -2810,19 +2812,21 @@ public class NIODevice
 	    
 	    //send exit request to the checkpoint server
 	    exitBuffer.flip();
-	    while(exitBuffer.hasRemaining()){
-	    	try{
-	    		if(writableCheckpointServer.write(exitBuffer) == -1){
-	    			throw new ClosedChannelException();
-	    		}
-	    	}
-	    	catch(IOException e){
-	    		e.printStackTrace();
-	    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	    		      logger.debug("Checkpoint close the channel, you should ensure the checkpoint server is running");
-	    		}
-	    		break;
-	    	}
+	    synchronized(writableCheckpointServer){
+		    while(exitBuffer.hasRemaining()){
+		    	try{
+		    		if(writableCheckpointServer.write(exitBuffer) == -1){
+		    			throw new ClosedChannelException();
+		    		}
+		    	}
+		    	catch(IOException e){
+		    		e.printStackTrace();
+		    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		    		      logger.debug("Checkpoint close the channel, you should ensure the checkpoint server is running");
+		    		}
+		    		break;
+		    	}
+		    }
 	    }
 	    
 	    
@@ -2834,19 +2838,21 @@ public class NIODevice
 	    exitBuffer.putLong(id.uuid().getLeastSignificantBits());
 	    exitBuffer.flip();
 	
-	    while(exitBuffer.hasRemaining()){
-	    	try{
-	    		if(daemonChannel.write(exitBuffer) == -1){
-	    			throw new ClosedChannelException();
-	    		}
-	    	}
-	    	catch(IOException e){
-	    		e.printStackTrace();
-	    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-	    		      logger.debug("daemon close the channel, you should ensure the daemon is running");
-	    		}
-	    		break;
-	    	}
+	    synchronized(daemonChannel){
+		    while(exitBuffer.hasRemaining()){
+		    	try{
+		    		if(daemonChannel.write(exitBuffer) == -1){
+		    			throw new ClosedChannelException();
+		    		}
+		    	}
+		    	catch(IOException e){
+		    		e.printStackTrace();
+		    		if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		    		      logger.debug("daemon close the channel, you should ensure the daemon is running");
+		    		}
+		    		break;
+		    	}
+		    }
 	    }
 	    
 	    synchronized (selectorFinishLock) {
@@ -2868,7 +2874,7 @@ public class NIODevice
     
     
     
-    selectorFlag = false;
+    //selectorFlag = false;
 
     //do this fanning bit ..
     int offset = 0;
@@ -2926,9 +2932,9 @@ public class NIODevice
       send(sbuf, pids[procTree.parent], btag, context);
     }
 
-    if (procTree.isRoot) {
+    //if (procTree.isRoot) {
       realFinish();
-    }
+    //}
 
     synchronized (finishLock) {
 
@@ -3036,7 +3042,7 @@ public class NIODevice
    * 
    */
   public void checkpoint() throws XDevException{
-  		startCheckpoint = true;
+  		doStartCheckpointWave();
   }
   
   /*
@@ -3073,11 +3079,7 @@ public class NIODevice
 	    
 	    
 	    
-	    try {
-			markerLock.acquire();
-		} catch (InterruptedException e1) {
-			e1.printStackTrace();
-		}
+	    
 		if(rank != this.rank)
 			markerMap.put(new Integer(rank), new Integer(versionNum));
 	    
@@ -3086,26 +3088,11 @@ public class NIODevice
 	    	//and not change during the checkpoint period 
 	    	versionNum = cMsgBuffer.getInt(); 
 	    	
-	    	try {
-	    		System.out.println("acquire the checkpoint lock");
-				cLockRendezSend.acquire();
-				cLockUserSend.acquire();
-			} catch (InterruptedException e) {
-				e.printStackTrace();
-				System.out.println("Can't acquire the checkpoint lock! Exit");
-				System.exit(1);
-			}
-			
-			isCheckpointing = true;
-			
-			sendMarkers();	  
-			System.out.println("Sending markers");
+	    	doStartCheckpointWave();	
 	    }
 	    
 
 	    //receive all markers from others, begin checkpoint
-	    
-	    markerLock.signal();
 
 	}
   
@@ -3133,16 +3120,18 @@ public class NIODevice
       cMsgBuffer.flip();
 
 	  /* send marker to the checkpoint server */
-	  while (cMsgBuffer.hasRemaining()) {
-	    try {
-	      if (writableCheckpointServer.write(cMsgBuffer) == -1) {
-	        throw new XDevException(new ClosedChannelException());
-	      }
-	    }
-	    catch (Exception e) {
-	      throw new XDevException(e);
-	    }
-	  } //end while.
+      synchronized (writableCheckpointServer){
+		  while (cMsgBuffer.hasRemaining()) {
+		    try {
+		      if (writableCheckpointServer.write(cMsgBuffer) == -1) {
+		        throw new XDevException(new ClosedChannelException());
+		      }
+		    }
+		    catch (Exception e) {
+		      throw new XDevException(e);
+		    }
+		  } //end while.
+      }
 	  
 	  cMsgBuffer.position(0);
 	  cMsgBuffer.put("che-".getBytes());
@@ -3153,16 +3142,18 @@ public class NIODevice
 	  cMsgBuffer.flip();
 
 	  /* send marker to the daemon*/
-	  while (cMsgBuffer.hasRemaining()) {
-	    try {
-	      if (daemonChannel.write(cMsgBuffer) == -1) {
-	        throw new XDevException(new ClosedChannelException());
-	      }
-	    }
-	    catch (Exception e) {
-	      throw new XDevException(e);
-	    }
-	  } //end while.
+	  synchronized (daemonChannel){
+		  while (cMsgBuffer.hasRemaining()) {
+		    try {
+		      if (daemonChannel.write(cMsgBuffer) == -1) {
+		        throw new XDevException(new ClosedChannelException());
+		      }
+		    }
+		    catch (Exception e) {
+		      throw new XDevException(e);
+		    }
+		  } //end while.
+	  }
 
     
   }
@@ -4047,23 +4038,6 @@ public class NIODevice
           readyItor = readyKeys.iterator();
 
           while (readyItor.hasNext()) {
-        	if(startCheckpoint){  
-        		System.out.println("before checkpoint!");
-	        	try {
-	    	  		cLockRendezSend.acquire();
-	    	  		cLockUserSend.acquire();
-	    		} catch (InterruptedException e) {
-	    			throw new XDevException(e);
-	    		}
-	    		
-	    		startCheckpoint = false;
-	    		isCheckpointing = true;    		
-	    		
-	    		sendMarkers();
-	    		
-	    		System.out.println("send the markers to others!");
-	    		
-        	}
 
             key = readyItor.next();
             readyItor.remove();
@@ -4342,8 +4316,7 @@ public class NIODevice
                               worldWritableTable);
                 	  
                 	  System.out.println("out checkpoint");
-                	  
-                	  markerLock.acquire();
+
                 	  
                 	  if(markerMap.size() == (nprocs - 1) && recvMarkerAck == true  && recvDeamonCheckpointAck == true){
                 		  
@@ -4356,6 +4329,7 @@ public class NIODevice
               	    		cLockRendezSend.signal();
               	    		markerMap.clear();              	    		            	    		
 	              	    	recvMarkerAck = false;
+	              	    	recvDeamonCheckpointAck = false;
 	              	    	isFinished = true;
 	              	    	System.out.println("checkpoint finished");  
 	              	    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
@@ -4363,15 +4337,12 @@ public class NIODevice
 	                            
 	                        }
 	              	    	
-	              	    	markerLock.signal();
 	              	    	return;
                 	  }
                 	  
-                	  markerLock.signal();
                 	  break;
                 	  
                   case MARKER_ACK:
-                	  markerLock.acquire();
                 	  
                 	  recvMarkerAck = true;
                 	  System.out.println("receive marker ack from checkpoint server");                	  
@@ -4393,15 +4364,12 @@ public class NIODevice
 	                            
 	                        }
 	              	    	
-	              	    	markerLock.signal();
 	              	    	return;
                 	  }
-                	  markerLock.signal();
                 	  
                 	  break;
                 
                   case DAEMON_MARKER_ACK:
-                	  markerLock.acquire();
             	  
                 	  recvDeamonCheckpointAck = true;
 	            	  System.out.println("receive marker ack from daemon");                	  
@@ -4423,10 +4391,8 @@ public class NIODevice
 	                            
 	                        }
 	              	    	
-	              	    	markerLock.signal();
 	              	    	return;
 	            	  }
-	            	  markerLock.signal();
 	            	  
                 	  break;
                   
@@ -4468,7 +4434,6 @@ public class NIODevice
                 
                   case START_CHECKPOINT_WAVE:
                 	  //not synchronized, need improve
-                	  startCheckpoint = true;
                 	  ByteBuffer verBuffer = ByteBuffer.allocate(4);
 	              		while (verBuffer.hasRemaining()) {
 	              	      try {
@@ -4483,6 +4448,8 @@ public class NIODevice
 	              	    }
 	              		verBuffer.position(0);
 	              		versionNum = verBuffer.getInt();
+	              		
+	              		doStartCheckpointWave();
                 	  break;
 
                   case END_OF_STREAM:
@@ -4732,7 +4699,24 @@ public class NIODevice
 
   
   
-  private String pId = null;
+  public synchronized void doStartCheckpointWave() {
+	
+	  System.out.println("before checkpoint!");
+	  	try {
+	  		cLockRendezSend.acquire();
+	  		cLockUserSend.acquire();
+		} catch (InterruptedException e) {
+			throw new XDevException(e);
+		}
+		
+		isCheckpointing = true;    		
+		
+		sendMarkers();
+		
+		System.out.println("after send the markers to checkpoint server and daemon!");
+}
+
+private String pId = null;
 	private String userName = null;
   // src directory
   static String tempSrcFilePath = null;
@@ -4808,8 +4792,6 @@ public class NIODevice
 			e.printStackTrace();
 		}
 
-		//processContinue();
-		System.out.println("checkpoint wait end!");
 		
 	}
 	
