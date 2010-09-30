@@ -4764,10 +4764,15 @@ private String pId = null;
 		
 		try {
 			//selector and writableChannels involes open file so have to close them before checkpiont
-			for(int i=0;i<readableChannels.size();i++)
-				readableChannels.get(i).close();
-			for(int i=0;i<writableChannels.size();i++)
-				writableChannels.get(i).close();
+			for(int i=0;i<readableChannels.size();i++){
+				if(readableChannels.get(i).isOpen())
+					readableChannels.get(i).close();
+			}
+			for(int i=0;i<writableChannels.size();i++){
+				if(writableChannels.get(i).isOpen())
+					writableChannels.get(i).close();
+			}
+				
 			writableChannels.clear();
 			readableChannels.clear();
 			daemonChannel.close();
