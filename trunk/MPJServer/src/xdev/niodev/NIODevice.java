@@ -68,6 +68,7 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.UUID;
@@ -1599,7 +1600,18 @@ public class NIODevice
 		    	writeLockTable.put(pids[k].uuid(),
 		                         new CustomSemaphore(1));
 		    }
-	    
+	    else{
+	    	//when it is in restarting phase, signal every Lock, beccause in the checkpoint preprocessing, 
+	    	//the every lock have been acquire.
+	    	Iterator it = writeLockTable.entrySet().iterator();
+	    	CustomSemaphore s = null;
+	    	
+	    	while(it.hasNext()){
+				Entry entry = (Entry)it.next();
+				s = (CustomSemaphore)entry.getValue();
+				s.signal();
+	    	}
+	    }
    	
 
 	    try {
@@ -1809,13 +1821,7 @@ public class NIODevice
     NIOSendRequest req = new NIOSendRequest(tag, id(), dstID, buf, context,
                                             STD_COMM_MODE,
                                             sendCounter());
-    //acquire the checkpiont lock
-    
-    try {
-		cLockUserSend.acquire();
-	} catch (InterruptedException e1) {
-		e1.printStackTrace();
-	}
+
 
     SocketChannel channel = worldWritableTable.get(dstUUID);
 
@@ -1837,7 +1843,6 @@ public class NIODevice
         wLock.acquire();
         eagerSend(req, channel);
         wLock.signal();
-        cLockUserSend.signal();
         //completedList.add( req ); 
         req.notifyMe();
       }
@@ -1867,7 +1872,6 @@ public class NIODevice
         wLock.acquire();
         rendezCtrlMsgSend(req, channel);
         wLock.signal();
-        cLockUserSend.signal();
       }
       catch (Exception e) {
         throw new XDevException(e);
@@ -1986,13 +1990,6 @@ public class NIODevice
       logger.debug("Rendezous(isend), calling rendezCtrlMsgSend");
     }
 
-    //acquire checkpoint lock
-    
-    try {
-		cLockUserSend.acquire();
-	} catch (InterruptedException e1) {
-		e1.printStackTrace();
-	}
 	
     channel = worldWritableTable.get(dstUUID);
 
@@ -2012,7 +2009,6 @@ public class NIODevice
       wLock.acquire();
       rendezCtrlMsgSend(req, channel);
       wLock.signal();
-      cLockUserSend.signal();
     }
     catch (Exception e) {
       throw new XDevException(e);
@@ -2587,13 +2583,6 @@ public class NIODevice
 
         request.buffer = buf;
         
-        //acquire checkpoint lock
-        
-        try {
-			cLockUserSend.acquire();
-		} catch (InterruptedException e1) {
-			e1.printStackTrace();
-		}
         
         SocketChannel tc = worldReadableTable.get(request.srcUUID);
         SocketChannel c = worldWritableTable.get(request.srcUUID);
@@ -2609,7 +2598,6 @@ public class NIODevice
 	
         rendezCtrlMsgR2S(c, request);
         wLock.signal();
-        cLockUserSend.signal();
         
         return request;
 
@@ -3080,8 +3068,18 @@ public class NIODevice
 	    
 	    
 	    
-		if(rank != this.rank)
+		if(rank != this.rank){
 			markerMap.put(new Integer(rank), new Integer(versionNum));
+			
+			CustomSemaphore wLock = writeLockTable.get(ruid);
+
+		      try {
+		        wLock.acquire();
+		      }
+		      catch (Exception e) {
+		        throw new XDevException(e);
+		      }
+		}
 	    
 	    if(isCheckpointing == false){
 	    	//the version number will only be set for the first time, 
@@ -4326,7 +4324,6 @@ public class NIODevice
               	    		processContinue();
               	    	
               	    		cLockUserSend.signal();
-              	    		cLockRendezSend.signal();
               	    		markerMap.clear();              	    		            	    		
 	              	    	recvMarkerAck = false;
 	              	    	recvDeamonCheckpointAck = false;
@@ -4353,7 +4350,6 @@ public class NIODevice
                 		    checkpoint(contextSrcFilePath, new Integer(versionNum).toString());	
                 		  	processContinue();
 	              	    	cLockUserSend.signal();
-	              	    	cLockRendezSend.signal();
 	              	    	recvMarkerAck = false;
 	              	    	recvDeamonCheckpointAck = false;
 	              	    	isFinished = true;
@@ -4380,7 +4376,6 @@ public class NIODevice
 	            		    checkpoint(contextSrcFilePath, new Integer(versionNum).toString());	
 	            		  	processContinue();
 	              	    	cLockUserSend.signal();
-	              	    	cLockRendezSend.signal();
 	              	    	recvMarkerAck = false;
 	              	    	recvDeamonCheckpointAck = false;
 	              	    	isFinished = true;
@@ -4601,8 +4596,7 @@ public class NIODevice
           logger.debug("tag " + tag);
         }
 
-        //acquire the checkpoint lock
-        cLockRendezSend.acquire();
+     
         
         SocketChannel ch = worldWritableTable.get(sendRequest.dstUUID);
         CustomSemaphore wLock = writeLockTable.get(sendRequest.dstUUID);
@@ -4636,7 +4630,6 @@ public class NIODevice
         }
 
         wLock.signal();
-        cLockRendezSend.signal();
       }
       catch (Exception e) {
         e.printStackTrace();
@@ -4702,11 +4695,11 @@ public class NIODevice
   public synchronized void doStartCheckpointWave() {
 	
 	  System.out.println("before checkpoint!");
+		
 	  	try {
-	  		cLockRendezSend.acquire();
-	  		cLockUserSend.acquire();
+			cLockUserSend.acquire();
 		} catch (InterruptedException e) {
-			throw new XDevException(e);
+			e.printStackTrace();
 		}
 		
 		isCheckpointing = true;    		
