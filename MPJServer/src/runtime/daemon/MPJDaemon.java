@@ -115,6 +115,7 @@ public class MPJDaemon {
   private boolean initializing = false;
   private boolean isFinished = false;
   private boolean isRestarting = false;
+  private boolean isExit = false;
   private CustomSemaphore initLock = new CustomSemaphore(1); 
   private CustomSemaphore finishLock = new CustomSemaphore(1); 
   private CustomSemaphore heartBeatLock = new CustomSemaphore(1); 
@@ -229,7 +230,7 @@ public class MPJDaemon {
       pids = new UUID[nprocs];
       
       processStartLock.acquire();
-      if(kill_signal == false){
+      if(kill_signal == false && isExit == false){
 	      try{
 	    	  
 		      for (int j = 0; j < processes; j++) {
@@ -1354,6 +1355,7 @@ private void restoreVariables() {
                   String object = new String(lilArray);
                   if(object.equals("rest")){
                 	  isRestarting = true;
+                	  isExit = false;
                 	  if(DEBUG && logger.isDebugEnabled()) { 
                           logger.debug ("Receive killrest");
                 	  }
@@ -1363,6 +1365,7 @@ private void restoreVariables() {
                           logger.debug ("Receive killexit");
                 	  }
                 	  isRestarting = false;
+                	  isExit = true;
                   }
                   
             	  
