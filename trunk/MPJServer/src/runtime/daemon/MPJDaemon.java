@@ -186,8 +186,6 @@ public class MPJDaemon {
 
     while (loop) {
     	
-    	isRestarting = false;
-    	kill_signal = false;
     	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
     	processStartLock = new CustomSemaphore(1);
@@ -230,7 +228,7 @@ public class MPJDaemon {
       pids = new UUID[nprocs];
       
       processStartLock.acquire();
-      if(kill_signal == false && isExit == false){
+      if(isExit == false){
 	      try{
 	    	  
 		      for (int j = 0; j < processes; j++) {
@@ -472,9 +470,13 @@ public class MPJDaemon {
 	      			  isFinished = true;
 	      			  sendRestartReqestToMainHost();
 	      		  }
+	      		  else{
+	      			  kill_signal = false;
+	      			  isRestarting = false;
+	      		  }
 	      	  }
 	        }
-      }//end of it kill_signal == false
+      }//end of it isExit == false
       processStartLock.signal(); 
 		          
 		
@@ -529,9 +531,6 @@ public class MPJDaemon {
     	  e.printStackTrace();
       }
       kill_signal = true;
-      processStartLock.signal();
-      
-      
       
       if(isRestarting == false){
 
@@ -545,14 +544,7 @@ public class MPJDaemon {
 	                    peerChannel.isOpen());
 		}
 	        
-	        if (peerChannel.isOpen()) {
-	            if(DEBUG && logger.isDebugEnabled()) { 
-	              logger.debug ("Closing it ..."+peerChannel );
-	  	  }
-	            peerChannel.close();
-	          }
-	        
-	        //wait for peerChannel is closed.
+	      //wait for peerChannel is closed, because above have sent exit to MPJRun, The connection is closed by the MPJRun.
 	        while(peerChannel.isConnected()){
 	        	/*
 	        	if(DEBUG && logger.isDebugEnabled()) { 
@@ -560,6 +552,15 @@ public class MPJDaemon {
 	        	}
 	        	*/
 	        }
+	        
+	        //should be closed, if not close it for safe.
+	        if (peerChannel.isOpen()) {
+	            if(DEBUG && logger.isDebugEnabled()) { 
+	              logger.debug ("Closing it ..."+peerChannel );
+	  	  }
+	            peerChannel.close();
+	          }	        
+	        
 	        
 	
 	        if(DEBUG && logger.isDebugEnabled()) { 
@@ -572,6 +573,8 @@ public class MPJDaemon {
 	      }
 	      
       }// if isRestarting == false
+      
+      processStartLock.signal();
       
       restoreVariables() ;      
 
@@ -1353,11 +1356,18 @@ private void restoreVariables() {
           	  
             	  lilBuffer.get(lilArray, 0, 4);
                   String object = new String(lilArray);
-                  if(object.equals("rest")){
-                	  isRestarting = true;
-                	  isExit = false;
+                  if(object.equals("rest")){             	  
                 	  if(DEBUG && logger.isDebugEnabled()) { 
                           logger.debug ("Receive killrest");
+                	  }
+                	  if(isRestarting == true){
+                		  processStartLock.signal();
+                		  finishLock.signal();
+                		  continue;
+                	  }
+                	  else{
+	                	  isRestarting = true;
+	                	  isExit = false;
                 	  }
                   }
                   else{
