@@ -190,7 +190,6 @@ public class MPJDaemon {
     	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
     	processStartLock = new CustomSemaphore(1);
-    	finishLock = new CustomSemaphore(1);
     	
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug ("MPJDaemon is waiting to accept connections ... ");
@@ -492,7 +491,7 @@ public class MPJDaemon {
       //if process finish before the heartbeat thread, then check the 
       //processFinishmap to see whether they are normal finish or not, 
       if(processFinishMap.size() != processes){
-    	  isRestarting = true;
+    	  //isRestarting = true;
     	  //need to be fix latter
     	  //sendRestartReqestToMainHost();
       }
@@ -545,6 +544,13 @@ public class MPJDaemon {
 	                    peerChannel.isOpen());
 		}
 	        
+	        if (peerChannel.isOpen()) {
+	            if(DEBUG && logger.isDebugEnabled()) { 
+	              logger.debug ("Closing it ..."+peerChannel );
+	  	  }
+	            peerChannel.close();
+	          }
+	        
 	        //wait for peerChannel is closed.
 	        while(peerChannel.isConnected()){
 	        	/*
@@ -554,12 +560,6 @@ public class MPJDaemon {
 	        	*/
 	        }
 	        
-	        if (peerChannel.isOpen()) {
-	            if(DEBUG && logger.isDebugEnabled()) { 
-	              logger.debug ("Closing it ..."+peerChannel );
-	  	  }
-	            peerChannel.close();
-	          }
 	
 	        if(DEBUG && logger.isDebugEnabled()) { 
 	          logger.debug("Was already closed, or i closed it");
@@ -570,18 +570,15 @@ public class MPJDaemon {
 	        //continue;
 	      }
 	      
-	      restoreVariables() ; 
       }// if isRestarting == false
-      else{
-    	  restoreVariables() ; 
-    	  finishLock.signal();
-      }
-
       
+      restoreVariables() ;      
 
       if(DEBUG && logger.isDebugEnabled()) { 
         logger.debug("\n\n ** .. execution ends .. ** \n\n");
       }
+      
+      finishLock.signal();
 
     } //end while(loop)
   }
@@ -616,6 +613,10 @@ public class MPJDaemon {
 					break;
 				}
 			}
+			
+			if(DEBUG && logger.isDebugEnabled()) { 
+				  logger.debug("Finish send request restart to MPJRun"); 
+		    }
 		}
 	}
 	  
@@ -1349,7 +1350,22 @@ private void restoreVariables() {
             		  e1.printStackTrace();
             	  } 	   	  
           	  
-            	  isRestarting = true;
+            	  lilBuffer.get(lilArray, 0, 4);
+                  String object = new String(lilArray);
+                  if(object.equals("rest")){
+                	  isRestarting = true;
+                	  if(DEBUG && logger.isDebugEnabled()) { 
+                          logger.debug ("Receive killrest");
+                	  }
+                  }
+                  else{
+                	  if(DEBUG && logger.isDebugEnabled()) { 
+                          logger.debug ("Receive killexit");
+                	  }
+                	  isRestarting = false;
+                  }
+                  
+            	  
             	  checkpointingProcessTable.clear();
             	  synchronized (startLock) {
             		//innormal terminate 
@@ -1367,13 +1383,13 @@ private void restoreVariables() {
                     logger.debug ("Killling the process");
 		  }
                 try {
-                    if (kill_signal == false) {
-                      synchronized (p) {
-
-                        for(int i=0 ; i<processes ; i++) 
-                         p[i].destroy() ;                         
-                      }
+                    if (kill_signal == false && p != null) {              	
+                        for(int i=0 ; i<processes ; i++) {
+                        	if(p[i] != null)
+                        		p[i].destroy() ;                         
+                        }
                     }
+                    
                 }
                 catch (Exception e) {e.printStackTrace(); } 
 //no matter what happens, we cant let this thread
@@ -1982,7 +1998,6 @@ private void restoreVariables() {
 									} //end of if hasSendRequest == false
 								}// end of syn sendRestartRequestLock
 								
-								isRestarting = true;
 								checkpointingProcessTable.clear();
 								heartBeatLock.signal();
 								processStartLock.signal();
@@ -2039,7 +2054,6 @@ private void restoreVariables() {
 										}//end if hasSendRequest == false
 									}// end syn sendRestartRequestLock
 									
-									isRestarting = true;
 									checkpointingProcessTable.clear();
 									heartBeatLock.signal();
 									processStartLock.signal();
