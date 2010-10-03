@@ -40,8 +40,9 @@ import java.nio.channels.*;
 import java.nio.*;
 import java.net.*;
 import java.io.*;
+import java.sql.Timestamp;
 import java.util.*;
-import java.security.*;
+
 import javax.crypto.*;
 
 import org.apache.log4j.Logger ;
@@ -144,7 +145,7 @@ public class MPJDaemon {
   private int daemonStatus = DAEMON_STATUS_RUNNING;
   private static String machineName = null;
   
-  private final int MAX_CHECKPOINT_INVALID_TIME = 4;
+  private final int MAX_CHECKPOINT_INVALID_TIME = 12;
   private boolean isRestartFromCheckpoint = false;
   private boolean hasSendRequest = false;  
   private static String JAVA_TEMP_FILE_DIRECTORY = "/tmp/hsperfdata_" + System.getProperty("user.name") + "/";
@@ -229,6 +230,8 @@ public class MPJDaemon {
       
       processStartLock.acquire();
       if(isExit == false){
+    	  kill_signal = false;
+    	  isRestarting = false;
 	      try{
 	    	  
 		      for (int j = 0; j < processes; j++) {
@@ -454,30 +457,29 @@ public class MPJDaemon {
 	        
 	  	  //when init, and worldprocessTable is not init properly, it's should be init to be 0 in selector thread
 	        Thread.currentThread().sleep(1000);
-	        synchronized (worldProcessTable) {
-	      	  if(DEBUG && logger.isDebugEnabled()) { 
-	                logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
-	            }
-	      	  if(worldProcessTable.size() != processes){
-	      		  if(DEBUG && logger.isDebugEnabled()) { 
-	                    logger.debug("wait 30s for worldProcessTable"); 
-	                }
-	      		  worldProcessTable.wait(30000);
-	      		  if(DEBUG && logger.isDebugEnabled()) { 
-	                    logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
-	                }
-	      		  if(worldProcessTable.size() != processes ){
-	      			  isFinished = true;
-	      			  sendRestartReqestToMainHost();
-	      		  }
-	      		  else{
-	      			  kill_signal = false;
-	      			  isRestarting = false;
-	      		  }
-	      	  }
-	        }
+	       
       }//end of it isExit == false
       processStartLock.signal(); 
+      
+      synchronized (worldProcessTable) {
+      	  if(DEBUG && logger.isDebugEnabled()) { 
+                logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
+            }
+      	  if(worldProcessTable.size() != processes){
+      		  if(DEBUG && logger.isDebugEnabled()) { 
+                    logger.debug("wait 30s for worldProcessTable, time:" + new Timestamp(System.currentTimeMillis())); 
+                }
+      		  worldProcessTable.wait(1000 * nprocs * 8);
+      		  if(DEBUG && logger.isDebugEnabled()) { 
+      			  	logger.debug("Time:" + new Timestamp(System.currentTimeMillis()));
+                    logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
+                }
+      		  if(worldProcessTable.size() != processes ){
+      			  isFinished = true;
+      			  sendRestartReqestToMainHost();
+      		  }
+      	  }
+        }
 		          
 		
       //Wait for the I/O threads to finish. They finish when 
@@ -493,8 +495,8 @@ public class MPJDaemon {
       
       //if process finish before the heartbeat thread, then check the 
       //processFinishmap to see whether they are normal finish or not, 
-      if(processFinishMap.size() != processes){
-    	  //isRestarting = true;
+      if(processFinishMap.size() == processes){
+    	  //isRestarting = false;
     	  //need to be fix latter
     	  //sendRestartReqestToMainHost();
       }
@@ -583,6 +585,9 @@ public class MPJDaemon {
       }
       
       finishLock.signal();
+      if(DEBUG && logger.isDebugEnabled()) { 
+          logger.debug ("Release finishLock");
+	  }
 
     } //end while(loop)
   }
@@ -1347,9 +1352,11 @@ private void restoreVariables() {
 
               } 
               else if (read.equals("kill")) {
+            	  synchronized(worldProcessTable){
+            		  worldProcessTable.notifyAll();
+            	  }
             	  try{
             		  processStartLock.acquire();
-            		  finishLock.acquire();
             	  }catch (InterruptedException e1){
             		  e1.printStackTrace();
             	  } 	   	  
@@ -1360,15 +1367,21 @@ private void restoreVariables() {
                 	  if(DEBUG && logger.isDebugEnabled()) { 
                           logger.debug ("Receive killrest");
                 	  }
-                	  if(isRestarting == true){
-                		  processStartLock.signal();
-                		  finishLock.signal();
-                		  continue;
+                	  
+                	  if(p!=null && p.length>0){
+                		  try{                			  
+                			  finishLock.acquire();
+                			  if(DEBUG && logger.isDebugEnabled()) { 
+                                  logger.debug ("Acquire finishLock");
+                        	  }
+                		  }
+                		  catch(InterruptedException e2){
+                			  e2.printStackTrace();
+                		  }
                 	  }
-                	  else{
-	                	  isRestarting = true;
-	                	  isExit = false;
-                	  }
+                	  isRestarting = true;
+                	  isExit = false;
+                	  
                   }
                   else{
                 	  if(DEBUG && logger.isDebugEnabled()) { 
@@ -1380,10 +1393,12 @@ private void restoreVariables() {
                   
             	  
             	  checkpointingProcessTable.clear();
-            	  synchronized (startLock) {
-            		//innormal terminate 
-					startLock.notify();
+            	  
+            	  //continue to execute if the startLock is waiting
+            	  synchronized (startLock){
+            		  startLock.notify();
             	  }
+            	  
             	  if(renewThreadStarter != null && (renewThreadStarter.getState() == Thread.State.BLOCKED
             			  || renewThreadStarter.getState() == Thread.State.WAITING))
             		  renewThreadStarter.interrupt();
@@ -1393,7 +1408,7 @@ private void restoreVariables() {
 		}
 
                   if(DEBUG && logger.isDebugEnabled()) { 
-                    logger.debug ("Killling the process");
+                    logger.debug ("Killing the process");
 		  }
                 try {
                     if (kill_signal == false && p != null) {              	
