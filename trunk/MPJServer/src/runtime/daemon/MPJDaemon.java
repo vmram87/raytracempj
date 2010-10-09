@@ -123,7 +123,7 @@ public class MPJDaemon {
   private CustomSemaphore heartBeatBeginLock = new CustomSemaphore(1); 
   private CustomSemaphore startLock = new CustomSemaphore(1); 
   private CustomSemaphore processStartLock = new CustomSemaphore(1); 
-  private Object sendRestartRequestLock = new Object(); 
+  private Object sendRequestLock = new Object(); 
   private Thread renewThreadStarter = null;
   private Thread heartBeatStarter = null;
   UUID[] pids = null;
@@ -136,6 +136,7 @@ public class MPJDaemon {
   private final int REQUEST_RESTART = -70;
   private final int CHECK_VALID = -71;
   private final int START_CHECKPOINT_WAVE = -31;
+  private final int CHECKPOINT_WAVE_ACK = -32;  
   
   private final int DAEMON_STATUS = -50;
   private final int DAEMON_STATUS_RUNNING = -51;
@@ -147,7 +148,8 @@ public class MPJDaemon {
   
   private final int MAX_CHECKPOINT_INVALID_TIME = 12;
   private boolean isRestartFromCheckpoint = false;
-  private boolean hasSendRequest = false;  
+  private boolean hasSendRequest = false;
+protected boolean hasAcquireFinishLock = false;  
   private static String JAVA_TEMP_FILE_DIRECTORY = "/tmp/hsperfdata_" + System.getProperty("user.name") + "/";
   
 
@@ -187,7 +189,6 @@ public class MPJDaemon {
 
     while (loop) {
     	
-    	sendRestartRequestLock = new CustomSemaphore(1); 
     	startLock = new CustomSemaphore(1);
     	processStartLock = new CustomSemaphore(1);
     	
@@ -398,6 +399,11 @@ public class MPJDaemon {
 		        	String pathArg = tempFilePath.substring(pos + 1);
 		        	String processId = pathArg.split("_")[0];
 		        	
+		        	pos = contextFilePath.lastIndexOf("/");
+		        	pathArg = contextFilePath.substring(pos + 1);
+		        	rank = pathArg.split("_")[2];
+		        	String dstContextFilePath = mpjHomeDir + "/temp/" + pathArg;
+		        	
 		        	String dstTempFilePath = JAVA_TEMP_FILE_DIRECTORY + processId;
 		        	File srcTempFile = new File(tempFilePath);
 		        	File dstTempFile = new File(dstTempFilePath);
@@ -408,9 +414,13 @@ public class MPJDaemon {
 		            }
 		        	copyFile(srcTempFile, dstTempFile);
 		        	
+		        	srcTempFile = new File(contextFilePath);
+		        	dstTempFile = new File(dstContextFilePath);
+		        	copyFile(srcTempFile, dstTempFile);
+		        	
 		        	String[] ex = new String[2];
 		        	ex[0] = "cr_restart";
-		        	ex[1] = contextFilePath;
+		        	ex[1] = dstContextFilePath;
 		        	
 		        	/* Step 3: Now start a new JVM */ 
 			        pb = new ProcessBuilder(ex);
@@ -460,7 +470,7 @@ public class MPJDaemon {
 	       
       }//end of it isExit == false
       processStartLock.signal(); 
-      
+      /*
       synchronized (worldProcessTable) {
       	  if(DEBUG && logger.isDebugEnabled()) { 
                 logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
@@ -480,7 +490,8 @@ public class MPJDaemon {
       		  }
       	  }
         }
-		          
+		        
+		 */
 		
       //Wait for the I/O threads to finish. They finish when 
       // their corresponding JVMs finish. 
@@ -584,10 +595,17 @@ public class MPJDaemon {
         logger.debug("\n\n ** .. execution ends .. ** \n\n");
       }
       
-      finishLock.signal();
-      if(DEBUG && logger.isDebugEnabled()) { 
-          logger.debug ("Release finishLock");
-	  }
+      
+      processStartLock.acquire();
+      if(hasAcquireFinishLock == true){
+    	  finishLock.signal();
+    	  hasAcquireFinishLock = false;
+    	  if(DEBUG && logger.isDebugEnabled()) { 
+              logger.debug ("Release finishLock");
+    	  }
+      }      
+      
+      processStartLock.signal();
 
     } //end while(loop)
   }
@@ -599,7 +617,7 @@ public class MPJDaemon {
 		  logger.debug("--sendRestartReqestToMainHost--"); 
       }
 	  
-	  synchronized (sendRestartRequestLock) {
+	  synchronized (sendRequestLock) {
 		if(hasSendRequest == false){
 			if(DEBUG && logger.isDebugEnabled()) { 
 				  logger.debug("has not send the restart request, and send it"); 
@@ -989,8 +1007,8 @@ private void restoreVariables() {
     	            	  
     	            	  if(heartBeatStarter == null || heartBeatStarter.getState().equals(Thread.State.TERMINATED)){
 	    	            	  isFinished = false;
-	    	            	  heartBeatStarter = new Thread(heartBeatThread);
-	    	            	  heartBeatStarter.start();
+	    	            	  //heartBeatStarter = new Thread(heartBeatThread);
+	    	            	  //heartBeatStarter.start();
     	            	  }
                 	}
                     
@@ -1371,6 +1389,7 @@ private void restoreVariables() {
                 	  if(p!=null && p.length>0){
                 		  try{                			  
                 			  finishLock.acquire();
+                			  hasAcquireFinishLock  = true;
                 			  if(DEBUG && logger.isDebugEnabled()) { 
                                   logger.debug ("Acquire finishLock");
                         	  }
@@ -1480,16 +1499,19 @@ private void restoreVariables() {
 		
 		buf.flip();
 		
-		while(buf.hasRemaining()){
-			try{
-				if(peerChannel.write(buf) == -1)
-					throw new ClosedChannelException();
-			}
-			catch(Exception e){
-				e.printStackTrace();
-				return;
+		synchronized (sendRequestLock) {
+			while(buf.hasRemaining()){
+				try{
+					if(peerChannel.write(buf) == -1)
+						throw new ClosedChannelException();
+				}
+				catch(Exception e){
+					e.printStackTrace();
+					return;
+				}
 			}
 		}
+		
 		
 	}
   
@@ -1600,26 +1622,58 @@ private void restoreVariables() {
 		verBuffer.position(0);
 		int versionNum = verBuffer.getInt();
 		
-		UUID ruid = pids[rank];
-		if(ruid != null){
-			SocketChannel socketChannel = worldProcessTable.get(ruid);
-			if(socketChannel != null){
-				ByteBuffer buf = ByteBuffer.allocate(8);
-				buf.putInt(START_CHECKPOINT_WAVE);
-				buf.putInt(versionNum);
-				buf.flip();
-				while(buf.hasRemaining()){
-					try{
-						if(socketChannel.write(buf) == -1)
-							throw new ClosedChannelException();
+		synchronized (worldProcessTable) {
+			UUID ruid = pids[rank];
+			if(ruid != null){
+				SocketChannel socketChannel = worldProcessTable.get(ruid);
+				if(socketChannel != null){
+					ByteBuffer buf = ByteBuffer.allocate(8);
+					buf.putInt(START_CHECKPOINT_WAVE);
+					buf.putInt(versionNum);
+					buf.flip();
+					while(buf.hasRemaining()){
+						try{
+							if(socketChannel.write(buf) == -1)
+								throw new ClosedChannelException();
+						}
+						catch(IOException e){
+							e.printStackTrace();
+							return;
+						}
 					}
-					catch(IOException e){
-						e.printStackTrace();
-						return;
+					
+					if (DEBUG && logger.isDebugEnabled()) {
+			            logger.debug("have sent start checkpoint wave to rank " +  rank);
+			        }
+					
+					ByteBuffer ackBuf = ByteBuffer.allocate(100);
+					ackBuf.putInt(CHECKPOINT_WAVE_ACK);
+					ackBuf.putInt(machineName.getBytes().length);
+					ackBuf.put(machineName.getBytes());
+					
+					ackBuf.flip();
+					
+					synchronized (sendRequestLock) {
+						while(ackBuf.hasRemaining()){
+							try{
+								if(peerChannel.write(ackBuf) == -1)
+									throw new ClosedChannelException();
+							}
+							catch(Exception e){
+								e.printStackTrace();
+								return;
+							}
+						}
 					}
+					
+					if (DEBUG && logger.isDebugEnabled()) {
+			            logger.debug("have sent startcheckpoint ACK to MPJRun");
+			        }
+					
 				}
-			}
-		}		
+				
+			}	
+		}//end of  synchronized (worldProcessTable) 
 	}
 	
 	/*
@@ -1997,7 +2051,7 @@ private void restoreVariables() {
 						              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
 						        }
 								
-								synchronized (sendRestartRequestLock) {
+								synchronized (sendRequestLock) {
 									if(hasSendRequest == false){
 										if(DEBUG && logger.isDebugEnabled()) { 
 											  logger.debug("has not send the restart request, and send it"); 
@@ -2052,7 +2106,7 @@ private void restoreVariables() {
 							            		  + "]is closed, so notify the main host");
 							        }
 									
-									synchronized (sendRestartRequestLock) {
+									synchronized (sendRequestLock) {
 										if(hasSendRequest == false){
 											if(DEBUG && logger.isDebugEnabled()) { 
 												  logger.debug("has not send the restart request, and send it"); 
