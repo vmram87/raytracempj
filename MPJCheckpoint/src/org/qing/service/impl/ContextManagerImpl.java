@@ -102,7 +102,8 @@ public class ContextManagerImpl implements ContextManager {
 				ClientFactory.getClient().start();
 			} catch (Exception e) {
 				e.printStackTrace();
-			}			
+			}		
+			System.out.println("Finish MPJRun!");
 		}
 	};
 
