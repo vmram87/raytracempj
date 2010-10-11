@@ -50,6 +50,7 @@ public class ServerThread {
 	private static String server_host = null;
 	private boolean isCheckpointing = false;
 	private int versionNum = 0;
+	private UUID cpRuid = null;
 	private boolean initializing = false;
 	private CustomSemaphore initLock = new CustomSemaphore(0); 
 	
@@ -228,7 +229,7 @@ public class ServerThread {
 		    try {
 		      selector = Selector.open();
 		    }
-		    catch (IOException ioe) {
+		    catch (Exception ioe) {
 		      throw new Exception(ioe);
 		    }
 		    
@@ -393,6 +394,8 @@ public class ServerThread {
 	              }
 	              else{
 	            	  doAccept(keyChannel);
+	            	  initLock = new CustomSemaphore(0); 
+	            	  hasReceiveStartCheckpoint = false;
 	              }
 
 	            }
@@ -455,12 +458,10 @@ public class ServerThread {
 	               
 	                    
 	                  case START_CHECKPOINT:
-	                	  initLock.acquire();
 	                	  doCheckpoint( (SocketChannel) keyChannel,
 	                              worldWritableTable);
 	                	  
 	                	  System.out.println("out checkpoint");
-	                	  initLock.signal();
 	                	  break;
 	                	  
 	                  case EXIT_PROCESS:
@@ -527,6 +528,7 @@ public class ServerThread {
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
 				initializing = false;
+				initLock.signal();
 				return;
 			}
 			
@@ -645,6 +647,10 @@ public class ServerThread {
 		  
 		}
 	};// end renew thread
+	private int cpRank=0;
+	private long cpMsb=0;
+	private long cpLsb=0;
+	private boolean hasReceiveStartCheckpoint = false;
 	
 	private void doReceiveNumOfProc(SocketChannel socketChannel) throws Exception {
 		if (DEBUG && logger.isDebugEnabled()) {
@@ -675,7 +681,7 @@ public class ServerThread {
 		
 	}
 	
-	private void doSendBackAck(SocketChannel socketChannel) throws IOException {
+	private void doSendBackAck(SocketChannel socketChannel) throws Exception {
 		if (DEBUG && logger.isDebugEnabled()) {
             logger.debug("---doSendBackAck---");
         }
@@ -687,7 +693,7 @@ public class ServerThread {
 					throw new ClosedChannelException();
 				}
 			}
-			catch(IOException e){
+			catch(Exception e){
 				e.printStackTrace();
 				throw e;
 			}
@@ -712,7 +718,7 @@ public class ServerThread {
 				if(c.write(askBuffer) == -1)
 					throw new ClosedChannelException();
 			}
-			catch(IOException e){
+			catch(Exception e){
 				e.printStackTrace();
 				return;
 			}
@@ -862,7 +868,7 @@ public class ServerThread {
 	    			if(socketChannel.read(barrBuffer) == -1)
 	    				throw new ClosedChannelException();
 	    		}
-	    		catch(IOException e){
+	    		catch(Exception e){
 	    			e.printStackTrace();
 	    			if (DEBUG && logger.isDebugEnabled()) {
 	    	            logger.debug("reading not complete, this should not happen!");
@@ -894,6 +900,10 @@ public class ServerThread {
 	          table.notify();
 	          if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("notify table");
+	          }
+	          if(table == worldWritableTable && hasReceiveStartCheckpoint == true){
+	        	  sendBackCheckpointACK();
+	        	  hasReceiveStartCheckpoint = false;
 	          }
 	        }
 	        catch (Exception e) {
@@ -1037,9 +1047,10 @@ public class ServerThread {
 	  
 	  private void doCheckpoint(SocketChannel socketChannel,
 				Hashtable<UUID, SocketChannel> worldWritableTable) throws Exception {
-			
-		  	ByteBuffer cMsgBuffer = ByteBuffer.allocate(28);	  
-		  	ByteBuffer ackBuffer = ByteBuffer.allocate(4);
+		  if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("--doCheckpoint--");
+	      }
+		  	ByteBuffer cMsgBuffer = ByteBuffer.allocate(28);		  	
 		    
 		    cMsgBuffer.limit(28);
 		    cMsgBuffer.position(4);
@@ -1056,22 +1067,42 @@ public class ServerThread {
 		    }
 		    
 		    int rank;
-		    long msb,lsb;
 		    UUID ruid;
 		    cMsgBuffer.position(4);
-		    rank = cMsgBuffer.getInt();
-		    msb = cMsgBuffer.getLong();
-		    lsb = cMsgBuffer.getLong();
-		    ruid = new UUID(msb, lsb);
+		    cpRank = cMsgBuffer.getInt();
+		    cpMsb = cMsgBuffer.getLong();
+		    cpLsb = cMsgBuffer.getLong();
+		    cpRuid = new UUID(cpMsb, cpLsb);
 		    versionNum = cMsgBuffer.getInt(); 
 		    
-		    if(initializing == true)
-		    	pids[rank]=ruid;
+		    //if(initializing == true)
+		    	//pids[rank]=ruid;
 		    
+		    synchronized (worldWritableTable){
+		    	if(worldWritableTable.size() == nprocs){
+		    		sendBackCheckpointACK();
+		    		hasReceiveStartCheckpoint  = false;
+		    	}
+		    	else{
+		    		hasReceiveStartCheckpoint  = true;
+		    	}
+		    	
+		    }
 		    
-		    ackBuffer.limit(4);
+			
+		}
+	  
+	  
+	  private void sendBackCheckpointACK() {
+		  if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("--sendBackCheckpointACK--");
+	      }
+		  ByteBuffer cMsgBuffer = ByteBuffer.allocate(28);
+		  ByteBuffer ackBuffer = ByteBuffer.allocate(4);
+	    	
+	    	ackBuffer.limit(4);
 		    ackBuffer.putInt(MARKER_ACK);
-		    SocketChannel c = worldWritableTable.get(ruid);
+		    SocketChannel c = worldWritableTable.get(cpRuid);
 		    
 		    ackBuffer.flip();
 		    while(ackBuffer.hasRemaining()){	    	
@@ -1082,22 +1113,22 @@ public class ServerThread {
 			    }
 		        catch (Exception e) {
 		        	System.out.println("can not write back marker ack");
-		        	throw e;
+		        	return;
 		        }
 		    }
 		    
 		    cMsgBuffer.position(0);
 		    cMsgBuffer.limit(28);
 		    cMsgBuffer.putInt(START_CHECKPOINT);
-		    cMsgBuffer.putInt(rank);
-		    cMsgBuffer.putLong(msb);
-		    cMsgBuffer.putLong(lsb);
+		    cMsgBuffer.putInt(cpRank);
+		    cMsgBuffer.putLong(cpMsb);
+		    cMsgBuffer.putLong(cpLsb);
 		    cMsgBuffer.putInt(versionNum);
 		    Iterator it = worldWritableTable.entrySet().iterator();
 		    SocketChannel other = null;
 		    while(it.hasNext()){
 		    	java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
-		    	if(((UUID)entry.getKey()).equals(ruid))
+		    	if(((UUID)entry.getKey()).equals(cpRuid))
 		    		continue;
 		    	
 		    	cMsgBuffer.flip();
@@ -1110,19 +1141,18 @@ public class ServerThread {
 				    }
 			        catch (Exception e) {
 			        	System.out.println("can not write marker to other process");
-			        	throw e;
+			        	return;
 			        }
 			    }
 		    }
-			
-		}
-	  
-	  
-	  private void realFinish(SocketChannel socketChannel) {
+		
+	}
+
+	private void realFinish(SocketChannel socketChannel) {
 			// TODO Auto-generated method stub
 			try {
 				socketChannel.close();
-			} catch (IOException e) {
+			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
