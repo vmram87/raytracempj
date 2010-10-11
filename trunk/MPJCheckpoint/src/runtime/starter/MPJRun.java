@@ -56,6 +56,7 @@ import java.nio.channels.SelectableChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -93,7 +94,7 @@ public class MPJRun {
   private static int mxBoardNum = 0 ; 
   private static int D_SER_PORT = getPortFromWrapper() ;
   private static int endPointID = 0 ;
-  private long CHECKPOINT_INTERVAL = 20000; //the default checkpoint interval is 20s
+  private long CHECKPOINT_INTERVAL = 40000; //the default checkpoint interval is 20s
   protected long HEARTBEAT_INTERVAL = 3000;
   
   int S_PORT = 15000; 
@@ -156,6 +157,7 @@ public class MPJRun {
   private final int DAEMON_STATUS_RUNNING = -51;
   private final int DAEMON_STATUS_CHECKPOINTING = -52;
   private final int DAEMON_STATUS_RESTARTING = -53;
+  private final int CHEKPOINT_WAVE_ACK = -32;
   
   private boolean isFinished = false;
   private boolean isRestarting = false;
@@ -170,6 +172,8 @@ public class MPJRun {
   private Thread timmerThreadStarter = null;
   
   private Timer timer;
+  protected Object checkpiontWaveACK = new Object();
+  private boolean receiveCheckpointWaveAck = false;
 
   /**
    * Every thing is being inside this constructor :-)
@@ -961,7 +965,7 @@ public class MPJRun {
 			}
 			
 			ByteBuffer killMsg = ByteBuffer.allocate(8);
-			killMsg.put("killproc".getBytes());
+			killMsg.put("killrest".getBytes());
 				
 		    SocketChannel socketChannel = null;
 		    Vector validMachines = new Vector();
@@ -1094,6 +1098,15 @@ public class MPJRun {
 		    
 		    
 		}// end of while
+		
+		//after restart, if the timer thread is waiting for the version complete,
+		//notify and let the timer thread continue to work
+		synchronized(versionComplete){
+			if(isVersionCompleteWaiting == true){
+				versionComplete.notify();
+				isVersionCompleteWaiting = false;
+			}
+		}
 
 		
   }
@@ -1870,7 +1883,7 @@ private void machinesSanityCheck() throws Exception {
             SocketChannel socketChannel = null;
             socketChannel = peerChannels.get(j);
             buffer.clear();
-            buffer.put( (new String("killproc")).getBytes());
+            buffer.put( (new String("killexit")).getBytes());
             buffer.flip();
             socketChannel.write(buffer);
             buffer.clear();
@@ -1960,7 +1973,7 @@ if(DEBUG && logger.isDebugEnabled())
             	  }
               }
               
-              if (read != -1) {
+              if (read != -1 && read != END_OF_STREAM) {
                   lilBuffer.flip();
                   read = lilBuffer.getInt();
                   lilBuffer.clear();
@@ -2067,8 +2080,9 @@ if(DEBUG && logger.isDebugEnabled())
               		endCount++;
 			        if(DEBUG && logger.isDebugEnabled())
 						{
+			        	logger.debug("Time: " + new Timestamp(System.currentTimeMillis()));
 						logger.debug("endCount " + endCount);
-			        logger.debug("machineVector.size() " + machineVector.size());
+						logger.debug("machineVector.size() " + machineVector.size());
 						}
 			        if (endCount == machineVector.size()) {
 						if(DEBUG && logger.isDebugEnabled())
@@ -2131,7 +2145,11 @@ if(DEBUG && logger.isDebugEnabled())
               		
               		break;
               		
-            	
+              	case CHEKPOINT_WAVE_ACK:
+              		doReceiveCheckpointWaveACK(socketChannel);
+              		
+              		break;
+              		
               	default:
               		System.out.println("Impossible");
               }    
@@ -2324,21 +2342,32 @@ if(DEBUG && logger.isDebugEnabled())
 
 	public void killProccesses() {
 		
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("--kill Processes--");
+		}
+		
 		try {
 			for (int j = 0; j < peerChannels.size(); j++) {
 	            SocketChannel socketChannel = null;
 	            socketChannel = peerChannels.get(j);
 	            synchronized (socketChannel) {
 		            buffer.clear();
-		            buffer.put( (new String("killproc")).getBytes());
+		            buffer.put( (new String("killexit")).getBytes());
 		            buffer.flip();	            
-	            	socketChannel.write(buffer);
+		            try{
+		            	socketChannel.write(buffer);
+			        }catch(Exception e){
+			            	//if close, do nothing
+			        }
 	            	 buffer.clear();
 				}
 	            
 	           
 	        }
 	          
+			if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("After sending kill to all daemon");
+			}
 	          
 	          synchronized (checkpiontChannel) {
 	        	  buffer.putInt(REQUEST_RESTART);
@@ -2346,6 +2375,10 @@ if(DEBUG && logger.isDebugEnabled())
 		          checkpiontChannel.write(buffer);
 		          buffer.clear();
 	          }
+	          
+	        if (DEBUG && logger.isDebugEnabled()) {
+	             logger.debug("After send request restart to checkpoint server");
+	  		}
 	          
 	          
 	          cfos.close();
@@ -2359,6 +2392,9 @@ if(DEBUG && logger.isDebugEnabled())
 	}
 	
 	protected void doUpdateDaemonStatus(SocketChannel socketChannel) {
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("--doUpdateDaemonStatus--");
+		}
 		ByteBuffer buf = ByteBuffer.allocate(4);
 		while(buf.hasRemaining()){
   			try{
@@ -2417,6 +2453,52 @@ if(DEBUG && logger.isDebugEnabled())
   	 	}
 		
 	}
+	
+	protected void doReceiveCheckpointWaveACK(SocketChannel socketChannel) {
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("--doReceiveCheckpointWaveACK--");
+		}
+		ByteBuffer buf = ByteBuffer.allocate(4);
+		while(buf.hasRemaining()){
+  			try{
+  				if(socketChannel.read(buf) == -1)
+  					throw new ClosedChannelException();
+  			}
+  			catch(Exception e){
+  				e.printStackTrace();
+  				return;
+  			}              			
+  		}
+  		
+		buf.position(0);
+  		int len = buf.getInt();
+  		
+  		buf = ByteBuffer.allocate(len);
+  		while(buf.hasRemaining()){
+  			try{
+  				if(socketChannel.read(buf) == -1)
+  					throw new ClosedChannelException();
+  			}
+  			catch(Exception e){
+  				e.printStackTrace();
+  				return;
+  			}              			
+  		}
+  		
+  		byte[] tempArray = new byte[len];
+  		buf.flip();
+  		buf.get(tempArray, 0, len);
+  	 	String machine = new String(tempArray);
+  	 	
+  	 	synchronized(checkpiontWaveACK){
+  	 		if(receiveCheckpointWaveAck == false)
+  	 			checkpiontWaveACK.notify();
+  	 		
+  			receiveCheckpointWaveAck = true;
+  		}
+		
+	}
+	
 
 	public void setCheckpointInterval(long timeInterval){
 		CHECKPOINT_INTERVAL = timeInterval;
@@ -2487,25 +2569,58 @@ if(DEBUG && logger.isDebugEnabled())
 							}
 						}
 					}// end of syn machineChannelMaps
-						
-					synchronized(versionComplete){
-						isVersionCompleteWaiting = true;
-						try {
-							versionComplete.wait();
-							if (DEBUG && logger.isDebugEnabled()) {
-					              logger.debug("timer wait end");
-					        }
-						} catch (InterruptedException e) {
-							if (DEBUG && logger.isDebugEnabled()) {
-					              logger.debug("--interupt timer wait--");
-					        }
-							e.printStackTrace();
-							break;
-						}
-						
-					}// end of syn versionComplete
-						
 					
+					synchronized(checkpiontWaveACK){						
+              			if(receiveCheckpointWaveAck == false){
+              				
+              				try {
+								checkpiontWaveACK.wait(10000);
+							} catch (InterruptedException e1) {
+								e1.printStackTrace();
+							}
+              				
+              				if(receiveCheckpointWaveAck == true){
+              					synchronized(versionComplete){
+            						isVersionCompleteWaiting = true;
+            						try {
+            							versionComplete.wait();
+            							if (DEBUG && logger.isDebugEnabled()) {
+            					              logger.debug("timer wait end");
+            					        }
+            						} catch (InterruptedException e) {
+            							if (DEBUG && logger.isDebugEnabled()) {
+            					              logger.debug("--interupt timer wait--");
+            					        }
+            							e.printStackTrace();
+            							break;
+            						}
+            						
+            					}// end of syn versionComplete
+              				}
+              			}
+              			else{
+              				
+              				synchronized(versionComplete){
+        						isVersionCompleteWaiting = true;
+        						try {
+        							versionComplete.wait();
+        							if (DEBUG && logger.isDebugEnabled()) {
+        					              logger.debug("timer wait end");
+        					        }
+        						} catch (InterruptedException e) {
+        							if (DEBUG && logger.isDebugEnabled()) {
+        					              logger.debug("--interupt timer wait--");
+        					        }
+        							e.printStackTrace();
+        							break;
+        						}
+        						
+        					}// end of syn versionComplete
+              			}
+              			
+              			receiveCheckpointWaveAck = false;
+              		}//end of syn checkpiontWaveACK
+						
 					
 				}// end of syn finishLock
 	
