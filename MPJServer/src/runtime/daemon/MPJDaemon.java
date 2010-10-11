@@ -149,7 +149,11 @@ public class MPJDaemon {
   private final int MAX_CHECKPOINT_INVALID_TIME = 12;
   private boolean isRestartFromCheckpoint = false;
   private boolean hasSendRequest = false;
-protected boolean hasAcquireFinishLock = false;  
+  protected boolean hasAcquireFinishLock = false;  
+  private boolean hasReceiveStartCheckpointWave = false;
+  private int cpVersionNum = -1;
+  private int cpRank = 0;
+
   private static String JAVA_TEMP_FILE_DIRECTORY = "/tmp/hsperfdata_" + System.getProperty("user.name") + "/";
   
 
@@ -399,11 +403,7 @@ protected boolean hasAcquireFinishLock = false;
 		        	String pathArg = tempFilePath.substring(pos + 1);
 		        	String processId = pathArg.split("_")[0];
 		        	
-		        	pos = contextFilePath.lastIndexOf("/");
-		        	pathArg = contextFilePath.substring(pos + 1);
-		        	rank = pathArg.split("_")[2];
-		        	String dstContextFilePath = mpjHomeDir + "/temp/" + pathArg;
-		        	
+		        			        	
 		        	String dstTempFilePath = JAVA_TEMP_FILE_DIRECTORY + processId;
 		        	File srcTempFile = new File(tempFilePath);
 		        	File dstTempFile = new File(dstTempFilePath);
@@ -413,14 +413,10 @@ protected boolean hasAcquireFinishLock = false;
 		                logger.debug("copy the temp file");
 		            }
 		        	copyFile(srcTempFile, dstTempFile);
-		        	
-		        	srcTempFile = new File(contextFilePath);
-		        	dstTempFile = new File(dstContextFilePath);
-		        	copyFile(srcTempFile, dstTempFile);
-		        	
+		        			        	
 		        	String[] ex = new String[2];
 		        	ex[0] = "cr_restart";
-		        	ex[1] = dstContextFilePath;
+		        	ex[1] = contextFilePath;
 		        	
 		        	/* Step 3: Now start a new JVM */ 
 			        pb = new ProcessBuilder(ex);
@@ -428,7 +424,12 @@ protected boolean hasAcquireFinishLock = false;
 			        pb.redirectErrorStream(true); 
 		        }
 			
-		       
+		
+		        //avoid the problem that after kill the process, 
+		        //it needs time to complete release the resource.
+		        if(j==0)
+		        	Thread.currentThread().sleep(3000);
+		        
 		        if(DEBUG && logger.isDebugEnabled()) { 
 		          logger.debug("starting the process ");
 		        }
@@ -466,9 +467,12 @@ protected boolean hasAcquireFinishLock = false;
 	        } 
 	        
 	  	  //when init, and worldprocessTable is not init properly, it's should be init to be 0 in selector thread
-	        Thread.currentThread().sleep(1000);
+	        Thread.currentThread().sleep(2000);
 	       
       }//end of it isExit == false
+      else
+    	  isExit = false;
+      
       processStartLock.signal(); 
       /*
       synchronized (worldProcessTable) {
@@ -536,6 +540,9 @@ protected boolean hasAcquireFinishLock = false;
       processStartLock.acquire();
       try{
       	if(kill_signal == false){
+      		if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("Normal end. Before JVM destroy. Time: " + new Timestamp(System.currentTimeMillis()));
+      		}
       		for(int i=0 ; i<processes ; i++) 
       			p[i].destroy();
       	}
@@ -547,8 +554,15 @@ protected boolean hasAcquireFinishLock = false;
       
       if(isRestarting == false){
 
+    	  if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("have before daemon exit to MPJRun Time: " + new Timestamp(System.currentTimeMillis()));
+	      }
+    	  
 	      MPJProcessPrintStream.stop();
 	
+	      if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("have sent daemon exit to MPJRun Time: " + new Timestamp(System.currentTimeMillis()));
+	      }
 	      
 	
 	      try {
@@ -577,7 +591,7 @@ protected boolean hasAcquireFinishLock = false;
 	        
 	
 	        if(DEBUG && logger.isDebugEnabled()) { 
-	          logger.debug("Was already closed, or i closed it");
+	          logger.debug("Was already closed, or i closed it. Time: " + new Timestamp(System.currentTimeMillis()));
 		}
 	      }
 	      catch (Exception e) { 
@@ -586,7 +600,7 @@ protected boolean hasAcquireFinishLock = false;
 	      }
 	      
       }// if isRestarting == false
-      
+
       processStartLock.signal();
       
       restoreVariables() ;      
@@ -603,7 +617,11 @@ protected boolean hasAcquireFinishLock = false;
     	  if(DEBUG && logger.isDebugEnabled()) { 
               logger.debug ("Release finishLock");
     	  }
-      }      
+      }
+      
+      if(isExit == true){
+    	  isExit = false;
+      }
       
       processStartLock.signal();
 
@@ -1601,6 +1619,7 @@ private void restoreVariables() {
 		}
 	};// end renew thread
 	
+	
 	private void doStartCheckpointWave(SocketChannel mainHostChannel, int rank) throws Exception {
 		if (DEBUG && logger.isDebugEnabled()) {
             logger.debug("---do start checkpoint wave---");
@@ -1620,59 +1639,64 @@ private void restoreVariables() {
 	    }
 		
 		verBuffer.position(0);
-		int versionNum = verBuffer.getInt();
-		
+		cpVersionNum = verBuffer.getInt();
+		cpRank  = rank;
 		synchronized (worldProcessTable) {
-			UUID ruid = pids[rank];
-			if(ruid != null){
+			if(worldProcessTable.size() == processes)
+			{
+				UUID ruid = pids[cpRank];
 				SocketChannel socketChannel = worldProcessTable.get(ruid);
-				if(socketChannel != null){
-					ByteBuffer buf = ByteBuffer.allocate(8);
-					buf.putInt(START_CHECKPOINT_WAVE);
-					buf.putInt(versionNum);
-					buf.flip();
-					while(buf.hasRemaining()){
-						try{
-							if(socketChannel.write(buf) == -1)
-								throw new ClosedChannelException();
-						}
-						catch(IOException e){
-							e.printStackTrace();
-							return;
-						}
+				ByteBuffer buf = ByteBuffer.allocate(8);
+				buf.putInt(START_CHECKPOINT_WAVE);
+				buf.putInt(cpVersionNum);
+				buf.flip();
+				while(buf.hasRemaining()){
+					try{
+						if(socketChannel.write(buf) == -1)
+							throw new ClosedChannelException();
 					}
-					
-					if (DEBUG && logger.isDebugEnabled()) {
-			            logger.debug("have sent start checkpoint wave to rank " +  rank);
-			        }
-					
-					ByteBuffer ackBuf = ByteBuffer.allocate(100);
-					ackBuf.putInt(CHECKPOINT_WAVE_ACK);
-					ackBuf.putInt(machineName.getBytes().length);
-					ackBuf.put(machineName.getBytes());
-					
-					ackBuf.flip();
-					
-					synchronized (sendRequestLock) {
-						while(ackBuf.hasRemaining()){
-							try{
-								if(peerChannel.write(ackBuf) == -1)
-									throw new ClosedChannelException();
-							}
-							catch(Exception e){
-								e.printStackTrace();
-								return;
-							}
-						}
+					catch(IOException e){
+						e.printStackTrace();
+						return;
 					}
-					
-					if (DEBUG && logger.isDebugEnabled()) {
-			            logger.debug("have sent startcheckpoint ACK to MPJRun");
-			        }
-					
 				}
 				
-			}	
+				if (DEBUG && logger.isDebugEnabled()) {
+		            logger.debug("have sent start checkpoint wave to rank " +  rank);
+		        }
+			}
+			else{
+				hasReceiveStartCheckpointWave = true;
+			}
+			
+			
+			ByteBuffer ackBuf = ByteBuffer.allocate(100);
+			ackBuf.putInt(CHECKPOINT_WAVE_ACK);
+			ackBuf.putInt(machineName.getBytes().length);
+			ackBuf.put(machineName.getBytes());
+			
+			ackBuf.flip();
+			
+			synchronized (sendRequestLock) {
+				while(ackBuf.hasRemaining()){
+					try{
+						if(peerChannel.write(ackBuf) == -1)
+							throw new ClosedChannelException();
+					}
+					catch(Exception e){
+						e.printStackTrace();
+						return;
+					}
+				}
+			}
+			
+			if (DEBUG && logger.isDebugEnabled()) {
+	            logger.debug("have sent startcheckpoint ACK to MPJRun");
+	        }
+					
+				
+				
+			
 		}//end of  synchronized (worldProcessTable) 
 	}
 	
@@ -1752,6 +1776,31 @@ private void restoreVariables() {
 	          table.notifyAll();
 	          if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("notify table");
+	          }
+	          
+	          if(hasReceiveStartCheckpointWave == true){
+	        	  	UUID id = pids[cpRank];
+					SocketChannel channel = worldProcessTable.get(id);
+					ByteBuffer buf = ByteBuffer.allocate(8);
+					buf.putInt(START_CHECKPOINT_WAVE);
+					buf.putInt(cpVersionNum);
+					buf.flip();
+					while(buf.hasRemaining()){
+						try{
+							if(channel.write(buf) == -1)
+								throw new ClosedChannelException();
+						}
+						catch(IOException e){
+							e.printStackTrace();
+							return;
+						}
+					}
+					
+					if (DEBUG && logger.isDebugEnabled()) {
+			            logger.debug("have sent start checkpoint wave to rank " +  cpRank);
+			        }
+					
+					hasReceiveStartCheckpointWave = false;
 	          }
 	          
 	          //reconnect is finish so set the status to running
@@ -2262,6 +2311,10 @@ class OutputHandler extends Thread {
  
           synchronized (this) {
             System.out.println("@Rank<" + this.rank + ">: " + line);
+            if(line.startsWith("@@@Exit@@@")){
+            	System.out.println("Exit True!");
+            	break;
+            }
             //if(DEBUG && logger.isDebugEnabled()) { 
             //  logger.debug(line);
 	    //}
@@ -2276,5 +2329,7 @@ class OutputHandler extends Thread {
       }
       e.printStackTrace();
     } 
+    
+    //System.out.println("@Rank<" + this.rank + ">: OutputThread Ends Time: " + new Timestamp(System.currentTimeMillis()));
   } //end run.
 } 
