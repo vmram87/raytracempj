@@ -64,6 +64,7 @@ import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 import java.nio.channels.UnsupportedAddressTypeException;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Iterator;
@@ -640,13 +641,14 @@ public class NIODevice
   SocketChannel msgReceivedFrom; //what is this doing here?
 
   boolean finished = false;
+  boolean isExiting = false;
   
   //checkpoint relative variable
   private HashMap<Integer, Integer > markerMap =
       new HashMap<Integer, Integer> ();
   ArrvQueue sarrQue = new ArrvQueue();
   
-  private int versionNum = 0;
+  private int versionNum = -1;
   private boolean isCheckpointing = false;
   private String[] args = null;
   CustomSemaphore cLockRendezSend = new CustomSemaphore(1);
@@ -1614,16 +1616,24 @@ public class NIODevice
 	    }
    	
 
-	    try {
-	    	if(writableServerChannel.isOpen())
+	    
+	    if(writableServerChannel.isOpen()){
+	    	try{
 	    		writableServerChannel.close();
-	    	if(readableServerChannel.isOpen())
+	    	}
+	    	catch (Exception e) {
+	  	      //e.printStackTrace();
+	  	    }
+	    }
+	    if(readableServerChannel.isOpen()){
+	    	try{
 	    		readableServerChannel.close();
+	    	}
+	    	catch (Exception e) {
+	  	      //e.printStackTrace();
+	  	    }
 	    }
-	    catch (Exception e) {
-	      e.printStackTrace();
-	      return;
-	    }
+	    
 	    
   }//end of socket init
   
@@ -1823,11 +1833,7 @@ public class NIODevice
                                             sendCounter());
 
 
-    SocketChannel channel = worldWritableTable.get(dstUUID);
-
-    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-      logger.debug("channel :" + channel);
-    }
+    
 
     if ( (req.sBufSize + req.dBufSize) <= psl) {
 
@@ -1841,6 +1847,11 @@ public class NIODevice
 
       try {
         wLock.acquire();
+        SocketChannel channel = worldWritableTable.get(dstUUID);
+
+        if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+          logger.debug("channel :" + channel);
+        }
         eagerSend(req, channel);
         wLock.signal();
         //completedList.add( req ); 
@@ -1870,6 +1881,11 @@ public class NIODevice
 
       try {
         wLock.acquire();
+        SocketChannel channel = worldWritableTable.get(dstUUID);
+
+        if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+          logger.debug("channel :" + channel);
+        }
         rendezCtrlMsgSend(req, channel);
         wLock.signal();
       }
@@ -1991,7 +2007,7 @@ public class NIODevice
     }
 
 	
-    channel = worldWritableTable.get(dstUUID);
+    
 
     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
       logger.debug("channel (can never be null) " + channel);
@@ -2007,6 +2023,7 @@ public class NIODevice
 
     try {
       wLock.acquire();
+      channel = worldWritableTable.get(dstUUID);
       rendezCtrlMsgSend(req, channel);
       wLock.signal();
     }
@@ -2584,8 +2601,7 @@ public class NIODevice
         request.buffer = buf;
         
         
-        SocketChannel tc = worldReadableTable.get(request.srcUUID);
-        SocketChannel c = worldWritableTable.get(request.srcUUID);
+        
         recvMap.put(new Integer(request.recvCounter),request);
 	sem.signal();
         CustomSemaphore wLock = writeLockTable.get(srcUUID);
@@ -2596,6 +2612,9 @@ public class NIODevice
 		e.printStackTrace();
 	}
 	
+		SocketChannel tc = worldReadableTable.get(request.srcUUID);
+		SocketChannel c = worldWritableTable.get(request.srcUUID);
+		
         rendezCtrlMsgR2S(c, request);
         wLock.signal();
         
@@ -2654,7 +2673,8 @@ public class NIODevice
 
             for (int i = 0; i < writableChannels.size(); i++) {
               peerChannel = writableChannels.get(i);
-              peerChannel.close();
+              if(writableChannels.get(i).isOpen())
+            	  peerChannel.close();
             }
 
             peerChannel = null;
@@ -2679,15 +2699,16 @@ public class NIODevice
 	      logger.debug("channel:" + socketChannel);
 	    }
 	  
+	  
 		try {
 			socketChannel.close();
-		} catch (IOException e) {
+		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 		
-		//if(selectorFlag == false)
-			//realFinish();
+		if(isExiting == true)
+			realFinish();
 	}
 
   private void realFinish() throws XDevException {
@@ -2703,7 +2724,7 @@ public class NIODevice
     }
     catch (Exception e) { e.printStackTrace(); }
     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-      logger.debug("Closed the two selectors");
+      logger.debug("Closed the selectors");
     }
 
     try {
@@ -2738,7 +2759,9 @@ public class NIODevice
         }
 
       }
-      catch (Exception e) {e.printStackTrace();}
+      catch (Exception e) {
+    	  //e.printStackTrace();
+      }
 
       if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
         logger.debug("closing control-channel " + peerCtrlChannel);
@@ -2754,7 +2777,9 @@ public class NIODevice
         }
 
       }
-      catch (Exception e) {e.printStackTrace(); }
+      catch (Exception e) {
+    	  //e.printStackTrace(); 
+      }
     }
 
     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
@@ -2774,6 +2799,8 @@ public class NIODevice
   Object finishLock = new Object();
   Object selectorFinishLock = new Object();
 
+  private boolean hasReceiveStartCheckpointWave = false;
+
   static final int SHUTDOWN_SIGNAL = -13;
   static final int END_OF_STREAM = -14;
 
@@ -2785,6 +2812,7 @@ public class NIODevice
   public synchronized void finish() throws XDevException {
 	  
     //System.out.println(" finish starts");
+	isExiting = true;
     synchronized (finishLock) {
       if (finished) {
         return;
@@ -2920,9 +2948,9 @@ public class NIODevice
       send(sbuf, pids[procTree.parent], btag, context);
     }
 
-    //if (procTree.isRoot) {
+    if (procTree.isRoot) {
       realFinish();
-    //}
+    }
 
     synchronized (finishLock) {
 
@@ -2942,8 +2970,9 @@ public class NIODevice
     BufferFactory.destroy( sbuf.getStaticBuffer()) ;
     BufferFactory.destroy( rbuf.getStaticBuffer()) ;
 
-    //System.out.println(" finish "+rank);
-
+    
+    System.out.println("Process ends, time: " + new Timestamp(System.currentTimeMillis()) );
+    System.out.print("@@@Exit@@@");
   }
 
   /*
@@ -3015,6 +3044,10 @@ public class NIODevice
 	        	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
 	                logger.debug("after table notify");
 	              }
+	        	if(hasReceiveStartCheckpointWave == true ){
+	        		doStartCheckpointWave();
+	        		hasReceiveStartCheckpointWave = false;
+	        	}
 	        }
 	        catch (Exception e) {
 	          throw new XDevException(e);
@@ -4073,10 +4106,17 @@ public class NIODevice
                 header = 0;
 
                 while (lilBuffer.hasRemaining()) {
-                  if ( (header = socketChannel.read(lilBuffer)) == -1) {
-                    //throw new ClosedChannelException();
-                    break;
-                  }
+                	try{
+		                  if ( (header = socketChannel.read(lilBuffer)) == -1) {
+		                    //throw new ClosedChannelException();
+		                    break;
+		                  }
+                	}
+                	catch(Exception e){
+                		e.printStackTrace();
+                		header = -1;
+                		break;
+                	}
                 }
 
                 if (header != -1) {
@@ -4137,10 +4177,8 @@ public class NIODevice
                         logger.debug("calling r2s " + socketChannel);
                       }
                       
-                      try{
-	
-	                      SocketChannel c =
-	                          worldWritableTable.get(recvRequest.srcUUID);
+                      try{	
+	                      
 	                      CustomSemaphore wLock = writeLockTable.get(recvRequest.srcUUID);
 			      long acq = System.nanoTime() ;
 	                      wLock.acquire();
@@ -4148,6 +4186,8 @@ public class NIODevice
 	                      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
 	                        logger.debug("lock=<"+(rel-acq)/(1000000000.0));
 	                      }
+	                      SocketChannel c =
+	                          worldWritableTable.get(recvRequest.srcUUID);
 	                      rendezCtrlMsgR2S(c, recvRequest);
 	                      wLock.signal();
                       }catch(InterruptedException e){
@@ -4373,7 +4413,13 @@ public class NIODevice
 	            	  if(markerMap.size() == (nprocs - 1) && recvMarkerAck == true){
 	            		  	//checkpoint(new Integer(versionNum).toString());	
 	            		    preProcess();
-	            		    checkpoint(contextSrcFilePath, new Integer(versionNum).toString());	
+	            		    if( mpi.MPI.DEBUG && logger.isDebugEnabled()) { 
+	                            logger.debug("before generate context file, time:" + new Timestamp(System.currentTimeMillis())); 
+	                        }
+	            		    checkpoint(contextSrcFilePath, new Integer(versionNum).toString());
+	            		    if( mpi.MPI.DEBUG && logger.isDebugEnabled()) { 
+	                            logger.debug("after generate context file, time:" + new Timestamp(System.currentTimeMillis())); 
+	                        }
 	            		  	processContinue();
 	              	    	cLockUserSend.signal();
 	              	    	recvMarkerAck = false;
@@ -4444,7 +4490,12 @@ public class NIODevice
 	              		verBuffer.position(0);
 	              		versionNum = verBuffer.getInt();
 	              		
-	              		doStartCheckpointWave();
+	              		synchronized(worldWritableTable){
+	              			if(worldWritableTable.size() == nprocs - 1 )
+	              				doStartCheckpointWave();
+	              			else
+	              				hasReceiveStartCheckpointWave  = true;
+	              		}
                 	  break;
 
                   case END_OF_STREAM:
@@ -4596,12 +4647,12 @@ public class NIODevice
           logger.debug("tag " + tag);
         }
 
-     
+            
         
-        SocketChannel ch = worldWritableTable.get(sendRequest.dstUUID);
         CustomSemaphore wLock = writeLockTable.get(sendRequest.dstUUID);
         wLock.acquire();
 
+        SocketChannel ch = worldWritableTable.get(sendRequest.dstUUID);
         if (sendRequest == null) {
           System.out.println("Calling rendezSendData (WRITE_EVENT)");
           System.out.println("Problem ");
@@ -4693,6 +4744,7 @@ public class NIODevice
   
   
   public synchronized void doStartCheckpointWave() {
+	  
 	
 	  System.out.println("before checkpoint!");
 		
@@ -4757,20 +4809,38 @@ private String pId = null;
 		
 		try {
 			//selector and writableChannels involes open file so have to close them before checkpiont
+			if( mpi.MPI.DEBUG && logger.isDebugEnabled()) { 
+                logger.debug("before close connection, time:" + new Timestamp(System.currentTimeMillis())); 
+            }
 			for(int i=0;i<readableChannels.size();i++){
-				if(readableChannels.get(i).isOpen())
-					readableChannels.get(i).close();
+				if(readableChannels.get(i).isOpen()){
+					try{
+						readableChannels.get(i).close();
+					}
+					catch(Exception e){						
+					}
+				}
 			}
 			for(int i=0;i<writableChannels.size();i++){
-				if(writableChannels.get(i).isOpen())
-					writableChannels.get(i).close();
+				if(writableChannels.get(i).isOpen()){
+					try{
+						writableChannels.get(i).close();
+					}
+					catch(Exception e){						
+					}
+				}
 			}
 				
 			writableChannels.clear();
 			readableChannels.clear();
-			daemonChannel.close();
-			readableCheckpointServer.close();
-			writableCheckpointServer.close();
+			try{
+				daemonChannel.close();
+				readableCheckpointServer.close();
+				writableCheckpointServer.close();
+			
+			}catch(Exception e){		
+				e.printStackTrace();
+			}
 			
 			selector.close();
 			
@@ -4784,9 +4854,15 @@ private String pId = null;
 			if(dst.exists())
 				dst.createNewFile();
 			
+			if( mpi.MPI.DEBUG && logger.isDebugEnabled()) { 
+                logger.debug("before copy temp file time:" + new Timestamp(System.currentTimeMillis())); 
+            }
 			copyFile(src, dst);
-		} catch (IOException e) {
-			System.out.print("pre process: Exception in copy file!");
+			if( mpi.MPI.DEBUG && logger.isDebugEnabled()) { 
+                logger.debug("after copy temp file time:" + new Timestamp(System.currentTimeMillis())); 
+            }
+		} catch (Exception e) {
+			System.out.print("pre process: Exception in pre process!");
 			e.printStackTrace();
 		}
 
