@@ -745,8 +745,13 @@ public class ServerThread {
 		      else { 
 		        return false; 
 		      }
-
+	
 		      channelCollection.add(peerChannel);
+		      
+		      if (DEBUG && logger.isDebugEnabled()) {
+	              logger.debug("added channel: " + peerChannel + " to " + channelCollection);
+	              logger.debug("channelCollection size: " + channelCollection.size());           
+	            }
 
 		      if (blocking == false) {
 		        peerChannel.configureBlocking(blocking);
@@ -1007,7 +1012,10 @@ public class ServerThread {
 			dao.delete(tempContext);
 		
 		dao.save(c);
-		  
+		
+		if (DEBUG && logger.isDebugEnabled()) {
+            logger.debug("After save to database!");
+		}
 	  }
 
 	private static int getCheckpointPort() {
