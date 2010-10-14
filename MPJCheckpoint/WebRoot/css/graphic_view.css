@@ -22,13 +22,17 @@ background:url(../images/layout/frame_head.jpg) left top no-repeat;
 
 .machine_node .machine_id span{
 margin-left:10px;
+
 }
 
 .machine_node .machine_frame{
-height:100px;
+min-height:100px;
 width:200px;
 font-size:12px;
 }
 .machine_node .machine_frame p{
 margin:0 3px;
 }
+
+.clear{
+	clear:both;
