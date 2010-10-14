@@ -12,7 +12,7 @@ import org.qing.util.SystemConfig;
 public class StartAction extends BaseActionInterface {
 	private String args;
 	private MyFile libFolder;
-	
+	private String tip;
 	
 	
 	public String getArgs() {
@@ -54,7 +54,9 @@ public class StartAction extends BaseActionInterface {
 		}
 		
 		String argv[] = str.trim().split("\\s+");
-		mgr.startMPJRun(argv); 
+		if(mgr.startMPJRun(argv) == false){
+			tip = "Started";
+		}
 		return SUCCESS;
 	}
 	
