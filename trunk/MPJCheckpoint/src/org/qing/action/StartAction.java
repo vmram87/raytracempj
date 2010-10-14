@@ -54,7 +54,7 @@ public class StartAction extends BaseActionInterface {
 		}
 		
 		String argv[] = str.trim().split("\\s+");
-		if(mgr.startMPJRun(argv) == true); 
+		mgr.startMPJRun(argv); 
 		return SUCCESS;
 	}
 	
