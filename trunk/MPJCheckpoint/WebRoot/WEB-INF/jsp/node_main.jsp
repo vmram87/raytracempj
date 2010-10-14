@@ -3,7 +3,7 @@
 <%@ taglib uri="http://java.sun.com/jsp/jstl/functions"  prefix="fn"%>
 <%@ page pageEncoding="UTF-8" %>
 
-<s:iterator value="nodeList" id="node">
+<s:iterator value="nodeList" id="node" status="st">
 	<div class="machine_node">
 		<div class="machine_id">
 			<span>${node.name}</span>
@@ -28,7 +28,9 @@
 			</div><!-- end of node_info -->
 		</div><!-- end of machine_frame -->
 	</div><!-- end of machine_node -->
-	
+	<s:if test="%{interval!=null &&  #st.index%3==(interval-1)}">
+		<div class="clear"></div>
+	</s:if>
 </s:iterator>
 
 

@@ -44,7 +44,8 @@ $(function() {
 
 $(document).ready(update_view);
 function update_view(){
-	$.get("nodesInfo.action",{},
+	var itv = Math.floor($(document).width() / 220);
+	$.get("nodesInfo.action",{interval: itv},
 			function(responseText){		
 				$("#nodes").html(responseText);
 				setTimeout("update_view()",2000);
@@ -59,7 +60,7 @@ function update_view(){
 
 <div id="nodes">
 
-	<s:iterator value="nodeList" id="node">
+	<s:iterator value="nodeList" id="node" status="st">
 		<div class="machine_node">
 			<div class="machine_id">
 				<span>${node.name}</span>
@@ -67,6 +68,7 @@ function update_view(){
 			
 			<div class="machine_frame">
 				<div class="node_info">
+					<p>${st.index}</p>
 					<p>node status: ${node.daemonStatus }</p>
 					<p>no. of processes: ${fn:length(node.process)}</p>
 					<p>Process Rank:</p>
@@ -81,6 +83,8 @@ function update_view(){
 				</div><!-- end of node_info -->
 			</div><!-- end of machine_frame -->
 		</div><!-- end of machine_node -->
+		
+		
 		
 	</s:iterator>
 	
