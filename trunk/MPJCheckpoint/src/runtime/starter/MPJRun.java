@@ -1045,6 +1045,10 @@ public class MPJRun {
 		    		catch(Exception e){
 		    			e.printStackTrace();
 		    			machineChannelMap.remove(daemon);
+		    			if(DEBUG && logger.isDebugEnabled())
+						{
+							logger.debug("Not valid after reconnect!");
+						}
 		    		}
 		    	}
 		    	else{
@@ -1368,14 +1372,15 @@ public class MPJRun {
 	    	    buffer.put("wdr-".getBytes());
 	    	    buffer.putInt(wdir.getBytes().length);
 	    	    buffer.put(wdir.getBytes(), 0, wdir.getBytes().length); 
+	    	    
+	    	    //configFileName 
+	    	    buffer.put("cfn-".getBytes());
+	    	    buffer.putInt(configFileName.getBytes().length);
+	    	    buffer.put(configFileName.getBytes(), 0, configFileName.getBytes().length); 
 	        	
 	    	    buffer.put("nps-".getBytes());
 
 	    	    buffer.putInt(nprocs);
-
-	    	    if(DEBUG && logger.isDebugEnabled()) {
-	    	      logger.debug("nprocs " + nprocs);
-	    	    }
 	        	
 	        	buffer.put("*GO**GO*".getBytes(), 0, "*GO**GO*".getBytes().length);    
 	
