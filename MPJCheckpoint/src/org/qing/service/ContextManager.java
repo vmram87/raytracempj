@@ -5,7 +5,7 @@ import java.util.List;
 import org.qing.object.Context;
 
 public interface ContextManager {
-	boolean startMPJRun(String[] argv) throws Exception;
+	void startMPJRun(String[] argv) throws Exception;
 	void delAllPrevContextsByVersion(int versionId) throws Exception;
 	void saveContext(Context c) throws Exception;
 	Integer getLatestVersionId() throws Exception;
@@ -14,5 +14,6 @@ public interface ContextManager {
 	void killProccesses() throws Exception;
 	Integer getLatestCompleteVersion(int nprocs)throws Exception;
 	List getDaemonStausList() throws Exception;
+	boolean isCanStartProgram();
 	
 }
