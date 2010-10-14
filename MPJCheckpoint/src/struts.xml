@@ -15,15 +15,15 @@
 		</global-results>
 		
 		<action name="start" class="org.qing.action.StartAction">
-			<result name="success">/index.jsp</result>
+			<result name="success">/blank.jsp</result>
 		</action>
 		
 		<action name="checkpoint" class="org.qing.action.StartAction" method="checkpoint">
-			<result name="success">/index.jsp</result>
+			<result name="success">/blank.jsp</result>
 		</action>
 		
 		<action name="stop" class="org.qing.action.StartAction" method="stop">
-			<result name="success">/index.jsp</result>
+			<result name="success">/blank.jsp</result>
 		</action>
 		
 		<action name="homepage" class="org.qing.action.HomepageAction" >
