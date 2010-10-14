@@ -1,7 +1,9 @@
 function run_program(){
 	$.get("start.action",{},
 		function(responseText){
-			$("#button_run_program").attr("disable",true);
+			if(responseText.indexOf("Started")!=-1){				
+				alert("The program is running, you can't start another new program until the current program ends!");
+			}
 		}
 	);
 }

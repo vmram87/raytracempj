@@ -20,18 +20,20 @@ public class ContextManagerImpl implements ContextManager {
 
 
 	@Override
-	public boolean startMPJRun(String[] argv) throws Exception {
-		if(ClientFactory.getClient() == null){
-			ClientFactory.initClient(argv);
-			MPJRunThreadStarter = new Thread(MPJRunThread);
-			MPJRunThreadStarter.start();
-			return true;
-		}
-		else{
-			return false;
-		}
+	public void startMPJRun(String[] argv) throws Exception {
+		ClientFactory.initClient(argv);
+		MPJRunThreadStarter = new Thread(MPJRunThread);
+		MPJRunThreadStarter.start();
+		
 	}
 	
+
+	@Override
+	public boolean isCanStartProgram() {
+		// TODO Auto-generated method stub
+		return ClientFactory.isCanStarted();
+	}
+
 
 	@Override
 	public List getDaemonStausList() throws Exception {
@@ -109,6 +111,7 @@ public class ContextManagerImpl implements ContextManager {
 			} catch (Exception e) {
 				e.printStackTrace();
 			}		
+			ClientFactory.setCanStart(true);
 			System.out.println("Finish MPJRun!");
 		}
 	};

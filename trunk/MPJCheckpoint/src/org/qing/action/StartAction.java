@@ -29,6 +29,11 @@ public class StartAction extends BaseActionInterface {
 
 	public String execute() throws Exception
 	{
+		if(mgr.isCanStartProgram() == false){
+			tip = "Started";
+			return SUCCESS;
+		}
+		
 		SystemConfig config = fileMgr.getConfig();
 		String str = "";
 		str = str + " -np " + config.getNproc();
@@ -54,9 +59,7 @@ public class StartAction extends BaseActionInterface {
 		}
 		
 		String argv[] = str.trim().split("\\s+");
-		if(mgr.startMPJRun(argv) == false){
-			tip = "Started";
-		}
+		mgr.startMPJRun(argv);
 		return SUCCESS;
 	}
 	
