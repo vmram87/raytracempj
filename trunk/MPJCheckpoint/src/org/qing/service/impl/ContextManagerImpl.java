@@ -20,10 +20,16 @@ public class ContextManagerImpl implements ContextManager {
 
 
 	@Override
-	public void startMPJRun(String[] argv) throws Exception {
-		ClientFactory.initClient(argv);
-		MPJRunThreadStarter = new Thread(MPJRunThread);
-		MPJRunThreadStarter.start();
+	public boolean startMPJRun(String[] argv) throws Exception {
+		if(ClientFactory.getClient() == null){
+			ClientFactory.initClient(argv);
+			MPJRunThreadStarter = new Thread(MPJRunThread);
+			MPJRunThreadStarter.start();
+			return true;
+		}
+		else{
+			return false;
+		}
 	}
 	
 
