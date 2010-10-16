@@ -53,6 +53,7 @@ public class MPJProcessPrintStream extends PrintStream {
   static SocketChannel socketChannel;
   static ByteBuffer intBuffer = ByteBuffer.allocate(8);
   static ByteBuffer buffer = ByteBuffer.allocate(1000);
+  static String machineName = "";
 
   MPJProcessPrintStream (PrintStream ps) {
     super(ps);
@@ -68,6 +69,10 @@ public class MPJProcessPrintStream extends PrintStream {
     System.setOut(new MPJProcessPrintStream(i));
     System.setErr(new MPJProcessPrintStream(j)); 
 
+  }
+  
+  public static void setMachineName(String name){
+	  machineName = name;
   }
 
   public static void stop() { 
@@ -120,8 +125,10 @@ public class MPJProcessPrintStream extends PrintStream {
 
     try {
       buffer.clear();
-      buffer.putInt(MPJDaemon.LONG_MESSAGE);
-      buffer.putInt(len);
+      buffer.putInt(MPJDaemon.LONG_MESSAGE);      
+      String prefix = "<" + machineName + ">:";
+      buffer.putInt(len + prefix.getBytes().length);
+      buffer.put(prefix.getBytes());
       buffer.put(buf, off, len);
       buffer.flip();
       synchronized(socketChannel){
