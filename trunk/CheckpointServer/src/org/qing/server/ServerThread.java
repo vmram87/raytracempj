@@ -1149,7 +1149,7 @@ public class ServerThread {
 				    }
 			        catch (Exception e) {
 			        	System.out.println("can not write marker to other process");
-			        	return;
+			        	break;
 			        }
 			    }
 		    }
