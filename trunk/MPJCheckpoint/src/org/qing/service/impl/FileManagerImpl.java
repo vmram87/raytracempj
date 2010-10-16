@@ -85,15 +85,11 @@ public class FileManagerImpl implements FileManager {
 		return srcfile.renameTo(dir);
 	}
 
-	private boolean checkFileExist(MyFile directory, String fileName) {
-		Set childSet = directory.getFiles();
-		MyFile f = null;
-		for(Object child : childSet){
-			f = (MyFile) child;
-			if(f.getFileName().equals(fileName))
-				return true;
-		}
-		return false;
+	private boolean checkFileExist(MyFile directory, String fileName) throws Exception {		
+		if(fileDao.getByFileNameAndParent(fileName, directory) == null)
+			return false;
+		else
+			return true;
 	}
 
 	@Override
@@ -323,19 +319,109 @@ public class FileManagerImpl implements FileManager {
 		config.setRunType(PropertyUtil.readValue(configFilePath, "runType"));
 		config.setRunFile(PropertyUtil.readValue(configFilePath, "runFile"));
 		config.setNproc(Integer.parseInt(PropertyUtil.readValue(configFilePath, "nproc")));
+		Integer numOfFile = Integer.parseInt(PropertyUtil.readValue(configFilePath, "numOfFile"));
+		config.setNumOfFile(numOfFile);
 		ArrayList outputFile = new ArrayList();
-		outputFile.add(PropertyUtil.readValue(configFilePath, "outputFile"));
+		for(int i = 1; i <= numOfFile; i++){
+			outputFile.add(PropertyUtil.readValue(configFilePath, "outputFile" + i));
+		}
 		config.setOutputFile(outputFile);
 		return config;
 	}
 
 	@Override
-	public void saveConfig(SystemConfig config) throws Exception {
+	public void saveConfig(SystemConfig config) throws Exception {			
 		PropertyUtil.writeProperties(configFilePath, "runType", config.getRunType());
 		PropertyUtil.writeProperties(configFilePath, "runFile", config.getRunFile());
-		PropertyUtil.writeProperties(configFilePath, "nproc", config.getNproc().toString());
-		PropertyUtil.writeProperties(configFilePath, "outputFile", config.getOutputFile().get(0).toString());
+		PropertyUtil.writeProperties(configFilePath, "nproc", config.getNproc().toString());		
+		PropertyUtil.writeProperties(configFilePath, "numOfFile", config.getNumOfFile().toString());
+		for(int i = 1; i <= config.getNumOfFile(); i++){
+			PropertyUtil.writeProperties(configFilePath, "outputFile" + i, config.getOutputFile().get(i - 1).toString());			
+		}
 		
+	}
+
+	@Override
+	public List getOutputFiles() throws Exception {
+		List outputFiles = new ArrayList();
+		SystemConfig config = getConfig();
+		List cfgOutputFiles = config.getOutputFile();
+		for( Object o : cfgOutputFiles){
+			String relativePath = (String) o;
+			relativePath = relativePath.trim();
+			if(isRelativePathExit(relativePath)){
+				outputFiles.add("OutputFile/" + relativePath);
+			}
+		}
+		if(outputFiles.size() > 0)
+			return outputFiles;
+		else
+			return null;
+	}
+
+	private boolean isRelativePathExit(String relativePath) throws Exception {
+		String[] pathNames = relativePath.split("/");
+		MyFile parent = null;
+		for(int i = 0; i < pathNames.length; i++){
+			if(i == 0){
+				if((parent = fileDao.getByFileNameAndParent(pathNames[0], null)) == null)
+					return false;
+			}
+			else{
+				if((parent = fileDao.getByFileNameAndParent(pathNames[i], parent)) == null)
+					return false;
+			}
+		}
+		return true;
+	}
+
+	@Override
+	public void addOutputFile() throws Exception {
+		SystemConfig config = getConfig();
+		List cfgOutputFiles = config.getOutputFile();
+		for( Object o : cfgOutputFiles){
+			String relativePath = (String) o;
+			relativePath = relativePath.trim();
+			String[] pathNames = relativePath.split("/");
+			
+			//not valid for the outputfile path
+			if(pathNames.length < 2)
+				continue;
+			
+			MyFile parent = null;
+			for(int i = 0; i < pathNames.length - 1; i++){
+				if(i == 0){
+					if((parent = fileDao.getByFileNameAndParent(pathNames[0], null)) == null)
+						break;
+				}
+				else{
+					if((parent = fileDao.getByFileNameAndParent(pathNames[i], parent)) == null)
+						break;
+				}
+				
+				if(i == pathNames.length - 2){
+					String newFileName = pathNames[pathNames.length - 1];
+					MyFile f=fileDao.getByFileNameAndParent(newFileName, parent);
+					if(f == null){
+						MyFile newFile = new MyFile();
+						newFile.setFileName(newFileName);
+						newFile.setFilePath("");
+						newFile.setIsDirectory(false);		
+						newFile.setParentDirectory(parent);
+						String fileType = newFileName.substring(newFileName.lastIndexOf(".") + 1,newFileName.length()).toLowerCase();
+						newFile.setFileType(fileType);
+						newFile.setUpdateTime(new Timestamp(System.currentTimeMillis()));
+						fileDao.save(newFile);
+					}
+					else{
+						f.setUpdateTime(new Timestamp(System.currentTimeMillis()));
+						fileDao.saveOrUpdate(f);
+					}
+					
+				}
+				
+			}// end of for
+		}//end of for
 	}
 	
 	

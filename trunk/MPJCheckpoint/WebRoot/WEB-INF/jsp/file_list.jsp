@@ -158,6 +158,11 @@ function select_none(){
 	window.parent.select_file_map.clear();
 }
 
+$(document).ready(init);
+
+function init(){
+	window.parent.select_file_map.clear();
+}
 </script>
 
 </head>

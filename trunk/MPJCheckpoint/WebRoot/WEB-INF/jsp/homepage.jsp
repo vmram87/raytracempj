@@ -193,19 +193,18 @@ function mouseUpButton(b){
 	}
 }
 
-function selectOption(opt, viewMode){
-	var p = opt.parentNode;
+function selectOption(viewMode){
+	var p = document.getElementById("left_option_area");
 	var childs = p.childNodes;
 	for(i=0;i<childs.length;i++){
 		if(childs[i].nodeType == 1){
-			childs[i].className="option_item"
+			childs[i].className="option_item";
 		}
 	}
-	opt.className="option_item_selected";
+	document.getElementById(viewMode+"_option").className="option_item_selected";
  
-	if(view_mode != viewMode){
-		open_view(viewMode);
-	}
+	open_view(viewMode);
+	
 }
 
 var view_mode;
@@ -220,6 +219,9 @@ $(document).ready(init_document);
 function init_document(){
 	if(view_mode != "fileList")
 		$("#file_list_option").hide();
+
+	open_view(view_mode);
+	$("#"+view_mode+"_option").attr("class","option_item_selected");
 }
 
 function open_view(viewMode){
@@ -257,10 +259,15 @@ function open_upload_page(){
 
 function click_node(node){
 	select_folder_id = node.attr("id");
-	open_view("fileList");
+	selectOption("fileList");
 }
 
 var select_file_map = new Map();
+$(document).ready(init);
+
+function init(){
+	select_file_map.clear();
+}
 // update file list operation is in update_file_list.js
 </script>
 
@@ -300,10 +307,10 @@ var select_file_map = new Map();
 			</div><!-- end of left button_area-->
 			
 			<div id="left_option_area">
-				<div class="option_item" onclick="selectOption(this,'graphicView')">Nodes Status View</div>
-				<div class="option_item" onclick="selectOption(this,'fileList')">Files View</div>
-				<div class="option_item" onclick="selectOption(this,'sysConfig')">System Configuration</div>	
-				<div class="option_item" onclick="selectOption(this,'userGuide')">User Guide</div>				
+				<div id="graphicView_option" class="option_item" onclick="selectOption('graphicView')">Nodes Status View</div>
+				<div id="fileList_option" class="option_item" onclick="selectOption('fileList')">Files View</div>
+				<div id="sysConfig_option" class="option_item" onclick="selectOption('sysConfig')">System Configuration</div>	
+				<div id="userGuide_option" class="option_item" onclick="selectOption('userGuide')">User Guide</div>				
 			</div><!-- end of left_option_area-->
 			
 			<div id="file_tree">

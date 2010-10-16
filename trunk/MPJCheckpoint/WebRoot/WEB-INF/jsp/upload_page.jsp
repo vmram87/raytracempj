@@ -1,7 +1,7 @@
 <%@ page language="java" contentType="text/html; charset=UTF-8"
     pageEncoding="UTF-8"%>
 <%
-    double perMaxSize = 1.5;//max file size 
+    double perMaxSize = 3.0;//max file size 
     String sizeUnit = "MB";//perMaxSize
     String ext = "*.*";//allow type
     //sumbit location

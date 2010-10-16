@@ -7,6 +7,7 @@ public class SystemConfig {
 	private String runFile;
 	private Integer nproc;
 	private List outputFile;
+	private Integer numOfFile;
 	public String getRunType() {
 		return runType;
 	}
@@ -31,6 +32,13 @@ public class SystemConfig {
 	public void setOutputFile(List outputFile) {
 		this.outputFile = outputFile;
 	}
+	public Integer getNumOfFile() {
+		return numOfFile;
+	}
+	public void setNumOfFile(Integer numOfFile) {
+		this.numOfFile = numOfFile;
+	}
+	
 	
 	
 }

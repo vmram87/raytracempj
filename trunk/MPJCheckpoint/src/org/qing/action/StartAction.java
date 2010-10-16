@@ -27,6 +27,12 @@ public class StartAction extends BaseActionInterface {
 
 
 
+	public String getTip() {
+		return tip;
+	}
+
+
+
 	public String execute() throws Exception
 	{
 		if(mgr.isCanStartProgram() == false){
@@ -59,7 +65,11 @@ public class StartAction extends BaseActionInterface {
 		}
 		
 		String argv[] = str.trim().split("\\s+");
-		mgr.startMPJRun(argv);
+//		try{
+			mgr.startMPJRun(argv);
+//		}catch(Exception e){
+//			tip = "Error: " + e.getMessage();
+//		}
 		return SUCCESS;
 	}
 	
