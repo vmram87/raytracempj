@@ -194,6 +194,15 @@
 	   value="org.mortbay.jetty.jar log4j-1.2.11.jar javax.servlet.jar"/> 
 	  </manifest>  
      </jar>
+
+     <jar destfile="${dest.dir}/raytrace.jar" basedir="src"
+          includes="org/**/*.class">
+	  <manifest>
+	   <attribute name="Main-class" value="org.raytrace.test.mpiTest" />
+           <attribute name="Class-path" 
+	   value="${dest.dir}/*.jar"/> 
+	  </manifest>  
+     </jar>
     </target>
 
     <target name="mxlib" description="generates native MX code">
@@ -240,6 +249,7 @@
 	 <fileset dir="${mpjbuf.dir}" includes="**/*.class"/>
 	 <fileset dir="src/runtime" includes="**/*.class"/>
 	 <fileset dir="src/runtime" includes="*.class"/>
+	<fileset dir="src" includes="**/*.class"/>
 	</delete>
     </target>
 

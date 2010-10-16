@@ -1564,7 +1564,7 @@ public class NIODevice
 		      
 		      /* send init info to the daemonchannel */
 	      
-	    	  initMsgBuffer = ByteBuffer.allocate(28);;
+	    	  initMsgBuffer = ByteBuffer.allocate(32);;
 	    	  if(isCheckpointing == false)
 	    		  initMsgBuffer.put("pro-Init".getBytes());
 	    	  else
@@ -1573,6 +1573,7 @@ public class NIODevice
 	    	  initMsgBuffer.putInt(rank);
 	  	      initMsgBuffer.putLong(msb);
 	  	      initMsgBuffer.putLong(lsb);
+	  	      initMsgBuffer.putInt(Integer.parseInt(pId));
 		  	  
 	    	  initMsgBuffer.flip();
 		      
@@ -2714,6 +2715,8 @@ public class NIODevice
   private void realFinish() throws XDevException {
   
     //selectorFlag = false;
+	//for selector thread to exit
+	isFinished = true;
 
     if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
       logger.debug("---finish---");
@@ -2801,6 +2804,8 @@ public class NIODevice
 
   private boolean hasReceiveStartCheckpointWave = false;
 
+  private boolean isFinished = false;
+
   static final int SHUTDOWN_SIGNAL = -13;
   static final int END_OF_STREAM = -14;
 
@@ -2874,7 +2879,7 @@ public class NIODevice
 	    synchronized (selectorFinishLock) {
 	    	while(!(recvDaemonFinishAck == true && recvServerFinishAck == true)){
 		    	try {
-		    		selectorFinishLock.wait();
+		    		selectorFinishLock.wait();		    		
 		    	} catch (InterruptedException e) {
 		    		e.printStackTrace();
 		    	}
@@ -2947,7 +2952,8 @@ public class NIODevice
 
       send(sbuf, pids[procTree.parent], btag, context);
     }
-
+    
+    
     if (procTree.isRoot) {
       realFinish();
     }
@@ -2964,14 +2970,14 @@ public class NIODevice
         catch (Exception e) {
           e.printStackTrace();
         }
-      }
+      }      
     }
 
     BufferFactory.destroy( sbuf.getStaticBuffer()) ;
     BufferFactory.destroy( rbuf.getStaticBuffer()) ;
 
     
-    System.out.println("Process ends, time: " + new Timestamp(System.currentTimeMillis()) );
+    //System.out.println("Process ends, time: " + new Timestamp(System.currentTimeMillis()) );
     System.out.print("@@@Exit@@@");
   }
 
@@ -3044,7 +3050,7 @@ public class NIODevice
 	        	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
 	                logger.debug("after table notify");
 	              }
-	        	if(hasReceiveStartCheckpointWave == true ){
+	        	if(table == worldWritableTable && hasReceiveStartCheckpointWave == true ){
 	        		doStartCheckpointWave();
 	        		hasReceiveStartCheckpointWave = false;
 	        	}
@@ -4059,17 +4065,18 @@ public class NIODevice
       NIORecvRequest recvRequest = null;
       SocketChannel pendingReadChannel = null;
       int header = 0;
-      boolean isFinished = false;
+      
       //long strt = 0L, stop = 0L, intv = 0L ;
 
       try {
-        while (!isFinished && selector.select() > -1) {
+        while (!isFinished  && selector.select() > -1) {
 
           readyKeys = selector.selectedKeys();
           readyItor = readyKeys.iterator();
 
+          
           while (readyItor.hasNext()) {
-
+        	try{
             key = readyItor.next();
             readyItor.remove();
             keyChannel = (SelectableChannel) key.channel();
@@ -4113,9 +4120,7 @@ public class NIODevice
 		                  }
                 	}
                 	catch(Exception e){
-                		e.printStackTrace();
-                		header = -1;
-                		break;
+                		throw e;
                 	}
                 }
 
@@ -4367,7 +4372,6 @@ public class NIODevice
               	    		markerMap.clear();              	    		            	    		
 	              	    	recvMarkerAck = false;
 	              	    	recvDeamonCheckpointAck = false;
-	              	    	isFinished = true;
 	              	    	System.out.println("checkpoint finished");  
 	              	    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
 	                            logger.debug("checkpoint finished, thread<" + threadNum + "> return!");
@@ -4391,8 +4395,7 @@ public class NIODevice
                 		  	processContinue();
 	              	    	cLockUserSend.signal();
 	              	    	recvMarkerAck = false;
-	              	    	recvDeamonCheckpointAck = false;
-	              	    	isFinished = true;
+	              	    	recvDeamonCheckpointAck = false;	              	    	
 	              	    	markerMap.clear();
 	              	    	System.out.println("checkpoint finished");
 	              	    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
@@ -4424,7 +4427,6 @@ public class NIODevice
 	              	    	cLockUserSend.signal();
 	              	    	recvMarkerAck = false;
 	              	    	recvDeamonCheckpointAck = false;
-	              	    	isFinished = true;
 	              	    	markerMap.clear();
 	              	    	System.out.println("checkpoint finished");
 	              	    	if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
@@ -4573,7 +4575,10 @@ public class NIODevice
 
             } //end else writable.
 
-          } //end while iterator
+        	}//end try
+            catch(Exception e){          	  
+            }
+          } //end while iterator         
       
         } //end while
       }
@@ -4586,9 +4591,6 @@ public class NIODevice
         //ioe1.printStackTrace() ;
       } //end catch(Exception e) ...
       
-      if(mpi.MPI.DEBUG && logger.isDebugEnabled()) {
-          logger.debug(" isFinished:" + isFinished);
-        }
       if(mpi.MPI.DEBUG && logger.isDebugEnabled()) {
         logger.debug(" last statement" + " In seletor thread<" + threadNum + ">");
       }
@@ -4834,15 +4836,26 @@ private String pId = null;
 			writableChannels.clear();
 			readableChannels.clear();
 			try{
-				daemonChannel.close();
-				readableCheckpointServer.close();
-				writableCheckpointServer.close();
-			
-			}catch(Exception e){		
-				e.printStackTrace();
+				daemonChannel.close();			
+			}catch(Exception e1){		
+				//e.printStackTrace();
+			}
+			try{
+				readableCheckpointServer.close();			
+			}catch(Exception e2){		
+				//e.printStackTrace();
+			}
+			try{
+				writableCheckpointServer.close();			
+			}catch(Exception e3){		
+				//e.printStackTrace();
 			}
 			
-			selector.close();
+			try{
+				selector.close();
+			}catch(Exception e4){		
+				//e.printStackTrace();
+			}	
 			
 			tempDstFilePath = mpjHomeDir + File.separator + CONTEXT_DIR_NAME 
 								+ File.separator + pId + "_Rank_" + rank + "_Ver_" + versionNum; 
