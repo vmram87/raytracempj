@@ -42,6 +42,7 @@ import java.net.*;
 import java.io.*;
 import java.sql.Timestamp;
 import java.util.*;
+import java.util.Map.Entry;
 
 import javax.crypto.*;
 
@@ -95,6 +96,7 @@ public class MPJDaemon {
   private String BLCR_LIB_DIR = "/home/jqchen/local/lib";
   String configFileName = null ;
   private long HEARTBEAT_INTERVAL = 5000;
+  private String[] processIds = null;
   
   //Vector<SocketChannel> writableChannels = null;
   //Vector<SocketChannel> tempWritableChannels = new Vector<SocketChannel> ();
@@ -111,6 +113,7 @@ public class MPJDaemon {
   
   Hashtable<UUID, Boolean> processValidMap = new Hashtable<UUID, Boolean> ();
   Hashtable<UUID, Boolean> processFinishMap = new Hashtable<UUID, Boolean> ();
+  Hashtable<Integer, String> rankProcessIdTable = new Hashtable<Integer, String> ();
 
   
   private boolean initializing = false;
@@ -146,7 +149,7 @@ public class MPJDaemon {
   private int daemonStatus = DAEMON_STATUS_RUNNING;
   private static String machineName = null;
   
-  private final int MAX_CHECKPOINT_INVALID_TIME = 12;
+  private int MAX_CHECKPOINT_INVALID_TIME = 12;
   private boolean isRestartFromCheckpoint = false;
   private boolean hasSendRequest = false;
   protected boolean hasAcquireFinishLock = false;  
@@ -218,7 +221,7 @@ public class MPJDaemon {
       InputStream in = null;
 
       File configFile = new File(configFileName) ; 
-      configFile.createNewFile();
+      //configFile.createNewFile();
 
       try {
         in = new FileInputStream(configFile);
@@ -231,10 +234,11 @@ public class MPJDaemon {
 
       OutputHandler [] outputThreads = new OutputHandler[processes] ;  
       p = new Process[processes];  
+      processIds = new String[processes];
       pids = new UUID[nprocs];
       
       processStartLock.acquire();
-      if(isExit == false){
+      if(isExit == false && kill_signal == false){
     	  kill_signal = false;
     	  isRestarting = false;
 	      try{
@@ -402,6 +406,8 @@ public class MPJDaemon {
 		        	int pos = tempFilePath.lastIndexOf("/");
 		        	String pathArg = tempFilePath.substring(pos + 1);
 		        	String processId = pathArg.split("_")[0];
+		        	rank= pathArg.split("_")[2];
+		        	rankProcessIdTable.put(Integer.parseInt(rank), processId);
 		        	
 		        			        	
 		        	String dstTempFilePath = JAVA_TEMP_FILE_DIRECTORY + processId;
@@ -427,8 +433,8 @@ public class MPJDaemon {
 		
 		        //avoid the problem that after kill the process, 
 		        //it needs time to complete release the resource.
-		        if(j==0)
-		        	Thread.currentThread().sleep(3000);
+		       // if(j==0)
+		        	//Thread.currentThread().sleep(3000);
 		        
 		        if(DEBUG && logger.isDebugEnabled()) { 
 		          logger.debug("starting the process ");
@@ -467,35 +473,35 @@ public class MPJDaemon {
 	        } 
 	        
 	  	  //when init, and worldprocessTable is not init properly, it's should be init to be 0 in selector thread
-	        Thread.currentThread().sleep(2000);
+	        Thread.currentThread().sleep(1000);
 	       
       }//end of it isExit == false
       else
     	  isExit = false;
       
       processStartLock.signal(); 
-      /*
+      
+      
       synchronized (worldProcessTable) {
       	  if(DEBUG && logger.isDebugEnabled()) { 
                 logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
             }
       	  if(worldProcessTable.size() != processes){
       		  if(DEBUG && logger.isDebugEnabled()) { 
-                    logger.debug("wait 30s for worldProcessTable, time:" + new Timestamp(System.currentTimeMillis())); 
+                    logger.debug("wait for worldProcessTable, time:" + new Timestamp(System.currentTimeMillis())); 
                 }
       		  worldProcessTable.wait(1000 * nprocs * 8);
       		  if(DEBUG && logger.isDebugEnabled()) { 
       			  	logger.debug("Time:" + new Timestamp(System.currentTimeMillis()));
                     logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
                 }
-      		  if(worldProcessTable.size() != processes ){
+      		  if(worldProcessTable.size() != processes ){      			
       			  isFinished = true;
       			  sendRestartReqestToMainHost();
       		  }
       	  }
         }
-		        
-		 */
+		       
 		
       //Wait for the I/O threads to finish. They finish when 
       // their corresponding JVMs finish. 
@@ -600,6 +606,9 @@ public class MPJDaemon {
 	      }
 	      
       }// if isRestarting == false
+      else{
+    	  
+      }
 
       processStartLock.signal();
       
@@ -611,6 +620,7 @@ public class MPJDaemon {
       
       
       processStartLock.acquire();
+      kill_signal = false;
       if(hasAcquireFinishLock == true){
     	  finishLock.signal();
     	  hasAcquireFinishLock = false;
@@ -635,7 +645,7 @@ public class MPJDaemon {
 		  logger.debug("--sendRestartReqestToMainHost--"); 
       }
 	  
-	  synchronized (sendRequestLock) {
+	  synchronized (peerChannel) {
 		if(hasSendRequest == false){
 			if(DEBUG && logger.isDebugEnabled()) { 
 				  logger.debug("has not send the restart request, and send it"); 
@@ -672,6 +682,7 @@ public class MPJDaemon {
 private void restoreVariables() {
 	hasSendRequest = false;
 	isRestartFromCheckpoint = false;
+	rankProcessIdTable.clear();
     jvmArgs.clear();
     appArgs.clear(); 
     wdir = null ; 
@@ -722,6 +733,7 @@ private void restoreVariables() {
     if(host.getHostName().equals(myHost.getHostName()) || 
        host.getHostAddress().equals(myHost.getHostAddress())) {
     	machineName = hostName;
+    	MPJProcessPrintStream.setMachineName(machineName);
       return true;
     }
 
@@ -1025,8 +1037,8 @@ private void restoreVariables() {
     	            	  
     	            	  if(heartBeatStarter == null || heartBeatStarter.getState().equals(Thread.State.TERMINATED)){
 	    	            	  isFinished = false;
-	    	            	  //heartBeatStarter = new Thread(heartBeatThread);
-	    	            	  //heartBeatStarter.start();
+	    	            	  heartBeatStarter = new Thread(heartBeatThread);
+	    	            	  heartBeatStarter.start();
     	            	  }
                 	}
                     
@@ -1395,27 +1407,34 @@ private void restoreVariables() {
             		  processStartLock.acquire();
             	  }catch (InterruptedException e1){
             		  e1.printStackTrace();
-            	  } 	   	  
+            	  }            	  
+            	  
           	  
             	  lilBuffer.get(lilArray, 0, 4);
                   String object = new String(lilArray);
                   if(object.equals("rest")){             	  
                 	  if(DEBUG && logger.isDebugEnabled()) { 
                           logger.debug ("Receive killrest");
+                	  }                	  
+                	  
+                	  if(kill_signal == true){
+                		  if(DEBUG && logger.isDebugEnabled()) { 
+                              logger.debug ("kill_signal == true, so continue to select");
+                    	  }
+                		  continue;
                 	  }
                 	  
-                	  if(p!=null && p.length>0){
-                		  try{                			  
-                			  finishLock.acquire();
-                			  hasAcquireFinishLock  = true;
-                			  if(DEBUG && logger.isDebugEnabled()) { 
-                                  logger.debug ("Acquire finishLock");
-                        	  }
-                		  }
-                		  catch(InterruptedException e2){
-                			  e2.printStackTrace();
-                		  }
-                	  }
+            		  try{                			  
+            			  finishLock.acquire();
+            			  hasAcquireFinishLock  = true;
+            			  if(DEBUG && logger.isDebugEnabled()) { 
+                              logger.debug ("Acquire finishLock");
+                    	  }
+            		  }
+            		  catch(InterruptedException e2){
+            			  e2.printStackTrace();
+            		  }
+                	  
                 	  isRestarting = true;
                 	  isExit = false;
                 	  
@@ -1428,6 +1447,9 @@ private void restoreVariables() {
                 	  isExit = true;
                   }
                   
+                  synchronized(worldProcessTable){
+                	  hasReceiveStartCheckpointWave = false;
+                  }
             	  
             	  checkpointingProcessTable.clear();
             	  
@@ -1448,11 +1470,21 @@ private void restoreVariables() {
                     logger.debug ("Killing the process");
 		  }
                 try {
-                    if (kill_signal == false && p != null) {              	
+                    if (kill_signal == false && p != null && p.length > 0) {              	
                         for(int i=0 ; i<processes ; i++) {
                         	if(p[i] != null)
                         		p[i].destroy() ;                         
                         }
+                        
+                      //wait 3s and then forcely kill 
+                       Thread.currentThread().sleep(3000);
+                       Iterator it = rankProcessIdTable.entrySet().iterator();
+                       System.out.println("Forecefully Kill: " + rankProcessIdTable);
+						while(it.hasNext()){
+							Entry entry = (Entry)it.next();
+							String pId = (String)entry.getValue();
+							Runtime.getRuntime().exec("kill -9 " + pId);
+						}
                     }
                     
                 }
@@ -1509,6 +1541,9 @@ private void restoreVariables() {
   
   
   private void doResponseCheckValid(SocketChannel socketChannel) {
+	  	if(machineName == null){
+	  		return;
+	  	}
 		ByteBuffer buf = ByteBuffer.allocate(100);
 		buf.putInt(DAEMON_STATUS);
 		buf.putInt(machineName.getBytes().length);
@@ -1517,7 +1552,7 @@ private void restoreVariables() {
 		
 		buf.flip();
 		
-		synchronized (sendRequestLock) {
+		synchronized (peerChannel) {
 			while(buf.hasRemaining()){
 				try{
 					if(peerChannel.write(buf) == -1)
@@ -1677,7 +1712,7 @@ private void restoreVariables() {
 			
 			ackBuf.flip();
 			
-			synchronized (sendRequestLock) {
+			synchronized (peerChannel) {
 				while(ackBuf.hasRemaining()){
 					try{
 						if(peerChannel.write(ackBuf) == -1)
@@ -1713,14 +1748,15 @@ private void restoreVariables() {
 		  
 	    long lsb, msb;
 	    int read = 0, tempRead = 0, rank;
+	    int pId = 20000;
 	    UUID ruid = null;
-	    ByteBuffer barrBuffer = ByteBuffer.allocate(24); //changeallocate
+	    ByteBuffer barrBuffer = ByteBuffer.allocate(28); //changeallocate
 
 	    if (ignoreFirstFourBytes) {
-	      barrBuffer.limit(24);
+	      barrBuffer.limit(28);
 	    }
 	    else {
-	      barrBuffer.limit(20);
+	      barrBuffer.limit(24);
 	    }
 
 	    while (barrBuffer.hasRemaining()) {
@@ -1747,10 +1783,13 @@ private void restoreVariables() {
         }
 	    msb = barrBuffer.getLong();
 	    lsb = barrBuffer.getLong();
+	    pId = barrBuffer.getInt();
 	    barrBuffer.clear();
 	    ruid = new UUID(msb, lsb);
 	    pids[rank] = ruid; //, rank);
+	    
    
+	    rankProcessIdTable.put(rank, "" + pId);
 	    
 	    
 	    
@@ -2044,7 +2083,7 @@ private void restoreVariables() {
 			}
 			heartBeatBeginLock.signal();
 			
-			
+			MAX_CHECKPOINT_INVALID_TIME = nprocs*2 ;
 			
 			while(!isFinished){
 				try {
@@ -2100,7 +2139,7 @@ private void restoreVariables() {
 						              logger.debug("Socket Channel:" + socketChannel + " is closed, so notify the main host");
 						        }
 								
-								synchronized (sendRequestLock) {
+								synchronized (peerChannel) {
 									if(hasSendRequest == false){
 										if(DEBUG && logger.isDebugEnabled()) { 
 											  logger.debug("has not send the restart request, and send it"); 
@@ -2155,7 +2194,7 @@ private void restoreVariables() {
 							            		  + "]is closed, so notify the main host");
 							        }
 									
-									synchronized (sendRequestLock) {
+									synchronized (peerChannel) {
 										if(hasSendRequest == false){
 											if(DEBUG && logger.isDebugEnabled()) { 
 												  logger.debug("has not send the restart request, and send it"); 
@@ -2327,7 +2366,7 @@ class OutputHandler extends Thread {
       if(MPJDaemon.DEBUG && MPJDaemon.logger.isDebugEnabled()) { 
         MPJDaemon.logger.debug ("outputHandler =>" + e.getMessage());
       }
-      e.printStackTrace();
+      //e.printStackTrace();
     } 
     
     //System.out.println("@Rank<" + this.rank + ">: OutputThread Ends Time: " + new Timestamp(System.currentTimeMillis()));
