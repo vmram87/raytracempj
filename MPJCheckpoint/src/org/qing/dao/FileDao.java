@@ -16,5 +16,5 @@ public interface FileDao {
 	public MyFile getUserFolder() throws Exception;
 	public MyFile getUserLib() throws Exception;
 	List getFolderListById(MyFile parent, boolean includeFiles)throws Exception;
-	MyFile getByFileNameAndParent(String newFolderName, MyFile parentFolder) throws Exception;
+	MyFile getByFileNameAndParent(String folderName, MyFile parentFolder) throws Exception;
 }

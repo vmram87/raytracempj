@@ -14,6 +14,5 @@ public interface ContextManager {
 	void killProccesses() throws Exception;
 	Integer getLatestCompleteVersion(int nprocs)throws Exception;
 	List getDaemonStausList() throws Exception;
-	boolean isCanStartProgram();
-	
+	boolean isCanStartProgram() throws Exception;
 }

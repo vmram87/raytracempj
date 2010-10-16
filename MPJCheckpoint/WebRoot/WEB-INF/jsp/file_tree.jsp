@@ -61,9 +61,6 @@ function init_simple_tree(){
 		afterContextMenu:function(node)
 		{
 		},
-		afterContextMenu:function(node)
-		{
-		},
 		animate:true
 		//,docToFolderConvert:true
 	});
@@ -103,6 +100,7 @@ function update_open_ids(){
 	}
 }
 
+
 	
 </script>
 
@@ -124,14 +122,16 @@ font-family:Arial, Helvetica, sans-serif;
 <s:include value="tree_main.jsp"/>
 </ul>
 
+
  <div class="contextMenu" id="myMenu1">
   <ul>
-    <li id="new_folder"><img src="folder.png" /> New Folder</li>
-    <li id="rename"><img src="email.png" /> Rename</li>
-    <li id="delete"><img src="disk.png" /> Delete</li>
-    <li id="move_to"><img src="cross.png" /> Move To</li>
+    <li id="new_folder">New Folder</li>
+    <li id="rename">Rename</li>
+    <li id="delete">Delete</li>
+    <li id="move_to">Move To</li>
   </ul>
 </div>
+
 
 					
 </body>

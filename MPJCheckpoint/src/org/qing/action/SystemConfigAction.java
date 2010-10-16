@@ -3,6 +3,7 @@ package org.qing.action;
 import java.util.List;
 
 import org.qing.action.base.BaseAction;
+import org.qing.factory.ClientFactory;
 import org.qing.util.SystemConfig;
 
 public class SystemConfigAction extends BaseAction {
@@ -10,6 +11,7 @@ public class SystemConfigAction extends BaseAction {
 	private String runFile;
 	private Integer nproc;
 	private List outputFile;
+	private String tip;
 	
 	public String getRunType() {
 		return runType;
@@ -57,13 +59,24 @@ public class SystemConfigAction extends BaseAction {
 		return SUCCESS;
 	}
 	
+	public String getTip() {
+		return tip;
+	}
+
 	public String saveConfig() throws Exception {
-		SystemConfig config = new SystemConfig();
-		config.setRunType(runType);
-		config.setRunFile(runFile);
-		config.setNproc(nproc);
-		config.setOutputFile(outputFile);
-		fileMgr.saveConfig(config);
+		if(ClientFactory.isCanStarted()){
+			SystemConfig config = new SystemConfig();
+			config.setRunType(runType);
+			config.setRunFile(runFile);
+			config.setNproc(nproc);
+			config.setNumOfFile(outputFile.size());
+			config.setOutputFile(outputFile);
+			fileMgr.saveConfig(config);
+			tip="Configuration Saved!";
+		}
+		else{
+			tip="The program is running, you can't save the configuration until the program ends.";
+		}
 		return SUCCESS;
 	}
 }

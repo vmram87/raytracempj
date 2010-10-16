@@ -12,7 +12,9 @@
 		<div class="machine_frame">
 			<div class="node_info">
 				<p>node status: 
-					<font color="<s:if test="%{#node.daemonStatus=='Checkpointing'}">#00FF00</s:if>">						 
+					<font color="<s:if test="%{#node.daemonStatus=='Checkpointing'}">#00FF00</s:if>
+								<s:elseif test="%{#node.daemonStatus=='Disconnected'}">#FF0000</s:elseif>
+								<s:elseif test="%{#node.daemonStatus=='Restarting'}">#0000FF</s:elseif>">						 
 						${node.daemonStatus }</p>
 					</font>					
 				<p>no. of processes: ${fn:length(node.process)}</p>
@@ -33,5 +35,15 @@
 	</s:if>
 </s:iterator>
 
+
+<s:if test="%{outputFile!=null}">
+	Output Files:
+	<s:iterator value="outputFile" id="file" status="st">
+		<div>
+			File <a href="${file }" target="_blank"><s:property value="%{#file.substring(11)}"/></a> : <br/>
+			<a href="${file }" target="_blank"><img border="0" width="600px" src="${file }"/></a>
+		</div>
+	</s:iterator>
+</s:if>
 
 					

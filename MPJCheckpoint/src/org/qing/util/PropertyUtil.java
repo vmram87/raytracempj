@@ -26,7 +26,7 @@ public class PropertyUtil {
 
 	String value = props.getProperty(key);
 
-	System.out.println(key + value);
+	//System.out.println(key + value);
 
 	return value;
 
@@ -62,7 +62,7 @@ public class PropertyUtil {
 
 	String Property = props.getProperty(key);
 
-	System.out.println(key + Property);
+	//System.out.println(key + Property);
 
 	}
 
@@ -106,9 +106,7 @@ public class PropertyUtil {
 
 	} catch (IOException e) {
 
-	System.err.println("Visit " + filePath + " for updating "
-
-	+ parameterName + " value error");
+	//System.err.println("Visit " + filePath + " for updating " + parameterName + " value error");
 
 	}
 

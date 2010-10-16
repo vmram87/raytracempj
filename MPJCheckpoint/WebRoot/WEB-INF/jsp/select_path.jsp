@@ -25,6 +25,10 @@ font-family:Arial, Helvetica, sans-serif;
 <script type="text/javascript">
 var select_folder_id = null;
 
+function click_node(node){
+	select_folder_id = node.attr("id");
+}
+
 function moveFile(){
 	var uri="moveFile.action";
 

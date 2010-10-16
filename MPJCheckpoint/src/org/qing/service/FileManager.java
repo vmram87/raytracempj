@@ -28,4 +28,6 @@ public interface FileManager {
 	public boolean moveMultipleFiles(Integer directoryId, Integer[] selectFileIds)throws Exception;
 	public SystemConfig getConfig()throws Exception;
 	public void saveConfig(SystemConfig config)throws Exception;
+	List getOutputFiles() throws Exception;
+	public void addOutputFile() throws Exception;
 }

@@ -77,6 +77,7 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
 import org.qing.object.Context;
 import org.qing.service.ContextManager;
+import org.qing.service.FileManager;
 import org.qing.service.ServiceLocator;
 import org.qing.util.DaemonStatus;
 
@@ -134,7 +135,7 @@ public class MPJRun {
   String applicationClassPathEntry = null ; 
   String codeBase = null;
   String mpjCodeBase = null ; 
-  ByteBuffer buffer = ByteBuffer.allocate(1000);
+  ByteBuffer buffer = ByteBuffer.allocate(1500);
 
   static final boolean DEBUG = true ; 
   static final String VERSION = "0.36" ; 
@@ -403,6 +404,10 @@ public class MPJRun {
 	    	logger.debug("Calling the finish method now");
 
 	    this.finish();
+	    
+	  //find the latest complete version
+		FileManager fileMgr = (FileManager)ServiceLocator.getInstance().getService("fileMgr"); 
+		fileMgr.addOutputFile();
     }// end of if isRestarting == false
 
   }
@@ -666,12 +671,12 @@ public class MPJRun {
       }
       
       else if(args[i].equals("-jar")) {
-        File tFile = new File(args[i+1]);
-	String absJarPath = tFile.getAbsolutePath();
+    	  applicationClassPathEntry = new String(mpjHomeDir + File.separator +
+       		   USER_DIR + File.separator + args[i+1]) ; 
+    	  File tFile = new File(applicationClassPathEntry);
+    	  String absJarPath = tFile.getAbsolutePath();
 	
-	if(tFile.exists()) {
-          applicationClassPathEntry = new String(mpjHomeDir + File.separator +
-        		   USER_DIR + File.separator + absJarPath) ; 
+	if(tFile.exists()) {     
 
           try { 
             JarFile jarFile = new JarFile(absJarPath) ;
@@ -937,6 +942,7 @@ public class MPJRun {
 
     }
     
+    //assgin the rank to machine status to show in the web site
     for(int i = 0; i < nprocs; i++){
     	String machine = rankMachineMap.get(i);
     	machineStatusMap.get(machine).setDaemonStatus("Running");
@@ -1319,6 +1325,13 @@ public class MPJRun {
 		     }//end for
 			  
 		}// end else
+	    
+	  //assgin the rank to machine status to show in the web site
+	    for(int i = 0; i < nprocs; i++){
+	    	String machine = rankMachineMap.get(i);
+	    	machineStatusMap.get(machine).setDaemonStatus("Running");
+	    	machineStatusMap.get(machine).getProcess().add(i);
+	    }
 
 	    cout.close(); 
 	    cfos.close(); 
@@ -1392,6 +1405,8 @@ public class MPJRun {
                 		throw new ClosedChannelException();
                 	}            	
                 }
+            	
+            	buffer.clear();
 			}
             
         	
@@ -2118,7 +2133,8 @@ if(DEBUG && logger.isDebugEnabled())
 									if(DEBUG && logger.isDebugEnabled())
 									{
 										logger.debug("the checkpiont channel is close, this should not happen!");
-									}								
+									}	
+									break;
 								}
 							}
 							if(DEBUG && logger.isDebugEnabled())
@@ -2434,7 +2450,7 @@ if(DEBUG && logger.isDebugEnabled())
   	 	int status = buf.getInt();
   	 	
   	 	try{
-  	 		if(machineStatusMap.get(machine) != null){
+  	 		if(machineStatusMap.get(machine) != null && (Boolean)machineConnectedMap.get(machine) ){
 		  	 	switch(status){
 		  	 		case DAEMON_STATUS_RUNNING:
 		  	 			machineStatusMap.get(machine).setDaemonStatus("Running");

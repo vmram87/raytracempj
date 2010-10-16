@@ -90,6 +90,14 @@
 			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
 		</action>
 		
+		<action name="selectDirectoryPage" class="org.qing.action.FileTreeAction">
+			<result name="success">/WEB-INF/jsp/config_select_path.jsp</result>			
+		</action>
+		
+		<action name="getDirectory" class="org.qing.action.FileTreeAction" method="getFolderPath">
+			<result name="success">/WEB-INF/jsp/successed.jsp</result>			
+		</action>
+		
 		<action name="updateTree" class="org.qing.action.FileTreeAction" method="updateTree">
 			<result name="success">/WEB-INF/jsp/tree_main.jsp</result>			
 		</action>

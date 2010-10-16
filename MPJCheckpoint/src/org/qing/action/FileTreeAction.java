@@ -111,6 +111,7 @@ public class FileTreeAction extends BaseActionInterface {
 		
 		return SUCCESS;
 	}
+	
 
 	public String folderList() throws Exception{
 		if(folder == null){
@@ -138,7 +139,8 @@ public class FileTreeAction extends BaseActionInterface {
 	}
 	
 	public String getFolderPath() throws Exception{
-		path = fileMgr.getRelativePathById(folder.getId());		
+		path = fileMgr.getRelativePathById(folder.getId());	
+		tip = path;
 		return SUCCESS;
 	}
 	

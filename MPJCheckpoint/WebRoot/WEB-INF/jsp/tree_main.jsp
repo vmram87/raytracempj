@@ -24,20 +24,12 @@
 			<li <s:if test="%{libList!=null&&libList.size>0}">class="open"</s:if>  id='${libFolder.id}'><span>${libFolder.fileName}</span>
 				<s:if test="%{libList!=null&&libList.size>0}">
 					<ul>
-						<s:iterator value="libList" id="lib">
-							<li id="${lib.id }"><span>${lib.fileName}</span>
-								<s:if test="%{#lib.isDirectory}">
-									<ul class="ajax">
-										<li id='${lib.id}'>{url:folderList.action?folder.id=${lib.id}&includeFiles=true}</li>
-									</ul>
-								</s:if>
-							</li>
-						</s:iterator>
+						
 					</ul>
 				</s:if>
 				<s:else>
-					<ul class="ajax">
-						<li id='${-libFolder.id}'>{url:folderList.action?folder.id=${libFolder.id}&includeFiles=true}</li>
+					<ul>
+						
 					</ul>
 				</s:else>				
 			</li>
