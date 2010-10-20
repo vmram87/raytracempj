@@ -6,7 +6,7 @@
 		<viewpoint>(640, 400, -1280)</viewpoint>
 		<objects>
 		
-		
+		<!--  
 			<object id="1" type="org.raytrace.object.impl.Sphere">
 				<shape>
 					<center type='org.raytrace.vector.impl.TPoint3D'>(200.09, 300, 400)</center>
@@ -135,17 +135,19 @@
 					<vertext3 type='org.raytrace.vector.impl.TPoint3D'>(700,500,400)</vertext3>
 				</shape>
 				<materialproperty> 
-					<ambient>(0.1, 1, 0.04447)</ambient>
-					<diffusion>(0.05, 0.05, 0.05)</diffusion>
+					<ambient>(0.05, 0.05, 0.05)</ambient>
+					<diffusion>(0.5, 0.5, 0.5)</diffusion>
 					<specular>(0.05, 0.05, 0.05)</specular>
-					<shininess>10</shininess>
+					<shininess>5</shininess>
 					<emission>(0, 0, 0)</emission>
-					<reflection>0.2</reflection>
+					<reflection>0</reflection>
 					<refraction>0</refraction>
 					<density>0</density>
-					<power>15</power>
+					<power>1000</power>
 				</materialproperty>
 			</object>
+			
+			-->
 			
 			<!-- 
 			<object id="8" type="org.raytrace.object.impl.Sphere">

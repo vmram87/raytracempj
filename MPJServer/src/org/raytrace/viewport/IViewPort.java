@@ -6,6 +6,7 @@ public interface IViewPort {
 	public boolean init(String[] args);
 	public void viewportFinalize();
 	public boolean configureFromFile(String fileName) throws Exception;
+	public boolean configureFromObjFile(String fileName) throws Exception;
 	public boolean saveToIMGFile(String fileName);
 	public boolean saveConfigToFile(String fileName) throws Exception;
 	public boolean render() throws Exception;

@@ -6,8 +6,8 @@ public class RayTraceContext {
 	private float rayNegInfinity=-1000;
 	private float rayInfinity=10000;
 	private float nearestVPointDist=0.1f;
-	private int rayMaxLevel=10;
-	private int superSamplingCoef=4;
+	private int rayMaxLevel=2;
+	private int superSamplingCoef=1;
 	
 	private RayTraceContext(){}
 	

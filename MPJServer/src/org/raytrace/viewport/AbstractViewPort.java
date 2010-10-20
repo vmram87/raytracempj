@@ -1,14 +1,17 @@
 package org.raytrace.viewport;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.StringTokenizer;
 
 import org.dom4j.Document;
 import org.dom4j.Element;
@@ -18,11 +21,10 @@ import org.raytrace.object.IObject;
 import org.raytrace.object.IShape;
 import org.raytrace.object.impl.TMaterialProperty;
 import org.raytrace.object.impl.TObject;
+import org.raytrace.object.impl.Triangle;
 import org.raytrace.scene.ILight;
 import org.raytrace.scene.IScene;
 import org.raytrace.scene.impl.TLight;
-import org.raytrace.vector.IPoint3D;
-import org.raytrace.vector.impl.TColor;
 import org.raytrace.vector.impl.TIntensity;
 import org.raytrace.vector.impl.TPoint3D;
 
@@ -330,5 +332,61 @@ public abstract class AbstractViewPort implements IViewPort {
 		int pos=fileName.lastIndexOf(".");
 		return fileName.substring(pos+1).toLowerCase();
 	}
+
+	@Override
+	public boolean configureFromObjFile(String fileName) throws Exception {
+			
+		  ArrayList<TPoint3D> vertextList = new ArrayList<TPoint3D>();
+		  int inNum = 30;
+		  
+		  IMaterialProperty materialProperty=new TMaterialProperty();
+		  materialProperty.setAmbient(new TIntensity(0.05f, 0.05f, 0.05f));
+		  materialProperty.setDiffusion(new TIntensity(0.5f, 0.5f, 0.5f));
+		  materialProperty.setSpecular(new TIntensity(0.05f, 0.05f, 0.05f));
+		  materialProperty.setShining(5);
+		
+		  FileReader rdFile = new FileReader(fileName);
+	      BufferedReader brdFile = new BufferedReader(rdFile); 
+
+	      String strLine;
+
+	      while ((strLine = brdFile.readLine()) != null) {
+	    	  strLine = strLine.trim();
+	    	  if(strLine.startsWith("#"))
+	    		  continue;
+	    	  
+	    	  else if(strLine.startsWith("v")){
+	    		  StringTokenizer tokenizer = new StringTokenizer(strLine, " ");
+	    		  tokenizer.nextToken();
+	    		  float x = (Float.parseFloat(tokenizer.nextToken()) + 20) * inNum;
+	    		  float y = (Float.parseFloat(tokenizer.nextToken()) + 20) * inNum;
+	    		  float z = (Float.parseFloat(tokenizer.nextToken()) + 20) * inNum;
+	    		  
+	    		  vertextList.add(new TPoint3D(x, y, z));
+	    	  }
+	        
+	    	  else if(strLine.startsWith("f")){
+	    		  StringTokenizer tokenizer = new StringTokenizer(strLine, " ");
+	    		  tokenizer.nextToken();
+	    		  int v1 = Integer.parseInt(tokenizer.nextToken());
+	    		  int v2 = Integer.parseInt(tokenizer.nextToken());
+	    		  int v3 = Integer.parseInt(tokenizer.nextToken());
+	    		  
+	    		  Triangle tri = new Triangle();
+	    		  tri.setVertext1(vertextList.get(v1 - 1));
+	    		  tri.setVertext2(vertextList.get(v2 - 1));
+	    		  tri.setVertext3(vertextList.get(v3 - 1));
+	    		  
+	    		  this.scene.addObject(new TObject(tri, materialProperty));
+	    	  }
+
+	      }
+
+	      brdFile.close();
+
+		return false;
+	}
+	
+	
 
 }
