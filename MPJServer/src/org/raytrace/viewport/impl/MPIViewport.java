@@ -54,7 +54,7 @@ public class MPIViewport extends AbstractViewPort {
 	}
 
 	@Override
-	public boolean render() {
+	public boolean render() throws Exception {
 		// TODO Auto-generated method stub
 		
 		

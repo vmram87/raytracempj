@@ -9,8 +9,8 @@ public interface IMaterialProperty {
 	public void setDiffusion(TIntensity diffusion);
 	public TIntensity getSpecular() ;
 	public void setSpecular(TIntensity specular) ;
-	public TIntensity getShining() ;
-	public void setShining(TIntensity shining) ;
+	public float getShining() ;
+	public void setShining(float shining) ;
 	public TIntensity getEmission() ;
 	public void setEmission(TIntensity emission) ;
 	public float getReflection() ;

@@ -24,12 +24,12 @@ public class CommonVector implements IComputable3D {
 	}
 
 	@Override
-	public float dot(IComputable3D vector) {
+	public float dot(IPoint3D vector) {
 		return this.getX()*vector.getX()+this.getY()*vector.getY()+this.getZ()*vector.getZ();
 	}
 	
 	@Override
-	public IComputable3D add(IComputable3D vector) {
+	public IComputable3D add(IPoint3D vector) {
 		return new CommonVector(x+vector.getX(),y+vector.getY(),z+vector.getZ());
 	}	
 
@@ -39,19 +39,19 @@ public class CommonVector implements IComputable3D {
 	}
 
 	@Override
-	public IComputable3D substract(IComputable3D vector) {
+	public IComputable3D substract(IPoint3D vector) {
 		return new CommonVector(x-vector.getX(),y-vector.getY(),z-vector.getZ());
 	}
 	
 	
 
 	@Override
-	public IComputable3D multiply(IComputable3D vector) {
+	public IComputable3D multiply(IPoint3D vector) {
 		return new CommonVector(x*vector.getX(),y*vector.getY(),z*vector.getZ());
 	}
 
 	@Override
-	public IComputable3D selfMultiply(IComputable3D vector) {
+	public IComputable3D selfMultiply(IPoint3D vector) {
 		setX(this.getX()*vector.getX());
 		setY(this.getY()*vector.getY());
 		setZ(this.getZ()*vector.getZ());
@@ -59,7 +59,7 @@ public class CommonVector implements IComputable3D {
 	}
 
 	@Override
-	public IComputable3D selfAdd(IComputable3D vector) {
+	public IComputable3D selfAdd(IPoint3D vector) {
 		setX(this.getX()+vector.getX());
 		setY(this.getY()+vector.getY());
 		setZ(this.getZ()+vector.getZ());
@@ -75,7 +75,7 @@ public class CommonVector implements IComputable3D {
 	}
 
 	@Override
-	public IComputable3D selfSubstract(IComputable3D vector) {
+	public IComputable3D selfSubstract(IPoint3D vector) {
 		setX(this.getX()-vector.getX());
 		setY(this.getY()-vector.getY());
 		setZ(this.getZ()-vector.getZ());

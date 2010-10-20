@@ -7,7 +7,7 @@ public class TMaterialProperty implements IMaterialProperty{
 	private TIntensity ambient=new TIntensity();
 	private TIntensity diffusion=new TIntensity();
 	private TIntensity specular=new TIntensity();
-	private TIntensity shining=new TIntensity();
+	private float shining = 0;
 	private TIntensity emission=new TIntensity();
 	
 	private float reflection=0;
@@ -33,10 +33,11 @@ public class TMaterialProperty implements IMaterialProperty{
 	public void setSpecular(TIntensity specular) {
 		this.specular = specular;
 	}
-	public TIntensity getShining() {
+	
+	public float getShining() {
 		return shining;
 	}
-	public void setShining(TIntensity shining) {
+	public void setShining(float shining) {
 		this.shining = shining;
 	}
 	public TIntensity getEmission() {

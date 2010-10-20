@@ -19,7 +19,7 @@ public class TRayTrace implements IRayTraceAlgorithm {
 	@Override
 	public TColor rayTrace(List lights, List objects, IPoint3D viewPoint, int x, int y, float z,
 			float rayNegInfinity, float rayInfinity, int superSamplingCoef,
-			int rayMaxLevel, ReferIntValue cLoad) {
+			int rayMaxLevel, ReferIntValue cLoad) throws Exception {
 		
 		TColor returnColor=new TColor(0.0f, 0.0f, 0.0f);
 		float incr =(float) (1/Math.sqrt(superSamplingCoef));
@@ -30,10 +30,12 @@ public class TRayTrace implements IRayTraceAlgorithm {
 			//load
 			cLoad .add(2);
 			
+			TVector direction = new TVector(new TPoint3D(fracx,fracy, 0), viewPoint);
+			direction.normalize();
 			returnColor.selfAdd(
 					exposure(
 							sceneRaytrace(lights, objects, rayInfinity, rayMaxLevel,
-									new TRay(new TPoint3D(fracx,fracy, rayNegInfinity), new TVector(0.0f, 0.0f, 1.0f)), cLoad)
+									new TRay(viewPoint, direction), cLoad)
 					)
 					.multiply(ONE_OVER_SRAY_SUPERSAMPLING_COEF));
 		}
@@ -72,7 +74,7 @@ public class TRayTrace implements IRayTraceAlgorithm {
 	}
 	
 	private TColor sceneRaytrace(List lights, List objects, float rayInfinity,
-			int rayMaxLevel, TRay ray, ReferIntValue cLoad) {
+			int rayMaxLevel, TRay ray, ReferIntValue cLoad) throws Exception {
 		
 		TColor color=new TColor(0.0f, 0.0f, 0.0f);
 		float coef = 1.0f;

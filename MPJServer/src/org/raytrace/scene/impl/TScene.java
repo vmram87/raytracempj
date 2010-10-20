@@ -17,7 +17,19 @@ public class TScene implements IScene {
 	private Vector lights=new Vector<ILight>(); 
 	private Vector objects=new Vector<IObject>();
 	private IRayTraceAlgorithm algorithm;
+	private IPoint3D viewPoint = new TPoint3D();
 	
+	
+	public void setViewPoint(IPoint3D viewPoint) {
+		this.viewPoint = viewPoint;
+	}
+
+
+	public IPoint3D getViewPoint() {
+		return viewPoint;
+	}
+
+
 	public TScene(IRayTraceAlgorithm algorithm){
 		this.algorithm=algorithm;
 	}
@@ -82,11 +94,11 @@ public class TScene implements IScene {
 	
 	
 	@Override
-	public TColor rayTrace(int x, int y,ReferIntValue cLoad) {
+	public TColor rayTrace(int x, int y, ReferIntValue cLoad) throws Exception {
 		RayTraceContext context=RayTraceContext.getContext();
 		
 		//temporally not use, because here we just use the negative infinity as the viewpoint 
-		IPoint3D viewPoint=new TPoint3D();
+		//IPoint3D viewPoint=new TPoint3D();
 		//z is also not use, just use z for parameter
 		float z=0;
 		return algorithm.rayTrace(lights, objects,viewPoint, x, y, z, context.getRayNegInfinity(), context.getRayInfinity(),
