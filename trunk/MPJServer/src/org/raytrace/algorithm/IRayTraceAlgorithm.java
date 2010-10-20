@@ -8,6 +8,6 @@ import org.raytrace.vector.impl.TColor;
 
 public interface IRayTraceAlgorithm {
 	public TColor rayTrace(List lights,List objects, IPoint3D viewPoint, int x, int y, float z,
-			float rayNegInfinity,float rayInfinity, int superSamplingCoef, int rayMaxLevel, ReferIntValue cLoad);
+			float rayNegInfinity,float rayInfinity, int superSamplingCoef, int rayMaxLevel, ReferIntValue cLoad) throws Exception;
 
 }

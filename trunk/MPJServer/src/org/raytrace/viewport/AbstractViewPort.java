@@ -87,6 +87,9 @@ public abstract class AbstractViewPort implements IViewPort {
 			else if(elem.getName().equals("height")){
 				this.setHeight(Integer.parseInt(elem.getTextTrim()));
 			}
+			else if(elem.getName().equals("viewpoint")){
+				this.scene.setViewPoint(new TPoint3D(elem.getTextTrim()));
+			}
 			
 			else if(elem.getName().equals("objects")){
 				List objectElements=elem.elements();
@@ -133,7 +136,7 @@ public abstract class AbstractViewPort implements IViewPort {
 						}
 						
 						else if(paramName.equals("shininess")){
-							materialProperty.setShining(new TIntensity(paramElement.getTextTrim()));
+							materialProperty.setShining(Float.parseFloat(paramElement.getTextTrim()));
 						}
 						
 						else if(paramName.equals("emission")){
@@ -166,15 +169,25 @@ public abstract class AbstractViewPort implements IViewPort {
 				List lightElements=elem.elements();
 				
 				for(Iterator it3=lightElements.iterator();it3.hasNext();){
-					Element light=(Element)it3.next();
-					
+					Element lightElem=(Element)it3.next();
+					TLight light = new TLight();
 					//child elements of light
-					List paramElements=light.elements();
-					String temp=((Element)(paramElements.get(0))).getTextTrim();
-					IPoint3D origin=new TPoint3D(((Element)(paramElements.get(0))).getTextTrim());
-					TIntensity intensity=new TIntensity(((Element)(paramElements.get(1))).getTextTrim());
+					List paramElements=lightElem.elements();
+					for(Iterator it5 = paramElements.iterator(); it5.hasNext();){
+						Element paramElement=(Element)it5.next();
+						String paramName=paramElement.getName();
+						
+						if(paramName.equals("origin")){
+							light.setOrigin(new TPoint3D(paramElement.getTextTrim()));
+						}
+						
+						else if(paramName.equals("intensity")){
+							light.setIntensity(new TIntensity(paramElement.getTextTrim()));
+						}
+						
+					}
 					
-					this.scene.addLight(new TLight(origin,intensity));
+					this.scene.addLight(light);
 					
 				}
 			}
@@ -203,6 +216,8 @@ public abstract class AbstractViewPort implements IViewPort {
 			bwrFile.write("\t\t<width>"+this.width+"</width>");
 			bwrFile.newLine();
 			bwrFile.write("\t\t<height>"+this.height+"</height>");
+			bwrFile.newLine();
+			bwrFile.write("\t\t<viewpoint>"+this.scene.getViewPoint()+"</viewpoint>");
 			bwrFile.newLine();
 			bwrFile.write("\t\t<objects>");
 			bwrFile.newLine();

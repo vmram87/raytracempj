@@ -1,5 +1,8 @@
 package org.raytrace.vector.impl;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.raytrace.vector.IPoint3D;
 
 public class TVector extends CommonVector {
@@ -18,6 +21,21 @@ public class TVector extends CommonVector {
 
 	public TVector(float x, float y, float z) {
 		super(x, y, z);
+	}
+	
+	public TVector(String textTrim) throws Exception{
+		String regex="\\(\\s*((-)?\\d+(\\.\\d+)?)\\s*,\\s*((-)?\\d+(\\.\\d+)?)\\s*,\\s*((-)?\\d+(\\.\\d+)?)\\s*\\)";
+		Pattern p = Pattern.compile(regex);
+		Matcher m = p.matcher(textTrim);
+		
+		if(m.find()){
+			this.setX(Float.parseFloat(m.group(1)));
+			this.setY(Float.parseFloat(m.group(4)));
+			this.setZ(Float.parseFloat(m.group(7)));
+		}
+		else{
+			throw new Exception("point can't create from the input string!");
+		}
 	}
 	
 	/*length of the vector*/

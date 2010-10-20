@@ -58,7 +58,7 @@ public class SequenceViewport extends AbstractViewPort {
 	}
 
 	@Override
-	public boolean render() {
+	public boolean render() throws Exception {
 		ReferIntValue cLoad = new ReferIntValue(0);
 
 		for(int y = 0; y < this.height; y++)

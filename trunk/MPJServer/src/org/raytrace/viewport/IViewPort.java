@@ -8,7 +8,7 @@ public interface IViewPort {
 	public boolean configureFromFile(String fileName) throws Exception;
 	public boolean saveToIMGFile(String fileName);
 	public boolean saveConfigToFile(String fileName) throws Exception;
-	public boolean render();
+	public boolean render() throws Exception;
 	
 	public IScene getScene();
 	public void setScene(IScene scene);
