@@ -337,7 +337,7 @@ public abstract class AbstractViewPort implements IViewPort {
 	public boolean configureFromObjFile(String fileName) throws Exception {
 			
 		  ArrayList<TPoint3D> vertextList = new ArrayList<TPoint3D>();
-		  int inNum = 30;
+		  int inNum = 20;
 		  
 		  IMaterialProperty materialProperty=new TMaterialProperty();
 		  materialProperty.setAmbient(new TIntensity(0.05f, 0.05f, 0.05f));
@@ -362,7 +362,7 @@ public abstract class AbstractViewPort implements IViewPort {
 	    		  float y = (Float.parseFloat(tokenizer.nextToken()) + 20) * inNum;
 	    		  float z = (Float.parseFloat(tokenizer.nextToken()) + 20) * inNum;
 	    		  
-	    		  vertextList.add(new TPoint3D(x, y, z));
+	    		  vertextList.add(new TPoint3D(z, y - 200, x));
 	    	  }
 	        
 	    	  else if(strLine.startsWith("f")){

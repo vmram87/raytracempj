@@ -11,6 +11,7 @@
     <property name="lib.dir" value="lib/"/>   
     <property name="src.dir" value="src"/>   
 	<property name="dest.dir" value="/gospub2/mpj-v0_36/lib/"/>  
+	<property name="dest2.dir" value="/gospub2/mpj-v0_36/user-folder/My_Class/"/>
     <property name="mx.native.dir" value="src/xdev/mxdev/lib"/>
      
     <!-- cannot access ${java.home} ..? --> 
@@ -195,7 +196,7 @@
 	  </manifest>  
      </jar>
 
-     <jar destfile="${dest.dir}/raytrace.jar" basedir="src"
+     <jar destfile="${dest2.dir}/raytrace.jar" basedir="src"
           includes="org/**/*.class">
 	  <manifest>
 	   <attribute name="Main-class" value="org.raytrace.test.mpiTest" />

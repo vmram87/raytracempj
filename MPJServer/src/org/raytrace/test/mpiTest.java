@@ -26,6 +26,7 @@ public class mpiTest {
 		viewport.init(args);
 		try {
 			viewport.configureFromFile("08.xml");
+			//viewport.configureFromObjFile("block.obj");
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
