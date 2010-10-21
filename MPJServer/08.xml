@@ -130,9 +130,9 @@
 
 			<object id="7" type="org.raytrace.object.impl.Triangle">
 				<shape>
-					<vertext1 type='org.raytrace.vector.impl.TPoint3D'>(-50,0,-100)</vertext1>
-					<vertext2 type='org.raytrace.vector.impl.TPoint3D'>(-200,0,800)</vertext2>
-					<vertext3 type='org.raytrace.vector.impl.TPoint3D'>(100,500,200)</vertext3>
+					<vertext1 type='org.raytrace.vector.impl.TPoint3D'>(150,0,100)</vertext1>
+					<vertext2 type='org.raytrace.vector.impl.TPoint3D'>(-100,0,800)</vertext2>
+					<vertext3 type='org.raytrace.vector.impl.TPoint3D'>(300,500,400)</vertext3>
 				</shape>
 				<materialproperty> 
 					<ambient>(0.15, 0.15, 1)</ambient>
@@ -150,9 +150,9 @@
 
 			<object id="7" type="org.raytrace.object.impl.Triangle">
 				<shape>
-					<vertext1 type='org.raytrace.vector.impl.TPoint3D'>(-50,0,-100)</vertext1>
-					<vertext2 type='org.raytrace.vector.impl.TPoint3D'>(400,0,600)</vertext2>
-					<vertext3 type='org.raytrace.vector.impl.TPoint3D'>(100,500,200)</vertext3>
+					<vertext1 type='org.raytrace.vector.impl.TPoint3D'>(150,0,100)</vertext1>
+					<vertext2 type='org.raytrace.vector.impl.TPoint3D'>(600,0,800)</vertext2>
+					<vertext3 type='org.raytrace.vector.impl.TPoint3D'>(300,500,400)</vertext3>
 				</shape>
 				<materialproperty> 
 					<ambient>(0.15, 0.15, 1)</ambient>
