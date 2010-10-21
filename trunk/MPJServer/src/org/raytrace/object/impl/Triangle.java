@@ -139,7 +139,13 @@ public class Triangle extends TShape {
 		float weight1 = area3 / area;
 		float weight2 = area1 / area;
 		
-		return new TVector(normalList[0].multiply(weight0).add(normalList[1].multiply(weight1).add(normalList[2].multiply(weight2))));
+		
+		TVector nLine =  new TVector(normalList[0].multiply(weight0).add(normalList[1].multiply(weight1).add(normalList[2].multiply(weight2))));
+		if(nLine.getZ() > 0){
+			nLine.selfMultiply(-1);
+		}
+		
+		return nLine;
 	}
 
 	
