@@ -326,8 +326,8 @@ public class MPJRun {
 	    heartbeatThreadStarter  = new Thread(heartBeatThread);
 	    heartbeatThreadStarter.start();
 	    
-	    timmerThreadStarter = new Thread(timerThread); 
-	    timmerThreadStarter.start();
+	    //timmerThreadStarter = new Thread(timerThread); 
+	    //timmerThreadStarter.start();
     
     }// end of if isRestarting == false
 
@@ -1015,6 +1015,12 @@ public class MPJRun {
 				}		    	
 		    }
 		    
+			selectorFlag = false;
+			selector.close();
+			selectorThreadStarter.join();
+			
+			selector = Selector.open();
+			
 		    //validate the connection for the machine in the machine file
 		    for(int i = 0; i < machineVector.size(); i++){
 		    	String daemon = (String) machineVector.get(i);
@@ -1032,7 +1038,10 @@ public class MPJRun {
 		    		socketChannel.configureBlocking(true);
 		    		try{
 			    		if(true == socketChannel.connect(new InetSocketAddress(daemon, D_SER_PORT))){
-			    			doConnect(socketChannel, true);
+			    			socketChannel.configureBlocking(false);
+			    			socketChannel.register(selector,
+			    	                SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+			    			socketChannel.socket().setTcpNoDelay(true);
 			    			machineConnectedMap.put(daemon, true);
 			    			machineChannelMap.put(daemon, socketChannel);
 			    			validMachines.add(daemon);
@@ -1087,6 +1096,8 @@ public class MPJRun {
 		    			machineConnectedMap.put(daemon, true);
 		    			validMachines.add(daemon);	
 		    			peerChannels.add(socketChannel);
+		    			socketChannel.register(selector,
+		    	                SelectionKey.OP_READ | SelectionKey.OP_WRITE);
 		    		}
 		    		
 		    	}
@@ -1101,13 +1112,32 @@ public class MPJRun {
 		    if(DEBUG && logger.isDebugEnabled())
 			{
 				logger.debug("--after sending the kill to live daemon and getting the valid daemon--");
-			}
+			} 
 		    
-		    
-		    finished  = assignRestartTasks();
+		    try{
+		    	finished  = assignRestartTasks();
+		    }
+		    catch(Exception e){
+		    	e.printStackTrace();
+		    	finished = false;
+		    }
 		    
 		    
 		}// end of while
+		
+		//add checkpoint server channel to selector
+	    doConnect(checkpiontChannel, false);
+	    checkpiontChannel.register(selector,
+                SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+	    
+	    selectorFlag = true;
+	    selectorThreadStarter = new Thread(selectorThread);
+		
+	    if(DEBUG && logger.isDebugEnabled()) {
+	      logger.debug("Starting the selector thread ");
+	    }
+	
+	    selectorThreadStarter.start();
 		
 		//after restart, if the timer thread is waiting for the version complete,
 		//notify and let the timer thread continue to work
@@ -1795,7 +1825,8 @@ private void machinesSanityCheck() throws Exception {
     			timmerThreadStarter.getState().equals(Thread.State.WAITING))){
     		timmerThreadStarter.interrupt();
     	}
-    	timmerThreadStarter.join();
+    	if(timmerThreadStarter != null)
+    		timmerThreadStarter.join();
     	
     	
       if(DEBUG && logger.isDebugEnabled())
@@ -1853,18 +1884,25 @@ private void machinesSanityCheck() throws Exception {
       logger.debug("Registering for OP_READ & OP_WRITE event");
       peerChannel.register(selector,
                            SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+      logger.debug("After Registering for OP_READ & OP_WRITE event");
     }
     catch (ClosedChannelException cce) {
 	if(DEBUG && logger.isDebugEnabled())
       logger.debug("Closed Channel Exception in doConnect");
       System.exit(0);
+    }catch(Exception e){
+    	e.printStackTrace();
     }
 
     try {
+    	if(DEBUG && logger.isDebugEnabled())
+    		logger.debug("setTcpNoDelay");
       peerChannel.socket().setTcpNoDelay(true);
     }
-    catch (Exception e) {}
+    catch (Exception e) {e.printStackTrace();}
     
+    if(DEBUG && logger.isDebugEnabled())
+		logger.debug("isDeamonChannel:"+isDeamonChannel);
     if(isDeamonChannel){
     	peerChannels.add(peerChannel);
     	if(DEBUG && logger.isDebugEnabled())
@@ -1938,7 +1976,7 @@ if(DEBUG && logger.isDebugEnabled())
           readyItor = readyKeys.iterator();
           int read = 0;
 
-          while (readyItor.hasNext()) {
+          while (readyItor.hasNext() && selectorFlag == true ) {
 
             key = (SelectionKey) readyItor.next();
             readyItor.remove();
@@ -2149,14 +2187,8 @@ if(DEBUG && logger.isDebugEnabled())
               		break;
               		
               	case REQUEST_RESTART:
-              		//retrive the database and assign job and version number
-              		synchronized (machineChannelMap) {
-              			restartTasks();
-              		}
-              		//send "kill" to the daemon
               		
-              		//pack and send the command like before
-              		
+              		(new Thread(restartThread)).start();              		
               		
               		break;
               		
@@ -2190,7 +2222,6 @@ if(DEBUG && logger.isDebugEnabled())
 	  if(DEBUG && logger.isDebugEnabled())
         logger.debug("Exception in selector thread ");
         ioe1.printStackTrace();
-        System.exit(0);
       }
 	  if(DEBUG && logger.isDebugEnabled())
       logger.debug("\n\n---Selector Thread getting out!---\n\n");
@@ -2285,7 +2316,7 @@ if(DEBUG && logger.isDebugEnabled())
 								catch(IOException ioe){
 									machineStatusMap.get(machine).setDaemonStatus("Disconnected");
 									
-									ioe.printStackTrace();
+									//ioe.printStackTrace();
 									System.out.println("daemon <" + machine + "> has been down! So Restart");
 									if (DEBUG && logger.isDebugEnabled()) {
 							              logger.debug("daemon <" + machine + ">+ has been down! So Restart");
@@ -2671,5 +2702,23 @@ if(DEBUG && logger.isDebugEnabled())
     	
     	return statusList;
     }
+    
+    
+    Runnable restartThread = new Runnable() {
+
+		@Override
+		public void run() {
+			// TODO Auto-generated method stub
+			synchronized (machineChannelMap) {
+      			try {
+					restartTasks();
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+      		}
+		}
+    	
+    };
     
 }
