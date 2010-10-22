@@ -340,10 +340,10 @@ public abstract class AbstractViewPort implements IViewPort {
 		  int inNum = 20;
 		  
 		  IMaterialProperty materialProperty=new TMaterialProperty();
-		  materialProperty.setAmbient(new TIntensity(0.05f, 0.05f, 0.05f));
-		  materialProperty.setDiffusion(new TIntensity(0.5f, 0.5f, 0.5f));
-		  materialProperty.setSpecular(new TIntensity(0.05f, 0.05f, 0.05f));
-		  materialProperty.setShining(5);
+		  materialProperty.setAmbient(new TIntensity(0.05f, 0.05f, 1f));
+		  materialProperty.setDiffusion(new TIntensity(0.05f, 0.05f, 1f));
+		  materialProperty.setSpecular(new TIntensity(0.0f, 0.0f, 0.1f));
+		  materialProperty.setShining(10);
 		
 		  FileReader rdFile = new FileReader(fileName);
 	      BufferedReader brdFile = new BufferedReader(rdFile); 
@@ -362,7 +362,7 @@ public abstract class AbstractViewPort implements IViewPort {
 	    		  float y = (Float.parseFloat(tokenizer.nextToken()) + 20) * inNum;
 	    		  float z = (Float.parseFloat(tokenizer.nextToken()) + 20) * inNum;
 	    		  
-	    		  vertextList.add(new TPoint3D(z, y - 200, x));
+	    		  vertextList.add(new TPoint3D(z - 100, y - 200, x));
 	    	  }
 	        
 	    	  else if(strLine.startsWith("f")){
