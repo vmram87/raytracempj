@@ -1,6 +1,7 @@
 package org.qing.service.impl;
 
 import java.io.File;
+import java.sql.Timestamp;
 import java.util.List;
 
 import org.qing.dao.ContextDao;
@@ -104,10 +105,15 @@ public class ContextManagerImpl implements ContextManager {
 
 	Runnable MPJRunThread = new Runnable() {
 		
+		
 		@Override
 		public void run() {
 			try {
+				Timestamp startTime = new Timestamp(System.currentTimeMillis());
+				System.out.println("Start Time: " + startTime);
 				ClientFactory.getClient().start();
+				System.out.println("Start Time: " + startTime);
+				System.out.println("End Time: " + new Timestamp(System.currentTimeMillis()));
 			} catch (Exception e) {
 				e.printStackTrace();
 			}		
