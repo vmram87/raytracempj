@@ -127,7 +127,7 @@
 			</object>
 			
  -->
-
+<!-- 
 			<object id="7" type="org.raytrace.object.impl.Triangle">
 				<shape>
 					<vertext1 type='org.raytrace.vector.impl.TPoint3D'>(150,0,100)</vertext1>
@@ -169,7 +169,7 @@
 			
 			
 			
-			<!-- 
+			
 			<object id="8" type="org.raytrace.object.impl.Sphere">
 				<shape>
 					<center type='org.raytrace.vector.impl.TPoint3D'>(1035.42, 480.572, 1900.19)</center>
