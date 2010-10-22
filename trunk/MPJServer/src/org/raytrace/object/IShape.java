@@ -11,7 +11,7 @@ import org.raytrace.vector.impl.TVector;
 public interface IShape {
 	//return true only when there is an intersection and the dist between intersection point and ray position is less than t
 	public boolean rayIntersection(TRay ray, ReferFloatValue t, ReferIntValue cLoad);
-	public TVector getNormalLine(IPoint3D point) throws Exception;
+	public TVector getNormalLine(IPoint3D point, TVector inLine) throws Exception;
 	
 	public String getShapeType();
 	public List getParamNameList();

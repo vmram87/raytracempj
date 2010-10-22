@@ -88,7 +88,7 @@ public class TRayTrace implements IRayTraceAlgorithm {
 				break;
 
 			IPoint3D newOrigin = (new TVector(ray.getOrigin())).add(ray.getDirection().multiply(t.getfValue()));
-			TVector n = object.getShape().getNormalLine(newOrigin);
+			TVector n = object.getShape().getNormalLine(newOrigin, ray.getDirection());
 
 			//load
 	      cLoad .add(9);

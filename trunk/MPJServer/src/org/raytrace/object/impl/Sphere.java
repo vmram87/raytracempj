@@ -112,7 +112,7 @@ public class Sphere extends TShape {
 	}
 
 	@Override
-	public TVector getNormalLine(IPoint3D point) {
+	public TVector getNormalLine(IPoint3D point, TVector inLine) {
 		 return new TVector(point,center);
 		 
 	}

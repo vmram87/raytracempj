@@ -94,7 +94,7 @@ public class NRayTraceAlg implements IRayTraceAlgorithm {
 				return color;
 	      
 	      IPoint3D newOrigin = (new TVector(ray.getOrigin())).add(ray.getDirection().multiply(t.getfValue()));
-	      TVector N = object.getShape().getNormalLine(newOrigin);  
+	      TVector N = object.getShape().getNormalLine(newOrigin, ray.getDirection());  
    
 	      
 	      if (!N.normalize())
