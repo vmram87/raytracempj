@@ -60,7 +60,7 @@ public class Plane extends TShape {
 	}
 
 	@Override
-	public TVector getNormalLine(IPoint3D point) {
+	public TVector getNormalLine(IPoint3D point, TVector inLines) {
 		return new TVector(normal);
 	}
 

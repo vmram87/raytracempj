@@ -119,7 +119,7 @@ public class AxisCuboid extends TShape {
 	}
 	
 	@Override
-	public TVector getNormalLine(IPoint3D point) throws Exception {
+	public TVector getNormalLine(IPoint3D point, TVector inLine) throws Exception {
 		if(Math.abs(point.getX() - this.smallX) < 0.01)
 			return new TVector(-1, 0, 0);
 		else if(Math.abs(point.getX() - this.bigX) < 0.01)

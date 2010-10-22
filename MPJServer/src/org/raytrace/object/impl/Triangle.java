@@ -115,7 +115,7 @@ public class Triangle extends TShape {
 	}
 
 	@Override
-	public TVector getNormalLine(IPoint3D point) throws Exception {
+	public TVector getNormalLine(IPoint3D point, TVector inLine) throws Exception {
 		if(!haveComputeNormAndArea){
 			
 			planeNorm = cross(new TVector(vertextList[2], vertextList[1]), 
@@ -141,7 +141,7 @@ public class Triangle extends TShape {
 		
 		
 		TVector nLine =  new TVector(normalList[0].multiply(weight0).add(normalList[1].multiply(weight1).add(normalList[2].multiply(weight2))));
-		if(nLine.getZ() > 0){
+		if(nLine.dot(inLine) > 0){
 			nLine.selfMultiply(-1);
 		}
 		
