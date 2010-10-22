@@ -516,10 +516,10 @@ public class MPJDaemon {
       
       //if process finish before the heartbeat thread, then check the 
       //processFinishmap to see whether they are normal finish or not, 
-      if(processFinishMap.size() == processes){
-    	  //isRestarting = false;
+      if(isExit == false && isRestarting == false && processFinishMap.size() != processes){
+    	  isRestarting = true;
     	  //need to be fix latter
-    	  //sendRestartReqestToMainHost();
+    	  sendRestartReqestToMainHost();
       }
     	 
 
