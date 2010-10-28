@@ -1191,6 +1191,9 @@ public class ServerThread {
 		  ByteBuffer cMsgBuffer = ByteBuffer.allocate(28);
 		  ByteBuffer ackBuffer = ByteBuffer.allocate(4);
 	    	
+		  //if the start checkpoint message is from one of the managed by this checkpiont server
+		  //then send the message to other checkpoint server
+		 if(worldWritableTable.get(cpRuid) != null){
 	    	ackBuffer.limit(4);
 		    ackBuffer.putInt(MARKER_ACK);
 		    SocketChannel c = worldWritableTable.get(cpRuid);
@@ -1216,48 +1219,46 @@ public class ServerThread {
 		    cMsgBuffer.putLong(cpLsb);
 		    cMsgBuffer.putInt(versionNum);
 		    
-		    //if the start checkpoint message is from one of the managed by this checkpiont server
-		    //then send the message to other checkpoint server
-		    if(worldWritableTable.get(cpRuid) != null){
-		    	cMsgBuffer.flip();
-		    	for(int i = 0; i < validServerChannels.size(); i++){
-		    		while(cMsgBuffer.hasRemaining()){	    	
-				    	try {
-					          if (validServerChannels.get(i).write(cMsgBuffer) == -1) {
-					            throw new Exception(new ClosedChannelException());
-					          }
-					    }
-				        catch (Exception e) {
-				        	System.out.println("can not write marker to other checkpoint server:" + validServerChannels.get(i));
-				        	break;
-				        }
-				    }
-		    	}
-		    }
-		    	
 		    
-		    
-		    Iterator it = worldWritableTable.entrySet().iterator();
-		    SocketChannel other = null;
-		    while(it.hasNext()){
-		    	java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
-		    	if(((UUID)entry.getKey()).equals(cpRuid))
-		    		continue;
-		    	
-		    	cMsgBuffer.flip();
-		    	other = (SocketChannel)entry.getValue();
-		    	while(cMsgBuffer.hasRemaining()){	    	
+	    	cMsgBuffer.flip();
+	    	for(int i = 0; i < validServerChannels.size(); i++){
+	    		while(cMsgBuffer.hasRemaining()){	    	
 			    	try {
-				          if (other.write(cMsgBuffer) == -1) {
+				          if (validServerChannels.get(i).write(cMsgBuffer) == -1) {
 				            throw new Exception(new ClosedChannelException());
 				          }
 				    }
 			        catch (Exception e) {
-			        	System.out.println("can not write marker to other process");
+			        	System.out.println("can not write marker to other checkpoint server:" + validServerChannels.get(i));
 			        	break;
 			        }
 			    }
+	    	}
+		 }// end of if worldWritableTable.get(cpRuid) != null
+		    	
+		    
+		    
+	    Iterator it = worldWritableTable.entrySet().iterator();
+	    SocketChannel other = null;
+	    while(it.hasNext()){
+	    	java.util.Map.Entry entry = (java.util.Map.Entry)it.next();
+	    	if(((UUID)entry.getKey()).equals(cpRuid))
+	    		continue;
+	    	
+	    	cMsgBuffer.flip();
+	    	other = (SocketChannel)entry.getValue();
+	    	while(cMsgBuffer.hasRemaining()){	    	
+		    	try {
+			          if (other.write(cMsgBuffer) == -1) {
+			            throw new Exception(new ClosedChannelException());
+			          }
+			    }
+		        catch (Exception e) {
+		        	System.out.println("can not write marker to other process");
+		        	break;
+		        }
 		    }
+	    }
 		    
 		    
 		
