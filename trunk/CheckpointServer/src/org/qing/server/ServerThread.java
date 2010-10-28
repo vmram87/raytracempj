@@ -542,6 +542,9 @@ public class ServerThread {
 	            }
 	            else if (key.isValid() && key.isWritable()) {
 
+	            	 if (DEBUG && logger.isDebugEnabled()) {
+  		                logger.debug("---Write Event--");
+  		              }
 	              key.interestOps(SelectionKey.OP_READ);
 
 	            } //end else writable.
@@ -571,6 +574,9 @@ public class ServerThread {
 		public void run() {
 			//wait all to finish
 			try {
+				if (DEBUG && logger.isDebugEnabled()) {
+		                logger.debug("In renew thread acquire initLock");
+		        }
 				initLock.acquire();
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
@@ -760,8 +766,11 @@ public class ServerThread {
 	            logger.debug("Num of Processes : "+ nprocs);
 	     }
 		 
+		 
 		 initLock.signal();
-		
+		 if (DEBUG && logger.isDebugEnabled()) {
+             logger.debug("After signal initLock!");
+		 }
 	}
 	
 	private void doSendBackAck(SocketChannel socketChannel) throws Exception {
@@ -868,7 +877,7 @@ public class ServerThread {
 	  private boolean doAccept(SelectableChannel keyChannel) throws Exception {
 			
 		  	if (DEBUG && logger.isDebugEnabled()) {
-            logger.debug("---do accept---");
+            logger.debug("---do accept for control channel---");
           }
 
 		  	if(keyChannel.isOpen()) { 
