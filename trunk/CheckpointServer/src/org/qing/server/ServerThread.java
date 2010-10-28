@@ -33,6 +33,8 @@ import org.qing.dao.ContextDao;
 import org.qing.factory.ContextFactory;
 import org.qing.object.Context;
 
+import sun.awt.PeerEvent;
+
 
 
 
@@ -64,6 +66,7 @@ public class ServerThread {
 	  ServerSocketChannel readableServerChannel = null;
 	  ServerSocketChannel controlServerChannel = null;
 	  
+	 
 	  
 	  
 	/*
@@ -150,6 +153,12 @@ public class ServerThread {
 	static Logger logger = null ;
 	public static final boolean DEBUG = true; 
 	public static String CONTEXT_DIR_NAME = ".context" ;
+	
+	
+	private Vector<SocketChannel> validServerChannels = new Vector<SocketChannel>();
+	private Vector<SocketChannel> validReadableServerChannels = new Vector<SocketChannel>();
+	private int checkpointPort = getCheckpointPort();
+	
 	
 	public ServerThread(){
 		
@@ -392,6 +401,9 @@ public class ServerThread {
 	              else if(sChannel.socket().getLocalPort() == my_server_port + 1){
 	            		  doAccept(keyChannel, readableChannels, false);
 	              }
+	              else if(sChannel.socket().getLocalPort() == my_server_port + 3){
+            		  doAccept(keyChannel, validReadableServerChannels, false);
+	              }
 	              else{
 	            	  doAccept(keyChannel);
 	            	  initLock = new CustomSemaphore(0); 
@@ -535,7 +547,38 @@ public class ServerThread {
 			if (DEBUG && logger.isDebugEnabled()) {
               logger.debug("renew thread start");
             }
-				
+			
+			//connect to other checkpoint  
+			validServerChannels.clear();
+			String[] hosts = getCheckpointHosts();
+		    int port  = checkpointPort + 3;
+		    SocketChannel checkpiontChannel = null;
+		    for(int i = 0; i < hosts.length; i++){
+		    	try{
+			    	checkpiontChannel = SocketChannel.open();
+			    	checkpiontChannel.configureBlocking(true);
+			    	boolean connected = checkpiontChannel.connect(new InetSocketAddress(hosts[i], port ));
+			    	if(connected == false){
+			    		if(DEBUG && logger.isDebugEnabled())
+			    		{
+			    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
+			    		}
+			    		continue;
+			    		     		
+			    	}	    
+			    	
+			    	//have connected so add to the selector
+			    	validServerChannels.add(checkpiontChannel);
+		    	}
+		    	catch(Exception e){
+		    		if(DEBUG && logger.isDebugEnabled())
+		    		{
+		    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
+		    		}
+		    		continue;
+		    	}
+		    }
+		    
 			 synchronized (writableChannels) {
 
 		      if (writableChannels.size() != nprocs) {
@@ -1132,6 +1175,28 @@ public class ServerThread {
 		    cMsgBuffer.putLong(cpMsb);
 		    cMsgBuffer.putLong(cpLsb);
 		    cMsgBuffer.putInt(versionNum);
+		    
+		    //if the start checkpoint message is from one of the managed by this checkpiont server
+		    //then send the message to other checkpoint server
+		    if(worldWritableTable.get(cpRuid) != null){
+		    	cMsgBuffer.flip();
+		    	for(int i = 0; i < validServerChannels.size(); i++){
+		    		while(cMsgBuffer.hasRemaining()){	    	
+				    	try {
+					          if (validServerChannels.get(i).write(cMsgBuffer) == -1) {
+					            throw new Exception(new ClosedChannelException());
+					          }
+					    }
+				        catch (Exception e) {
+				        	System.out.println("can not write marker to other checkpoint server:" + validServerChannels.get(i));
+				        	break;
+				        }
+				    }
+		    	}
+		    }
+		    	
+		    
+		    
 		    Iterator it = worldWritableTable.entrySet().iterator();
 		    SocketChannel other = null;
 		    while(it.hasNext()){
@@ -1153,6 +1218,8 @@ public class ServerThread {
 			        }
 			    }
 		    }
+		    
+		    
 		
 	}
 
@@ -1201,4 +1268,37 @@ public class ServerThread {
 		  System.out.println(dao.getLatestVersionId());
 		  System.out.println(dao.getNextLatestVersionId(dao.getLatestVersionId()));
 	  }
+	  
+	  private static String[] getCheckpointHosts() {
+
+		    String host = null;
+		    FileInputStream in = null;
+		    DataInputStream din = null;
+		    BufferedReader reader = null;
+		    String line = "";
+
+		    try {
+
+		      String path = System.getenv("MPJ_HOME")+"/conf/wrapper.conf";
+		      in = new FileInputStream(path);
+		      din = new DataInputStream(in);
+		      reader = new BufferedReader(new InputStreamReader(din));
+
+		      while ((line = reader.readLine()) != null)   {
+		        if(line.startsWith("wrapper.checkpointServer.host")) {
+		          String trimmedLine=line.replaceAll("\\s+", "");
+		          host = trimmedLine.substring(30);
+		          break;
+		        }
+		      }
+
+		      in.close();
+
+		    } catch (Exception e) {
+		      e.printStackTrace();
+		    }
+
+		    return host.split(",");
+
+		  }
 }
