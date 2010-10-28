@@ -28,12 +28,9 @@ import org.apache.log4j.DailyRollingFileAppender;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
-import org.apache.log4j.spi.LoggerRepository;
 import org.qing.dao.ContextDao;
 import org.qing.factory.ContextFactory;
 import org.qing.object.Context;
-
-import sun.awt.PeerEvent;
 
 
 
@@ -59,7 +56,7 @@ public class ServerThread {
 	String localHostName = null;
 	InetAddress localaddr = null;
 	private String[] args = null;
-	UUID[] pids = null;
+	//UUID[] pids = null;
 	
 	 /* Server Socket Channel */
 	  ServerSocketChannel writableServerChannel = null;
@@ -179,12 +176,16 @@ public class ServerThread {
 	      Map<String,String> map = System.getenv() ;
 	      mpjHomeDir = map.get("MPJ_HOME");
 	      
+	      if(getHostName() == false){
+	    	  throw new Exception("not the checkpoint host in the config file!");
+	      }
+	      
 	      if(logger == null && DEBUG ) {
 	        try {
 	          fileAppender = new DailyRollingFileAppender( 
 				  new PatternLayout(
 					  " %-5p %c %x - %m\n" ),
-				  mpjHomeDir+"/logs/cpServer.log", 
+				  mpjHomeDir+"/logs/cpServer-" + hostName + ".log", 
 				  "yyyy-MM-dd-HH" );
 		  
 		  Logger rootLogger = Logger.getRootLogger() ;
@@ -224,6 +225,28 @@ public class ServerThread {
 	}
 	
 	
+	private boolean getHostName() {
+		String[] hosts = getCheckpointHosts();
+		for(int i = 0; i < hosts.length; i++){
+			InetAddress host=null, myHost=null;
+
+		    try {
+		      host = InetAddress.getByName(hosts[i]);
+		      myHost = InetAddress.getLocalHost() ; 
+		    } catch (Exception e) {
+		      continue;
+		    }
+
+		    if(host.getHostName().equals(myHost.getHostName()) || 
+		       host.getHostAddress().equals(myHost.getHostAddress())) {
+		    	hostName = hosts[i];
+		      return true;
+		    }
+		}
+		
+		return false;
+	}
+
 	/*
 	   * reand the configure file
 	   * init the socket channel 
@@ -526,6 +549,7 @@ public class ServerThread {
 
 
 	  }; //end selectorThread which is an inner class
+	protected String hostName = null;
 	  
 	  
 	  
@@ -554,28 +578,30 @@ public class ServerThread {
 		    int port  = checkpointPort + 3;
 		    SocketChannel checkpiontChannel = null;
 		    for(int i = 0; i < hosts.length; i++){
-		    	try{
-			    	checkpiontChannel = SocketChannel.open();
-			    	checkpiontChannel.configureBlocking(true);
-			    	boolean connected = checkpiontChannel.connect(new InetSocketAddress(hosts[i], port ));
-			    	if(connected == false){
+		    	if(!hosts[i].equals(hostName)){
+			    	try{
+				    	checkpiontChannel = SocketChannel.open();
+				    	checkpiontChannel.configureBlocking(true);
+				    	boolean connected = checkpiontChannel.connect(new InetSocketAddress(hosts[i], port ));
+				    	if(connected == false){
+				    		if(DEBUG && logger.isDebugEnabled())
+				    		{
+				    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
+				    		}
+				    		continue;
+				    		     		
+				    	}	    
+				    	
+				    	//have connected so add to the selector
+				    	validServerChannels.add(checkpiontChannel);
+			    	}
+			    	catch(Exception e){
 			    		if(DEBUG && logger.isDebugEnabled())
 			    		{
 			    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
 			    		}
 			    		continue;
-			    		     		
-			    	}	    
-			    	
-			    	//have connected so add to the selector
-			    	validServerChannels.add(checkpiontChannel);
-		    	}
-		    	catch(Exception e){
-		    		if(DEBUG && logger.isDebugEnabled())
-		    		{
-		    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
-		    		}
-		    		continue;
+			    	}
 		    	}
 		    }
 		    
@@ -714,7 +740,7 @@ public class ServerThread {
 		 
 		 numBuffer.flip();
 		 nprocs = numBuffer.getInt();
-		 pids = new UUID[nprocs];
+		 //pids = new UUID[nprocs];
 		 
 		 if (DEBUG && logger.isDebugEnabled()) {
 	            logger.debug("Num of Processes : "+ nprocs);
@@ -900,7 +926,7 @@ public class ServerThread {
 	    lsb = barrBuffer.getLong();
 	    barrBuffer.clear();
 	    ruid = new UUID(msb, lsb);
-	    pids[rank] = ruid; //, rank);
+	    //pids[rank] = ruid; //, rank);
 	    size = nprocs;
 	    
 	    //if has already checkpointed, write to database 
