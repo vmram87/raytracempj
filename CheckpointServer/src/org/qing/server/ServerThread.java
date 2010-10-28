@@ -62,6 +62,7 @@ public class ServerThread {
 	  ServerSocketChannel writableServerChannel = null;
 	  ServerSocketChannel readableServerChannel = null;
 	  ServerSocketChannel controlServerChannel = null;
+	  ServerSocketChannel cpServerChannel = null;
 	  
 	 
 	  
@@ -308,6 +309,16 @@ public class ServerThread {
 			        
 			        if(DEBUG && logger.isDebugEnabled())  {
 				          logger.debug("Init controlServerChannel at port " + (my_server_port+2)) ;
+				    }
+			        
+			        cpServerChannel = ServerSocketChannel.open();
+			        cpServerChannel.configureBlocking(false);
+			        cpServerChannel.socket().bind(
+			            new InetSocketAddress( (my_server_port + 3)));
+			        cpServerChannel.register(selector, SelectionKey.OP_ACCEPT);
+			        
+			        if(DEBUG && logger.isDebugEnabled())  {
+				          logger.debug("Init cpServerChannel at port " + (my_server_port+3)) ;
 				    }
 			        
 
