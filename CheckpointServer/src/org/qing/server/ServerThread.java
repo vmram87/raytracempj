@@ -583,38 +583,7 @@ public class ServerThread {
               logger.debug("renew thread start");
             }
 			
-			//connect to other checkpoint  
-			validServerChannels.clear();
-			String[] hosts = getCheckpointHosts();
-		    int port  = checkpointPort + 3;
-		    SocketChannel checkpiontChannel = null;
-		    for(int i = 0; i < hosts.length; i++){
-		    	if(!hosts[i].equals(hostName)){
-			    	try{
-				    	checkpiontChannel = SocketChannel.open();
-				    	checkpiontChannel.configureBlocking(true);
-				    	boolean connected = checkpiontChannel.connect(new InetSocketAddress(hosts[i], port ));
-				    	if(connected == false){
-				    		if(DEBUG && logger.isDebugEnabled())
-				    		{
-				    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
-				    		}
-				    		continue;
-				    		     		
-				    	}	    
-				    	
-				    	//have connected so add to the selector
-				    	validServerChannels.add(checkpiontChannel);
-			    	}
-			    	catch(Exception e){
-			    		if(DEBUG && logger.isDebugEnabled())
-			    		{
-			    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
-			    		}
-			    		continue;
-			    	}
-		    	}
-		    }
+			
 		    
 			 synchronized (writableChannels) {
 
@@ -657,6 +626,40 @@ public class ServerThread {
 		    if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("readableChannels renewed");
 	            }
+		    
+		  //connect to other checkpoint  
+			validServerChannels.clear();
+			String[] hosts = getCheckpointHosts();
+		    int port  = checkpointPort + 3;
+		    SocketChannel checkpiontChannel = null;
+		    for(int i = 0; i < hosts.length; i++){
+		    	if(!hosts[i].equals(hostName)){
+			    	try{
+				    	checkpiontChannel = SocketChannel.open();
+				    	checkpiontChannel.configureBlocking(true);
+				    	boolean connected = checkpiontChannel.connect(new InetSocketAddress(hosts[i], port ));
+				    	if(connected == false){
+				    		if(DEBUG && logger.isDebugEnabled())
+				    		{
+				    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
+				    		}
+				    		continue;
+				    		     		
+				    	}	    
+				    	
+				    	//have connected so add to the selector
+				    	validServerChannels.add(checkpiontChannel);
+			    	}
+			    	catch(Exception e){
+			    		if(DEBUG && logger.isDebugEnabled())
+			    		{
+			    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
+			    		}
+			    		continue;
+			    	}
+		    	}
+		    }
+		    
 		        
 		    /*
 		     * At this point, all-to-all connectivity has been acheived.
