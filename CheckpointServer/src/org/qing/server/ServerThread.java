@@ -522,7 +522,9 @@ public class ServerThread {
 	                      break;
 	                      
 	                  case REQUEST_RESTART:
-	                	  if(renewThreadStarter.getState().equals(Thread.State.BLOCKED));
+	                	  if(renewThreadStarter != null &&
+	                			  (renewThreadStarter.getState().equals(Thread.State.BLOCKED) ||
+	                			  renewThreadStarter.getState().equals(Thread.State.WAITING)));
 	                	 		renewThreadStarter.interrupt();
 	                	 		
 	                	  initializing = false;
@@ -542,9 +544,6 @@ public class ServerThread {
 	            }
 	            else if (key.isValid() && key.isWritable()) {
 
-	            	 if (DEBUG && logger.isDebugEnabled()) {
-  		                logger.debug("---Write Event--");
-  		              }
 	              key.interestOps(SelectionKey.OP_READ);
 
 	            } //end else writable.
@@ -574,9 +573,6 @@ public class ServerThread {
 		public void run() {
 			//wait all to finish
 			try {
-				if (DEBUG && logger.isDebugEnabled()) {
-		                logger.debug("In renew thread acquire initLock.s:" + initLock.s);
-		        }
 				initLock.acquire();
 			} catch (InterruptedException e1) {
 				e1.printStackTrace();
@@ -634,6 +630,14 @@ public class ServerThread {
 	            }
 		    
 		  //connect to other checkpoint  
+		    for(int i = 0; i < validServerChannels.size(); i++){
+		    	if(validServerChannels.get(i).isOpen())
+					try {
+						validServerChannels.get(i).close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+		    }
 			validServerChannels.clear();
 			String[] hosts = getCheckpointHosts();
 		    int port  = checkpointPort + 3;
@@ -740,13 +744,14 @@ public class ServerThread {
 	private long cpMsb=0;
 	private long cpLsb=0;
 	private boolean hasReceiveStartCheckpoint = false;
+	private int totalNumProcs = 0;
 	
 	private void doReceiveNumOfProc(SocketChannel socketChannel) throws Exception {
 		if (DEBUG && logger.isDebugEnabled()) {
             logger.debug("--doReceiveNumOfProc--");
           }
 		
-		 ByteBuffer numBuffer = ByteBuffer.allocate(4);
+		 ByteBuffer numBuffer = ByteBuffer.allocate(8);
 		 
 		 while(numBuffer.hasRemaining()){
 			 try{
@@ -760,17 +765,15 @@ public class ServerThread {
 		 
 		 numBuffer.flip();
 		 nprocs = numBuffer.getInt();
+		 totalNumProcs  = numBuffer.getInt();
 		 //pids = new UUID[nprocs];
 		 
 		 if (DEBUG && logger.isDebugEnabled()) {
 	            logger.debug("Num of Processes : "+ nprocs);
 	     }
 		 
-		 
 		 initLock.signal();
-		 if (DEBUG && logger.isDebugEnabled()) {
-             logger.debug("After signal initLock! initLock.s" + initLock.s);
-		 }
+		
 	}
 	
 	private void doSendBackAck(SocketChannel socketChannel) throws Exception {
@@ -877,7 +880,7 @@ public class ServerThread {
 	  private boolean doAccept(SelectableChannel keyChannel) throws Exception {
 			
 		  	if (DEBUG && logger.isDebugEnabled()) {
-            logger.debug("---do accept for control channel---");
+            logger.debug("---do accept---");
           }
 
 		  	if(keyChannel.isOpen()) { 
@@ -1026,10 +1029,10 @@ public class ServerThread {
 			  return;
 		  
 		  List contextList = dao.getContextsByVersion(latestVer);
-		  if(contextList.size() < nprocs){
+		  if(contextList.size() < totalNumProcs){
 			  return;
 		  }
-		  else if(contextList.size() == nprocs){
+		  else if(contextList.size() == totalNumProcs){
 			  Integer nextVer = dao.getNextLatestVersionId(latestVer);
 			  if(nextVer == null)
 				  return;
@@ -1046,7 +1049,12 @@ public class ServerThread {
 					  file.delete();
 			  }
 			  
-			  dao.delAllPrevContextsByVersion(latestVer);
+			  try{
+				  dao.delAllPrevContextsByVersion(latestVer);
+			  }
+			  catch(Exception e){
+				  e.printStackTrace();
+			  }
 			  
 			  
 		  }
@@ -1072,8 +1080,13 @@ public class ServerThread {
 					  if(file.exists())
 						  file.delete();
 				  }
-				  
-				  dao.delAllPrevContextsByVersion(latestVer + 1);	
+				 
+				  try{
+					  dao.delAllPrevContextsByVersion(latestVer + 1);
+				  }
+				  catch(Exception e){
+					  e.printStackTrace();
+				  }
 				}
 			}
 		
@@ -1199,6 +1212,14 @@ public class ServerThread {
 	      }
 		  ByteBuffer cMsgBuffer = ByteBuffer.allocate(28);
 		  ByteBuffer ackBuffer = ByteBuffer.allocate(4);
+		  
+		  cMsgBuffer.position(0);
+		  cMsgBuffer.limit(28);
+		  cMsgBuffer.putInt(START_CHECKPOINT);
+		  cMsgBuffer.putInt(cpRank);
+		  cMsgBuffer.putLong(cpMsb);
+		  cMsgBuffer.putLong(cpLsb);
+		  cMsgBuffer.putInt(versionNum);
 	    	
 		  //if the start checkpoint message is from one of the managed by this checkpiont server
 		  //then send the message to other checkpoint server
@@ -1219,18 +1240,10 @@ public class ServerThread {
 		        	return;
 		        }
 		    }
-		    
-		    cMsgBuffer.position(0);
-		    cMsgBuffer.limit(28);
-		    cMsgBuffer.putInt(START_CHECKPOINT);
-		    cMsgBuffer.putInt(cpRank);
-		    cMsgBuffer.putLong(cpMsb);
-		    cMsgBuffer.putLong(cpLsb);
-		    cMsgBuffer.putInt(versionNum);
-		    
-		    
-	    	cMsgBuffer.flip();
+		            	
 	    	for(int i = 0; i < validServerChannels.size(); i++){
+	    		cMsgBuffer.position(0);
+		    	cMsgBuffer.limit(28);
 	    		while(cMsgBuffer.hasRemaining()){	    	
 			    	try {
 				          if (validServerChannels.get(i).write(cMsgBuffer) == -1) {
@@ -1254,7 +1267,8 @@ public class ServerThread {
 	    	if(((UUID)entry.getKey()).equals(cpRuid))
 	    		continue;
 	    	
-	    	cMsgBuffer.flip();
+	    	cMsgBuffer.position(0);
+	    	cMsgBuffer.limit(28);
 	    	other = (SocketChannel)entry.getValue();
 	    	while(cMsgBuffer.hasRemaining()){	    	
 		    	try {
@@ -1285,7 +1299,7 @@ public class ServerThread {
 	  
 	  class CustomSemaphore {
 
-	    public int s ;
+	    private int s ;
 	    
 	    public CustomSemaphore(int s) {
 	      this.s = s ;
