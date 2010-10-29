@@ -15,4 +15,5 @@ public interface ContextManager {
 	Integer getLatestCompleteVersion(int nprocs)throws Exception;
 	List getDaemonStausList() throws Exception;
 	boolean isCanStartProgram() throws Exception;
+	void restart() throws Exception;
 }

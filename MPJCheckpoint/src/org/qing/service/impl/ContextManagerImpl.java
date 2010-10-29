@@ -140,5 +140,16 @@ public class ContextManagerImpl implements ContextManager {
 	}
 
 
+	@Override
+	public void restart() throws Exception {
+		if(ClientFactory.isCanStarted() == false){
+			ClientFactory.getClient().restart();
+		}
+		else
+			throw new Exception("Not started, please first started!");
+		
+	}
+
+
 	
 }

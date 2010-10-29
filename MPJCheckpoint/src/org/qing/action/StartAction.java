@@ -77,4 +77,14 @@ public class StartAction extends BaseActionInterface {
 		mgr.killProccesses(); 
 		return SUCCESS;
 	}
+	
+	public String restart() throws Exception{
+		try{
+			mgr.restart(); 
+		}
+		catch(Exception e){
+			tip = "Error:" + e.getMessage();
+		}
+		return SUCCESS;
+	}
 }
