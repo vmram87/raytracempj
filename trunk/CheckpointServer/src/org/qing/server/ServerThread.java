@@ -575,7 +575,7 @@ public class ServerThread {
 			//wait all to finish
 			try {
 				if (DEBUG && logger.isDebugEnabled()) {
-		                logger.debug("In renew thread acquire initLock");
+		                logger.debug("In renew thread acquire initLock.s:" + initLock.s);
 		        }
 				initLock.acquire();
 			} catch (InterruptedException e1) {
@@ -769,7 +769,7 @@ public class ServerThread {
 		 
 		 initLock.signal();
 		 if (DEBUG && logger.isDebugEnabled()) {
-             logger.debug("After signal initLock!");
+             logger.debug("After signal initLock! initLock.s" + initLock.s);
 		 }
 	}
 	
@@ -1285,7 +1285,7 @@ public class ServerThread {
 	  
 	  class CustomSemaphore {
 
-	    private int s ;
+	    public int s ;
 	    
 	    public CustomSemaphore(int s) {
 	      this.s = s ;
