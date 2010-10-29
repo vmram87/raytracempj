@@ -141,9 +141,11 @@ public class MPJRun {
   static final String VERSION = "0.36" ; 
   private static int RUNNING_JAR_FILE = 2 ; 
   private static int RUNNING_CLASS_FILE = 1 ; 
-  private SocketChannel checkpiontChannel = null;
-  private String checkpointHost = getCheckpointHost();
+  //private SocketChannel[] checkpiontChannel = null;
+  private Vector<String> validCheckpointHosts = new Vector<String>();
   private int checkpointPort = getCheckpointPort();
+  private HashMap<String, SocketChannel> serverChannelMap = new HashMap<String, SocketChannel>();
+  private HashMap<Integer, String> rankCheckpointServerMap = new HashMap<Integer, String>();
   
   private final int NUM_OF_PROCCESSES = -42;
   public static final int LONG_MESSAGE = -45;
@@ -271,9 +273,12 @@ public class MPJRun {
     }
 	  
 
-    assignTasks();
+        
     
     if(isRestarting == false){
+    	
+    selector = Selector.open();
+    initCheckpointServerChannel(); 
 
     try {
 
@@ -298,8 +303,6 @@ public class MPJRun {
     
     	peerChannels = new Vector<SocketChannel>();
 
-    	selector = Selector.open();
-    
 
 	    clientSocketInit();
 	
@@ -326,10 +329,12 @@ public class MPJRun {
 	    heartbeatThreadStarter  = new Thread(heartBeatThread);
 	    heartbeatThreadStarter.start();
 	    
-	    //timmerThreadStarter = new Thread(timerThread); 
-	    //timmerThreadStarter.start();
+	    timmerThreadStarter = new Thread(timerThread); 
+	    timmerThreadStarter.start();
     
     }// end of if isRestarting == false
+    
+    assignTasks();
 
     buffer.clear();
 
@@ -799,7 +804,7 @@ public class MPJRun {
     cout.println("# Entry, HOST_NAME/IP@SERVERPORT@RANK");
     
     //have to modify later!!!!!
-    cout.println(checkpointHost + "$" + checkpointPort + "$0");
+    //cout.println(checkpointHost + "$" + checkpointPort + "$0");
 
     if (nprocs < noOfMachines) {
 
@@ -820,11 +825,15 @@ public class MPJRun {
         rankMachineMap.put(rank, name);
 	if(deviceName.equals("niodev")) { 
           cout.println(name + "@" + port +
-                       "@" + (rank++));
+                       "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+                       "@" + checkpointPort);
+          rank++;
           port += 2;
 	} else if(deviceName.equals("mxdev")) { 
           cout.println(name + "@" + mxBoardNum+
-                       "@" + (rank++));
+                       "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+                       "@" + checkpointPort);
+          rank++;
 	} 
 	
 		
@@ -873,11 +882,15 @@ public class MPJRun {
         	  
             if(deviceName.equals("niodev")) { 		  
               cout.println( (String) machineVector.get(i) + "@" +
-                           port + "@" + (rank++));
+                           port + "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+                           "@" + checkpointPort);
+              rank++;
               port += 2;
 	    } else if(deviceName.equals("mxdev")) { 
               cout.println( (String) machineVector.get(i) + "@" +
-                           (mxBoardNum+j) + "@" + (rank++));
+                           (mxBoardNum+j) + "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+                           "@" + checkpointPort);
+              rank++;
 	    }
             
             
@@ -901,11 +914,15 @@ public class MPJRun {
         	  
             if(deviceName.equals("niodev")) { 		  
               cout.println( (String) machineVector.get(i) + "@" +
-                           port + "@" + (rank++));
+                           port + "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+                           "@" + checkpointPort);
+              rank++;
               port += 2;
 	    } else if(deviceName.equals("mxdev")) { 
               cout.println( (String) machineVector.get(i) + "@" +
-                           (mxBoardNum+j) + "@" + (rank++));
+                           (mxBoardNum+j) + "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+                           "@" + checkpointPort);
+              rank++;
 	    }
           }
         }
@@ -928,11 +945,15 @@ public class MPJRun {
                                   new Integer(1));
 	if(deviceName.equals("niodev")) { 
           cout.println( (String) machineVector.get(i) + "@" + port+
-                       "@" + (rank++));
+                       "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+                       "@" + checkpointPort);
+          rank++;
           port += 2;
 	} else if(deviceName.equals("mxdev")) { 
           cout.println( (String) machineVector.get(i) + "@" +
-                       (mxBoardNum) + "@" + (rank++));
+                       (mxBoardNum) + "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+                       "@" + checkpointPort);
+          rank++;
 	}
 	
         if(DEBUG && logger.isDebugEnabled()) { 
@@ -1021,6 +1042,15 @@ public class MPJRun {
 			
 			selector = Selector.open();
 			
+			//add checkpoint server channel to selector
+			SocketChannel checkpiontChannel = null;
+			for(int i = 0; i < validCheckpointHosts.size(); i++){
+				checkpiontChannel = serverChannelMap.get(validCheckpointHosts.get(i));
+				if(checkpiontChannel.isOpen())
+					checkpiontChannel.close();
+			}
+		    initCheckpointServerChannel();
+			
 		    //validate the connection for the machine in the machine file
 		    for(int i = 0; i < machineVector.size(); i++){
 		    	String daemon = (String) machineVector.get(i);
@@ -1096,8 +1126,10 @@ public class MPJRun {
 		    			machineConnectedMap.put(daemon, true);
 		    			validMachines.add(daemon);	
 		    			peerChannels.add(socketChannel);
+		    			socketChannel.configureBlocking(false);
 		    			socketChannel.register(selector,
 		    	                SelectionKey.OP_READ | SelectionKey.OP_WRITE);
+		    			socketChannel.socket().setTcpNoDelay(true);
 		    		}
 		    		
 		    	}
@@ -1108,6 +1140,8 @@ public class MPJRun {
 			{
 				logger.debug("After valid: machineVector.size():" + machineVector.size());
 			}
+		    if(machineVector.size() == 0)
+		    	throw new Exception("No machine is valid for computation!");
 		    
 		    if(DEBUG && logger.isDebugEnabled())
 			{
@@ -1125,11 +1159,7 @@ public class MPJRun {
 		    
 		}// end of while
 		
-		//add checkpoint server channel to selector
-	    doConnect(checkpiontChannel, false);
-	    checkpiontChannel.register(selector,
-                SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-	    
+		    
 	    selectorFlag = true;
 	    selectorThreadStarter = new Thread(selectorThread);
 		
@@ -1161,21 +1191,27 @@ public class MPJRun {
 		ByteBuffer restartMsg = ByteBuffer.allocate(4);
 		restartMsg.putInt(REQUEST_RESTART);
 		restartMsg.flip();
-		synchronized (checkpiontChannel){
-			while(restartMsg.hasRemaining()){
-				try{
-					if(checkpiontChannel.write(restartMsg) == -1)
-						throw new ClosedChannelException();
-				}
-				catch(IOException e){
-					e.printStackTrace();
-					if(DEBUG && logger.isDebugEnabled())
-					{
-						logger.debug("checkpoint server channel close!");
+		synchronized (rankCheckpointServerMap){
+			for(int i = 0; i < validCheckpointHosts.size(); i++){
+				SocketChannel checkpiontChannel = serverChannelMap.get(validCheckpointHosts.get(i));
+				while(restartMsg.hasRemaining()){
+					try{
+						if(checkpiontChannel.write(restartMsg) == -1)
+							throw new ClosedChannelException();
 					}
-					break;
-				}			
+					catch(IOException e){
+						e.printStackTrace();
+						if(DEBUG && logger.isDebugEnabled())
+						{
+							logger.debug("checkpoint server channel close!");
+						}
+						break;
+					}			
+				}
+				
+				restartMsg.flip();
 			}
+			
 		}
 		
 		//find the latest complete version
@@ -1277,7 +1313,7 @@ public class MPJRun {
 	    cout.println("# Entry, HOST_NAME/IP@SERVERPORT@RANK");
 	    
 	    //have to modify later!!!!!
-	    cout.println(checkpointHost + "$" + checkpointPort + "$0");
+	    //cout.println(checkpointHost + "$" + checkpointPort + "$0");
 
 	    if (nprocs <= noOfMachines) {
 
@@ -1297,11 +1333,15 @@ public class MPJRun {
 		        rankMachineMap.put(rank, name);
 				if(deviceName.equals("niodev")) { 
 			          cout.println(name + "@" + port +
-			                       "@" + (rank++));
+			                       "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+			                       "@" + checkpointPort);
+			          rank++;
 			          port += 2;
 				} else if(deviceName.equals("mxdev")) { 
 			          cout.println(name + "@" + mxBoardNum+
-			                       "@" + (rank++));
+			                       "@" + rank + "@" + rankCheckpointServerMap.get(rank) + 
+			                       "@" + checkpointPort);
+			          rank++;
 				} 
 				
 				
@@ -1345,7 +1385,8 @@ public class MPJRun {
 	        	  
 	        	  if(deviceName.equals("niodev")) { 		  
 		              cout.println( name + "@" +
-		                           port + "@" + rankArray[j]);
+		                           port + "@" + rankArray[j] + "@" + rankCheckpointServerMap.get(rankArray[j]) + 
+		                           "@" + checkpointPort);
 		              port += 2;
 				  } 
 	          }//end of for
@@ -1644,7 +1685,7 @@ private void machinesSanityCheck() throws Exception {
 
 	  }
   
-  private static String getCheckpointHost() {
+  private static String[] getCheckpointHosts() {
 
 	    String host = null;
 	    FileInputStream in = null;
@@ -1673,13 +1714,14 @@ private void machinesSanityCheck() throws Exception {
 	      e.printStackTrace();
 	    }
 
-	    return host;
+	    return host.split(",");
 
 	  }
 
   private void clientSocketInit() throws Exception {
       	  
     SocketChannel[] clientChannels = new SocketChannel[machineVector.size()];
+    Vector validMachines = new Vector();
     for (int i = 0; i < machineVector.size(); i++) {
       boolean connected = false ; 	    
       String daemon = (String) machineVector.get(i);
@@ -1693,101 +1735,146 @@ private void machinesSanityCheck() throws Exception {
 	  connected = clientChannels[i].connect(
 			new InetSocketAddress(daemon, D_SER_PORT));
 
-	if(!connected) {
-	  System.out.println(" home-made ...");
+		if(!connected) {
+		  System.out.println(" home-made ...");
+	
+	          if(System.getProperty("os.name").startsWith("Windows")) {   
+	            CONF_FILE.delete() ;
+	          }
+	
+	          if(DEBUG && logger.isDebugEnabled())
+	          {
+	              logger.debug("Cannot connect to the daemon "+
+	        			  "at machine <"+daemon+"> and port <"+
+	        			  D_SER_PORT+">.");
+	      	  }
+		}
+		else{
 
-          if(System.getProperty("os.name").startsWith("Windows")) {   
-            CONF_FILE.delete() ;
-          }
-
-          throw new MPJRuntimeException("Cannot connect to the daemon "+
-			  "at machine <"+daemon+"> and port <"+
-			  D_SER_PORT+">."+
-			  "Please make sure that the machine is reachable "+
-			  "and running the daemon in 'sane' state"); 
-	}
-
-	doConnect(clientChannels[i], true); 
-	machineConnectedMap.put(daemon, true);
-	machineChannelMap.put(daemon, clientChannels[i]);
+			doConnect(clientChannels[i], true); 
+			machineConnectedMap.put(daemon, true);
+			machineChannelMap.put(daemon, clientChannels[i]);
+			validMachines.add(daemon);
+		}
 	
       }
       catch(IOException ioe) {
-        if(System.getProperty("os.name").startsWith("Windows")) {   
-          CONF_FILE.delete() ;
-        }
-
-	System.out.println(" IOException in doConnect");
-        throw new MPJRuntimeException("Cannot connect to the daemon "+
-			"at machine <"+daemon+"> and port <"+
-			D_SER_PORT+">."+
-			"Please make sure that the machine is reachable "+
-			"and running the daemon in 'sane' state"); 
+    	  if(DEBUG && logger.isDebugEnabled())
+          {
+              logger.debug("Cannot connect to the daemon "+
+        			  "at machine <"+daemon+"> and port <"+
+        			  D_SER_PORT+">.");
+      	  }
       }
       catch (Exception ccn1) {
-	  System.out.println(" rest of the exceptions ");
-        throw ccn1;
+    	  if(DEBUG && logger.isDebugEnabled())
+          {
+              logger.debug("Cannot connect to the daemon "+
+        			  "at machine <"+daemon+"> and port <"+
+        			  D_SER_PORT+">. For other reasons");
+      	  }
       }
     }
     
-    //connect to the checkpoint server
-    //in checkpoint server  original port for writable,original port+1 for readable, original port+2 for control
-    int port  = checkpointPort + 2;
-    try{
-    	checkpiontChannel = SocketChannel.open();
-    	checkpiontChannel.configureBlocking(true);
-    	boolean connected = checkpiontChannel.connect(new InetSocketAddress(checkpointHost, port ));
-    	if(connected == false){
-    		
-    		if(System.getProperty("os.name").startsWith("Windows")) {   
-                CONF_FILE.delete() ;
-            }
-    		
-    		throw new MPJRuntimeException("Cannot connect to the checpont server "+
-        			"at machine <"+checkpointHost+"> and port <"+
-        			port+">."+
-        			"Please make sure that the machine is reachable.");     		
-    	}
-    	
-    	//have connected so add to the selector
-    	doConnect(checkpiontChannel, false);
-    	ByteBuffer numBuffer = ByteBuffer.allocate(8);
-    	numBuffer.putInt(NUM_OF_PROCCESSES);
-    	numBuffer.putInt(nprocs);
-    	
-    	numBuffer.flip();
-    	
-    	while(numBuffer.hasRemaining()){
-    		try{
-    			if(checkpiontChannel.write(numBuffer) == -1)
-    				throw new ClosedChannelException();
-    		}
-    		catch(Exception e){
-    			throw e;
-    		}
-    	}
-    	
-    	numBuffer.clear();
-    	
-    }
-    catch(IOException ie){
-    	if(System.getProperty("os.name").startsWith("Windows")) {   
-            CONF_FILE.delete() ;
-        }
-    	throw new MPJRuntimeException("Cannot connect to the checpont server "+
-    			"at machine <"+checkpointHost+"> and port <"+
-    			port+">."+
-    			"Please make sure that the machine is reachable."); 
-    	
-    }
-    catch(Exception e){
-    	if(System.getProperty("os.name").startsWith("Windows")) {   
-            CONF_FILE.delete() ;
-        }
-    	e.printStackTrace();
-    	throw e;
+    if(validMachines.size() == 0)
+    	throw new Exception("No machine is valid for computation!");
+    
+    if(validMachines.size() != machineVector.size()){
+    	machineVector = validMachines;
+    	this.Notify();
     }
     
+  }
+  
+  private void initCheckpointServerChannel(){
+	//connect to the checkpoint server
+	    //in checkpoint server  original port for writable,original port+1 for readable, original port+2 for control
+	    validCheckpointHosts.clear();
+	    serverChannelMap.clear();
+	    String[] hosts = getCheckpointHosts();
+	    if(DEBUG && logger.isDebugEnabled())
+		{
+			logger.debug("Checkpoint Server host: " + hosts );
+		}
+	    int port  = checkpointPort + 2;
+	    SocketChannel checkpiontChannel = null;
+	    for(int i = 0; i < hosts.length; i++){
+	    	try{
+		    	checkpiontChannel = SocketChannel.open();
+		    	checkpiontChannel.configureBlocking(true);
+		    	boolean connected = checkpiontChannel.connect(new InetSocketAddress(hosts[i], port ));
+		    	if(connected == false){
+		    		if(DEBUG && logger.isDebugEnabled())
+		    		{
+		    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
+		    		}
+		    		continue;
+		    		     		
+		    	}	    
+		    	
+		    	//have connected so add to the selector
+		    	doConnect(checkpiontChannel, false);
+		    	validCheckpointHosts.add(hosts[i]);
+		    	serverChannelMap.put(hosts[i], checkpiontChannel);
+	    	}
+	    	catch(Exception e){
+	    		if(DEBUG && logger.isDebugEnabled())
+	    		{
+	    			logger.debug("Checkpoint Server host: " + hosts[i] + " is not valid!");
+	    		}
+	    		continue;
+	    	}
+	    }
+	    
+	    int divisor = nprocs / validCheckpointHosts.size();
+	    int remainder = nprocs % validCheckpointHosts.size();
+	    
+	    int rank = 0;
+	    for(int i = 0; i < validCheckpointHosts.size(); i++){
+	    	try{
+	    		
+	    		ByteBuffer numBuffer = ByteBuffer.allocate(12);
+	        	numBuffer.putInt(NUM_OF_PROCCESSES);
+	        	int proNumOfMachine;
+		    	if(i < remainder){
+		    		proNumOfMachine = divisor + 1;
+		    	}
+		    	else{
+		    		proNumOfMachine = divisor;
+		    		
+		    	}
+	   	
+		    	numBuffer.putInt(proNumOfMachine);
+		    	numBuffer.putInt(nprocs);
+		    	numBuffer.flip();
+		    	checkpiontChannel = serverChannelMap.get(validCheckpointHosts.get(i));
+		    	while(numBuffer.hasRemaining()){
+		    		try{
+		    			if(checkpiontChannel.write(numBuffer) == -1)
+		    				throw new ClosedChannelException();
+		    		}
+		    		catch(Exception e){
+		    			throw e;
+		    		}
+		    	}
+		    	
+		    	for(int j = rank; j < rank + proNumOfMachine; j++){
+		    		rankCheckpointServerMap.put(j, validCheckpointHosts.get(i));
+		    	}
+		    	rank += proNumOfMachine;
+		    	
+		    	numBuffer.clear();
+	    	}
+	    	catch(Exception e){
+	    		if(DEBUG && logger.isDebugEnabled())
+	    		{
+	    			logger.debug("Checkpoint Server host: " + validCheckpointHosts.get(i) + " is not valid! Remove it!");
+	    		}
+	    		validCheckpointHosts.remove(i);
+	    		i--;
+	    		continue;
+	    	}
+	    }
   }
 
   /**
@@ -2160,21 +2247,28 @@ if(DEBUG && logger.isDebugEnabled())
 						ByteBuffer endMsg = ByteBuffer.allocate(4);
 						endMsg.putInt(END_APP);
 						endMsg.flip();
-						synchronized (checkpiontChannel) {
-							while(endMsg.hasRemaining()){
-								try{
-									if(checkpiontChannel.write(endMsg) == -1)
-										throw new ClosedChannelException();
+						synchronized (rankCheckpointServerMap) {
+							for(int i = 0; i < validCheckpointHosts.size(); i++){
+								SocketChannel checkpiontChannel = serverChannelMap.get(validCheckpointHosts.get(i));
+								while(endMsg.hasRemaining()){
+									try{
+										if(checkpiontChannel.write(endMsg) == -1)
+											throw new ClosedChannelException();
+									}
+									catch(IOException e){
+										e.printStackTrace();
+										if(DEBUG && logger.isDebugEnabled())
+										{
+											logger.debug("the checkpiont channel is close, this should not happen!");
+										}
+										break;
+									}			
 								}
-								catch(IOException e){
-									e.printStackTrace();
-									if(DEBUG && logger.isDebugEnabled())
-									{
-										logger.debug("the checkpiont channel is close, this should not happen!");
-									}	
-									break;
-								}
+								
+								endMsg.flip();
 							}
+							
+							
 							if(DEBUG && logger.isDebugEnabled())
 							{
 								logger.debug("finish send END_APP to the checkpiont server");
@@ -2421,10 +2515,30 @@ if(DEBUG && logger.isDebugEnabled())
 	            logger.debug("After sending kill to all daemon");
 			}
 	          
-	          synchronized (checkpiontChannel) {
+	          synchronized (rankCheckpointServerMap) {
 	        	  buffer.putInt(REQUEST_RESTART);
 		          buffer.flip();
-		          checkpiontChannel.write(buffer);
+		          
+		          for(int i = 0; i < validCheckpointHosts.size(); i++){
+						SocketChannel checkpiontChannel = serverChannelMap.get(validCheckpointHosts.get(i));
+						while(buffer.hasRemaining()){
+							try{
+								if(checkpiontChannel.write(buffer) == -1)
+									throw new ClosedChannelException();
+							}
+							catch(IOException e){
+								e.printStackTrace();
+								if(DEBUG && logger.isDebugEnabled())
+								{
+									logger.debug("checkpoint server channel " + checkpiontChannel + " close!");
+								}
+								break;
+							}			
+						}
+						
+						buffer.flip();
+					}
+		          
 		          buffer.clear();
 	          }
 	          
@@ -2720,5 +2834,9 @@ if(DEBUG && logger.isDebugEnabled())
 		}
     	
     };
+
+	public void restart() throws Exception{		
+		(new Thread(restartThread)).start();  
+	}
     
 }

@@ -22,6 +22,10 @@
 			<result name="success">/WEB-INF/jsp/successed.jsp</result>
 		</action>
 		
+		<action name="restart" class="org.qing.action.StartAction" method="restart">
+			<result name="success">/WEB-INF/jsp/successed.jsp</result>
+		</action>
+		
 		<action name="stop" class="org.qing.action.StartAction" method="stop">
 			<result name="success">/blank.jsp</result>
 		</action>

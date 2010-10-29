@@ -23,6 +23,16 @@ function checkpoint(){
 		);
 }
 
+function restart(){
+	$.get("restart.action",{},
+		function(responseText){
+			if(responseText.Trim().indexOf("Error:") != -1){
+				alert(responseText.Trim());
+			}
+		}
+	);
+}
+
 function stop_program(){
 	$.get("stop.action",{},
 			function(responseText){

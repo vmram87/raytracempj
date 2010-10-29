@@ -401,11 +401,25 @@ function init(){
 						</div>
 					</div>
 					
+					<!--  
 					<div id="button_checkpoint_program" class="button_frame" onclick="checkpoint()">
 						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
 							<div class="button_left_border"></div>	
 							<div class="button_inner_border">
 									<span>Checkpoint</span>						
+							</div>	
+							<div class="button_right_border"></div>
+							<div class="clear"></div>				
+						</div>
+					</div>
+					
+					-->
+					
+					<div id="button_restart_program" class="button_frame" onclick="restart()">
+						<div class="button_item" onselectstart="return false;"  onmouseover="overButton(this)" onmousedown="mouseDownButton(this)" onmouseup="mouseUpButton(this)" onmouseout="mouseOutButton(this)" onselectstart ="function(){return false;}">
+							<div class="button_left_border"></div>	
+							<div class="button_inner_border">
+									<span>Restart</span>						
 							</div>	
 							<div class="button_right_border"></div>
 							<div class="clear"></div>				
