@@ -844,25 +844,17 @@ public class NIODevice
 
 	      if (line == null || line.equals("") || line.startsWith("#")) {
 	        continue;
-	      }
-
-	      if(line.contains("$")){
-	    	  //checkpoint must be declare before the nodes
-	    	  line = line.trim();
-		      StringTokenizer tokenizer = new StringTokenizer(line, "$");
-		      cp_host = tokenizer.nextToken();
-		      cp_port = (new Integer(tokenizer.nextToken())).intValue();
-		      cp_rank = (new Integer(tokenizer.nextToken())).intValue();
-	    	  
-	    	  continue;
-	      }
-	      
+	      }	      
 	      
 	      line = line.trim();
 	      StringTokenizer tokenizer = new StringTokenizer(line, "@");
 	      nodeList[count] = tokenizer.nextToken();
 	      pList[count] = (new Integer(tokenizer.nextToken())).intValue();
 	      rankList[count] = (new Integer(tokenizer.nextToken())).intValue();
+	      if(rankList[count] == this.rank){
+	    	  cp_host = tokenizer.nextToken();
+	    	  cp_port = (new Integer(tokenizer.nextToken())).intValue();
+	      }
 	      count++;
 
 	    }
@@ -1148,6 +1140,9 @@ public class NIODevice
 	          }
 	
 	          try {
+	        	  if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("connecting to " + cp_host + " at " + cp_port);
+		          }
 	            connected = readableCheckpointServer.connect(
 	                new InetSocketAddress(cp_host, cp_port));
 	          }
@@ -2705,7 +2700,7 @@ public class NIODevice
 			socketChannel.close();
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+			//e.printStackTrace();
 		}
 		
 		if(isExiting == true)
