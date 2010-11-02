@@ -77,7 +77,7 @@ public class MPJDaemon {
   private volatile boolean waitToStartExecution = true;
   private PrintStream out = null;
   private Semaphore outputHandlerSem = new Semaphore(1,true); 
-  static final boolean DEBUG = true ;
+  static final boolean DEBUG = false ;
   
   private String wdir = null ; 
   private String applicationClassPathEntry = null; 
@@ -156,6 +156,7 @@ public class MPJDaemon {
   private boolean hasReceiveStartCheckpointWave = false;
   private int cpVersionNum = -1;
   private int cpRank = 0;
+private boolean initWait = true;
 
   private static String JAVA_TEMP_FILE_DIRECTORY = "/tmp/hsperfdata_" + System.getProperty("user.name") + "/";
   
@@ -171,6 +172,7 @@ public class MPJDaemon {
     createLogger(mpjHomeDir, hostName); 
 
     if(DEBUG && logger.isDebugEnabled()) { 
+    	logger.debug("DEBUG "+DEBUG); 
       logger.debug("mpjHomeDir "+mpjHomeDir); 
     }
 
@@ -220,17 +222,20 @@ public class MPJDaemon {
       BufferedReader bufferedReader = null;
       InputStream in = null;
 
-      File configFile = new File(configFileName) ; 
+      
       //configFile.createNewFile();
 
       try {
-        in = new FileInputStream(configFile);
+    	  File configFile = new File(configFileName) ; 
+    	  in = new FileInputStream(configFile);
+    	  bufferedReader = new BufferedReader(new InputStreamReader(in));
       }
       catch (Exception e) {
-        e.printStackTrace();
+        //e.printStackTrace();
+        isExit = true;
       }
 
-      bufferedReader = new BufferedReader(new InputStreamReader(in));
+     
 
       OutputHandler [] outputThreads = new OutputHandler[processes] ;  
       p = new Process[processes];  
@@ -476,8 +481,6 @@ public class MPJDaemon {
 	        Thread.currentThread().sleep(1000);
 	       
       }//end of it isExit == false
-      else
-    	  isExit = false;
       
       processStartLock.signal(); 
       
@@ -486,7 +489,7 @@ public class MPJDaemon {
       	  if(DEBUG && logger.isDebugEnabled()) { 
                 logger.debug("worldProcessTable.size(): " +worldProcessTable.size()); 
             }
-      	  if(worldProcessTable.size() != processes){
+      	  if(initWait  == true && worldProcessTable.size() != processes){
       		  if(DEBUG && logger.isDebugEnabled()) { 
                     logger.debug("wait for worldProcessTable, time:" + new Timestamp(System.currentTimeMillis())); 
                 }
@@ -495,10 +498,12 @@ public class MPJDaemon {
       			  	logger.debug("Time:" + new Timestamp(System.currentTimeMillis()));
                     logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
                 }
-      		  if(worldProcessTable.size() != processes ){      			
+      		  processStartLock.acquire();
+      		  if(worldProcessTable.size() != processes && kill_signal == false){      			
       			  isFinished = true;
       			  sendRestartReqestToMainHost();
       		  }
+      		  processStartLock.signal();
       	  }
         }
 		       
@@ -558,6 +563,9 @@ public class MPJDaemon {
       }
       kill_signal = true;
       
+      processStartLock.signal();
+      
+      
       if(isRestarting == false){
 
     	  if (DEBUG && logger.isDebugEnabled()) {
@@ -610,8 +618,6 @@ public class MPJDaemon {
     	  
       }
 
-      processStartLock.signal();
-      
       restoreVariables() ;      
 
       if(DEBUG && logger.isDebugEnabled()) { 
@@ -682,6 +688,7 @@ public class MPJDaemon {
 private void restoreVariables() {
 	hasSendRequest = false;
 	isRestartFromCheckpoint = false;
+	initWait = true;
 	rankProcessIdTable.clear();
     jvmArgs.clear();
     appArgs.clear(); 
@@ -690,6 +697,7 @@ private void restoreVariables() {
     deviceName = null;
     className = null ;
     processes = 0;
+    worldProcessTable.clear();
     p = null ; 
   }
 
@@ -905,7 +913,7 @@ private void restoreVariables() {
 
     synchronized (channelCollection) {
 
-      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+      if (DEBUG && logger.isDebugEnabled()) {
         logger.debug("---doAccept---");
       }
 
@@ -916,11 +924,11 @@ private void restoreVariables() {
         return false; 
       }
 
-      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+      if (DEBUG && logger.isDebugEnabled()) {
         logger.debug("Added channel " + peerChannel);
       }
       channelCollection.add(peerChannel);
-      if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+      if (DEBUG && logger.isDebugEnabled()) {
         logger.debug("Now the size is <" + channelCollection.size() + ">");
       }
 
@@ -937,7 +945,7 @@ private void restoreVariables() {
 
       if (channelCollection.size() == processes) {
         channelCollection.notify();
-        if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+        if (DEBUG && logger.isDebugEnabled()) {
           logger.debug("notifying and returning true");
         }
         return true;
@@ -945,11 +953,11 @@ private void restoreVariables() {
 
     } //end sync.
 
-    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+    if (DEBUG && logger.isDebugEnabled()) {
       logger.debug("--doAccept ends--");
     }
     peerChannel = null;
-    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+    if (DEBUG && logger.isDebugEnabled()) {
       logger.debug("returning false when the processChannels are still all complete");
     }
     return false;
@@ -1001,13 +1009,13 @@ private void restoreVariables() {
             	
             	
             	if (sChannel.socket().getLocalPort() == D_SER_PORT) {
-                    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+                    if (DEBUG && logger.isDebugEnabled()) {
                       logger.debug("selector calling doAccept (host-channel) ");
                     }
                     doAccept(keyChannel);
                 }
                 else{
-                    if (mpi.MPI.DEBUG && logger.isDebugEnabled()) {
+                    if (DEBUG && logger.isDebugEnabled()) {
                       logger.debug("selector calling doAccept (process-channel) ");
                     }
                     
@@ -1401,6 +1409,7 @@ private void restoreVariables() {
               } 
               else if (read.equals("kill")) {
             	  synchronized(worldProcessTable){
+            		  initWait = false;
             		  worldProcessTable.notifyAll();
             	  }
             	  try{
@@ -1415,12 +1424,17 @@ private void restoreVariables() {
                   if(object.equals("rest")){             	  
                 	  if(DEBUG && logger.isDebugEnabled()) { 
                           logger.debug ("Receive killrest");
-                	  }                	  
+                	  } 
+                	  
+                	  if(logger.isDebugEnabled()) { 
+                          logger.debug ("Receive kill restart, time:" + new Timestamp(System.currentTimeMillis()));
+                	  }
                 	  
                 	  if(kill_signal == true){
                 		  if(DEBUG && logger.isDebugEnabled()) { 
                               logger.debug ("kill_signal == true, so continue to select");
                     	  }
+                		  processStartLock.signal();
                 		  continue;
                 	  }
                 	  
@@ -1447,9 +1461,9 @@ private void restoreVariables() {
                 	  isExit = true;
                   }
                   
-                  synchronized(worldProcessTable){
-                	  hasReceiveStartCheckpointWave = false;
-                  }
+                  
+                  hasReceiveStartCheckpointWave = false;
+                  
             	  
             	  checkpointingProcessTable.clear();
             	  
@@ -1649,7 +1663,11 @@ private void restoreVariables() {
 		    
 		    if (DEBUG && logger.isDebugEnabled()) {
 	              logger.debug("initLock release");
-	            }
+	        }
+		    
+		    if (logger.isDebugEnabled()) {
+	              logger.debug("After initialization: time:" + new Timestamp(System.currentTimeMillis()));
+	        }
 		  
 		}
 	};// end renew thread
