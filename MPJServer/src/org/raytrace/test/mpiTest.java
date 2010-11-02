@@ -1,7 +1,7 @@
 package org.raytrace.test;
 
 import org.raytrace.algorithm.IRayTraceAlgorithm;
-import org.raytrace.algorithm.impl.TRayTrace;
+import org.raytrace.algorithm.impl.NRayTraceAlg;
 import org.raytrace.scene.IScene;
 import org.raytrace.scene.impl.TScene;
 import org.raytrace.viewport.IViewPort;
@@ -15,7 +15,7 @@ public class mpiTest {
 	 */
 	public static void main(String[] args) throws Exception {
 		
-		IRayTraceAlgorithm alg=new TRayTrace();
+		IRayTraceAlgorithm alg=new NRayTraceAlg();
 		
 		IScene scene = new TScene(alg);
 		
