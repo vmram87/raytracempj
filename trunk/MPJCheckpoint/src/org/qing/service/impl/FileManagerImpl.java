@@ -382,6 +382,10 @@ public class FileManagerImpl implements FileManager {
 		for( Object o : cfgOutputFiles){
 			String relativePath = (String) o;
 			relativePath = relativePath.trim();
+			File file = new File(userDirectory + relativePath);
+			if(!file.exists())
+				continue;
+			
 			String[] pathNames = relativePath.split("/");
 			
 			//not valid for the outputfile path
@@ -403,6 +407,7 @@ public class FileManagerImpl implements FileManager {
 					String newFileName = pathNames[pathNames.length - 1];
 					MyFile f=fileDao.getByFileNameAndParent(newFileName, parent);
 					if(f == null){
+						
 						MyFile newFile = new MyFile();
 						newFile.setFileName(newFileName);
 						newFile.setFilePath("");

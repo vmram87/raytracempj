@@ -359,6 +359,9 @@ public class MPJRun {
         nProcessesInt = ((Integer) procsPerMachineTable.get(hAddress)) ;     
       } 
 
+      if(nProcessesInt == null)
+    	  continue;
+      
       int nProcesses = nProcessesInt.intValue();
 
       synchronized (socketChannel) {
@@ -531,7 +534,7 @@ public class MPJRun {
 
   private void createLogger(String[] args) throws MPJRuntimeException {
   
-    if(DEBUG && logger == null) {
+    if(logger == null) {
 
       DailyRollingFileAppender fileAppender = null ;
 
@@ -789,6 +792,7 @@ public class MPJRun {
     String name = null;
     int port = MPJ_SERVER_PORT;
     rankMachineMap.clear();
+    procsPerMachineTable.clear();
 
     try {
       cfos = new FileOutputStream(CONF_FILE);
@@ -819,9 +823,9 @@ public class MPJRun {
         //name=(String)machineVector.get(i);
         //name=InetAddress.getByName(name).getHostName();
         //name=InetAddress.getByAddress( name.getBytes() ).getHostName();
-        procsPerMachineTable.put( (String) machineVector.get(i),
-                                 new Integer(1));
-	 
+    	name = (String) machineVector.get(i);
+        procsPerMachineTable.put( name, new Integer(1));
+       
         rankMachineMap.put(rank, name);
 	if(deviceName.equals("niodev")) { 
           cout.println(name + "@" + port +
@@ -1075,6 +1079,7 @@ public class MPJRun {
 			    			machineConnectedMap.put(daemon, true);
 			    			machineChannelMap.put(daemon, socketChannel);
 			    			validMachines.add(daemon);
+			    			peerChannels.add(socketChannel);
 			    			if(DEBUG && logger.isDebugEnabled())
 							{
 								logger.debug("after reconnect, add the socketchannel");
@@ -1088,7 +1093,7 @@ public class MPJRun {
 			    		}
 		    		}
 		    		catch(Exception e){
-		    			e.printStackTrace();
+		    			//e.printStackTrace();
 		    			machineChannelMap.remove(daemon);
 		    			if(DEBUG && logger.isDebugEnabled())
 						{
@@ -1140,8 +1145,11 @@ public class MPJRun {
 			{
 				logger.debug("After valid: machineVector.size():" + machineVector.size());
 			}
-		    if(machineVector.size() == 0)
-		    	throw new Exception("No machine is valid for computation!");
+		    if(machineVector.size() == 0){
+		    	System.out.println("No machine is valid for computation!");
+		    	preFinish();
+		    	return;
+		    }
 		    
 		    if(DEBUG && logger.isDebugEnabled())
 			{
@@ -1297,6 +1305,7 @@ public class MPJRun {
 	    int rank = 0;
 	    String name = null;
 	    rankMachineMap.clear();
+	    procsPerMachineTable.clear();
 	    int port = MPJ_SERVER_PORT;
 
 	    try {
@@ -1547,7 +1556,7 @@ private void machinesSanityCheck() throws Exception {
     String line = null;
     int machineCount = 0 ; 
 
-    while (machineCount < nprocs) {
+    while (/*machineCount < nprocs*/ true) {
 
       line = reader.readLine();
 
@@ -1559,8 +1568,7 @@ private void machinesSanityCheck() throws Exception {
         break ; 
       }
 
-      if (line.startsWith("#") || line.equals("") ||
-          (machineVector.size() == nprocs)) {
+      if (line.startsWith("#") || line.equals("")) {
         //loop = false;
         continue ;
       }
@@ -1776,8 +1784,11 @@ private void machinesSanityCheck() throws Exception {
       }
     }
     
-    if(validMachines.size() == 0)
+    if(validMachines.size() == 0){
+    	preFinish();
+    	finish();
     	throw new Exception("No machine is valid for computation!");
+    }
     
     if(validMachines.size() != machineVector.size()){
     	machineVector = validMachines;
@@ -1909,7 +1920,8 @@ private void machinesSanityCheck() throws Exception {
     	    	 
           
     	if(timmerThreadStarter != null && (timmerThreadStarter.getState().equals(Thread.State.BLOCKED)||
-    			timmerThreadStarter.getState().equals(Thread.State.WAITING))){
+    			timmerThreadStarter.getState().equals(Thread.State.WAITING) || 
+    			timmerThreadStarter.getState().equals(Thread.State.TIMED_WAITING))){
     		timmerThreadStarter.interrupt();
     	}
     	if(timmerThreadStarter != null)
@@ -1971,7 +1983,6 @@ private void machinesSanityCheck() throws Exception {
       logger.debug("Registering for OP_READ & OP_WRITE event");
       peerChannel.register(selector,
                            SelectionKey.OP_READ | SelectionKey.OP_WRITE);
-      logger.debug("After Registering for OP_READ & OP_WRITE event");
     }
     catch (ClosedChannelException cce) {
 	if(DEBUG && logger.isDebugEnabled())
@@ -2147,10 +2158,38 @@ if(DEBUG && logger.isDebugEnabled())
             				logger.debug("END_OF_STREAM signal at starter from "+
                                          "channel "+socketChannel) ;  
                            
-                        streamEndedCount ++ ; 
-                        machineConnectedMap.put(ias.getHostName(),false);
+                        streamEndedCount ++ ;                        
                         socketChannel.close();
-                    	logger.debug("streamEndedCount = "+streamEndedCount);  
+                        if(DEBUG && logger.isDebugEnabled())
+                        	logger.debug("streamEndedCount = "+streamEndedCount);  
+                    	boolean isCpHost = false;
+                    	
+                    	for(int i = 0; i < validCheckpointHosts.size(); i++){
+                    		String hostName = validCheckpointHosts.get(i);
+                    		InetAddress cpHost = null;
+                    		try{
+                    			cpHost = InetAddress.getByName(hostName);                    			
+                    		}
+                    		catch(Exception e){
+                    			continue;
+                    		}
+                    		
+                    		if(ias.getHostName().equals(cpHost.getHostName()) || 
+                    				ias.getHostAddress().equals(cpHost.getHostAddress())) {
+                    			
+                    			if(DEBUG && logger.isDebugEnabled())
+                    				logger.debug("Checkpoint Server "+ hostName + " is donw! So Restart!") ;  
+                    			
+                    			System.out.println("Checkpoint Server "+ hostName + " is donw! So Restart!");
+                    			(new Thread(restartThread)).start();
+                    			isCpHost = true;
+                    			break;
+                    		}
+		
+                    	}
+                    	
+                    	if(!isCpHost)
+                    		machineConnectedMap.put(ias.getHostName(),false);
 
                     	/*
                         if (streamEndedCount == machineVector.size()) {
@@ -2230,52 +2269,7 @@ if(DEBUG && logger.isDebugEnabled())
 						logger.debug("machineVector.size() " + machineVector.size());
 						}
 			        if (endCount == machineVector.size()) {
-						if(DEBUG && logger.isDebugEnabled())
-						 logger.debug("Notify and exit"); 
-						
-						//notify the versionComplete if it is not notify
-						synchronized(versionComplete){
-							if(isVersionCompleteWaiting == true){
-								isVersionCompleteWaiting = false;
-								if (DEBUG && logger.isDebugEnabled()) {
-						              logger.debug("notify timer thread when all daemon send exit to MPJRUn");
-						        }
-								versionComplete.notify();
-							}
-						}
-						
-						ByteBuffer endMsg = ByteBuffer.allocate(4);
-						endMsg.putInt(END_APP);
-						endMsg.flip();
-						synchronized (rankCheckpointServerMap) {
-							for(int i = 0; i < validCheckpointHosts.size(); i++){
-								SocketChannel checkpiontChannel = serverChannelMap.get(validCheckpointHosts.get(i));
-								while(endMsg.hasRemaining()){
-									try{
-										if(checkpiontChannel.write(endMsg) == -1)
-											throw new ClosedChannelException();
-									}
-									catch(IOException e){
-										e.printStackTrace();
-										if(DEBUG && logger.isDebugEnabled())
-										{
-											logger.debug("the checkpiont channel is close, this should not happen!");
-										}
-										break;
-									}			
-								}
-								
-								endMsg.flip();
-							}
-							
-							
-							if(DEBUG && logger.isDebugEnabled())
-							{
-								logger.debug("finish send END_APP to the checkpiont server");
-							}	
-							Notify();
-						}					
-						
+						preFinish();						
 			        }
 			        
               		break;
@@ -2557,6 +2551,55 @@ if(DEBUG && logger.isDebugEnabled())
 		
 	}
 	
+	protected void preFinish() {
+		if(DEBUG && logger.isDebugEnabled())
+			 logger.debug("Notify and exit"); 
+			
+		//notify the versionComplete if it is not notify
+		synchronized(versionComplete){
+			if(isVersionCompleteWaiting == true){
+				isVersionCompleteWaiting = false;
+				if (DEBUG && logger.isDebugEnabled()) {
+		              logger.debug("notify timer thread when all daemon send exit to MPJRUn");
+		        }
+				versionComplete.notify();
+			}
+		}
+		
+		ByteBuffer endMsg = ByteBuffer.allocate(4);
+		endMsg.putInt(END_APP);
+		endMsg.flip();
+		synchronized (rankCheckpointServerMap) {
+			for(int i = 0; i < validCheckpointHosts.size(); i++){
+				SocketChannel checkpiontChannel = serverChannelMap.get(validCheckpointHosts.get(i));
+				while(endMsg.hasRemaining()){
+					try{
+						if(checkpiontChannel.write(endMsg) == -1)
+							throw new ClosedChannelException();
+					}
+					catch(IOException e){
+						e.printStackTrace();
+						if(DEBUG && logger.isDebugEnabled())
+						{
+							logger.debug("the checkpiont channel is close, this should not happen!");
+						}
+						break;
+					}			
+				}
+				
+				endMsg.flip();
+			}
+			
+			
+			if(DEBUG && logger.isDebugEnabled())
+			{
+				logger.debug("finish send END_APP to the checkpiont server");
+			}	
+			Notify();
+		}
+		
+	}
+
 	protected void doUpdateDaemonStatus(SocketChannel socketChannel) {
 		if (DEBUG && logger.isDebugEnabled()) {
             logger.debug("--doUpdateDaemonStatus--");
@@ -2743,6 +2786,7 @@ if(DEBUG && logger.isDebugEnabled())
 								checkpiontWaveACK.wait(10000);
 							} catch (InterruptedException e1) {
 								e1.printStackTrace();
+								break;
 							}
               				
               				if(receiveCheckpointWaveAck == true){
