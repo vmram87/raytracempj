@@ -13,7 +13,4 @@ public interface ILight {
 	
 	public ILight getRandomLight();
 	
-	public TIntensity evalAmbient(TIntensity materialAmbient);
-	public TIntensity evalDiffuse(TVector N, TVector inLine, TIntensity materialDiffuse);
-	public TIntensity evalSpecular(TVector N, TVector inLine, TVector cameraDirection, TIntensity materialSpecular, float shininess);
 }

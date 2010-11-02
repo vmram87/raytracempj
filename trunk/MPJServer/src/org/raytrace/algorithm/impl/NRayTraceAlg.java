@@ -5,6 +5,7 @@ import java.util.List;
 import org.raytrace.algorithm.IRayTraceAlgorithm;
 import org.raytrace.object.IObject;
 import org.raytrace.scene.ILight;
+import org.raytrace.vector.IComputable3D;
 import org.raytrace.vector.IPoint3D;
 import org.raytrace.vector.impl.ReferFloatValue;
 import org.raytrace.vector.impl.ReferIntValue;
@@ -125,14 +126,14 @@ public class NRayTraceAlg implements IRayTraceAlgorithm {
 	    	  }
 	    	  
 	    	  
-	    	  TIntensity ambient = light.evalAmbient(object.getMaterialProperty().getAmbient()); 
+	    	  TIntensity ambient = evalAmbient(light.getIntensity(), object.getMaterialProperty().getAmbient()); 
 	    	  
 	    	  inLine.normalize();
-	    	  TIntensity diffuse = light.evalDiffuse(N, inLine, object.getMaterialProperty().getDiffusion());
+	    	  TIntensity diffuse = evalDiffuse(light.getIntensity(), N, inLine, object.getMaterialProperty().getDiffusion());
 	    	  
 	    	  TVector V = new TVector(viewPoint, newOrigin);
 	    	  V.normalize();
-	    	  TIntensity specular = light.evalSpecular(N, inLine, V, object.getMaterialProperty().getSpecular(), 
+	    	  TIntensity specular = evalSpecular(light.getIntensity(), N, inLine, V, object.getMaterialProperty().getSpecular(), 
 	    			  object.getMaterialProperty().getShining());
 	    	  
 	    	  color.selfAdd( ambient.add(diffuse).add(specular));
@@ -160,6 +161,38 @@ public class NRayTraceAlg implements IRayTraceAlgorithm {
 
 	      }
 
+	}
+	
+
+	private TIntensity evalAmbient(TIntensity lightIntensity, TIntensity materialAmbient) {		
+		return new TIntensity(lightIntensity.multiply(materialAmbient));
+	}
+
+	
+	private TIntensity evalDiffuse(TIntensity lightIntensity, TVector N, TVector inLine,
+			TIntensity materialDiffuse) {
+		IComputable3D IdKd =  lightIntensity.multiply(materialDiffuse);
+		float NdotL = Math.max(N.dot(inLine), 0.0f);
+		return new TIntensity(IdKd.selfMultiply(NdotL));
+	}
+
+	
+	private TIntensity evalSpecular(TIntensity lightIntensity, TVector N, TVector inLine,
+			TVector cameraDirection, TIntensity materialSpecular,
+			float shininess) {
+		IComputable3D IsKs =  lightIntensity.multiply(materialSpecular);
+		
+		TVector H = new TVector(inLine.add(N));
+		H.normalize();
+		
+		//float NdotL = Math.max(N.dot(inLine), 0.0f);
+		
+		float NdotH = (float) Math.pow(Math.max(N.dot(H), 0.0f), shininess);
+		
+		//if(NdotL <= 0)
+			//NdotH = 0;
+		
+		return new TIntensity(IsKs.selfMultiply(NdotH));
 	}
 	
 	//quick inverse and spare algorithm
