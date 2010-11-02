@@ -29,6 +29,9 @@ function restart(){
 			if(responseText.Trim().indexOf("Error:") != -1){
 				alert(responseText.Trim());
 			}
+			else{
+				alert("Restarting.");
+			}
 		}
 	);
 }
