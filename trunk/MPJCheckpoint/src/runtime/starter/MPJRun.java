@@ -177,6 +177,7 @@ public class MPJRun {
   private Timer timer;
   protected Object checkpiontWaveACK = new Object();
   private boolean receiveCheckpointWaveAck = false;
+protected boolean doRestarting = false;
 
   /**
    * Every thing is being inside this constructor :-)
@@ -2305,7 +2306,10 @@ if(DEBUG && logger.isDebugEnabled())
               		
               	case REQUEST_RESTART:
               		
-              		(new Thread(restartThread)).start();              		
+              		if (doRestarting  == false){
+              			doRestarting = true;
+              			(new Thread(restartThread)).start();       
+              		}
               		
               		break;
               		
@@ -2490,6 +2494,7 @@ if(DEBUG && logger.isDebugEnabled())
 
 		
 	};
+private boolean shouldVersionCompleteWait = true;
 
 	
 	
@@ -2520,23 +2525,23 @@ if(DEBUG && logger.isDebugEnabled())
 		}
 		
 		try {
-			for (int j = 0; j < peerChannels.size(); j++) {
-	            SocketChannel socketChannel = null;
-	            socketChannel = peerChannels.get(j);
-	            synchronized (socketChannel) {
-		            buffer.clear();
-		            buffer.put( (new String("killexit")).getBytes());
-		            buffer.flip();	            
-		            try{
-		            	socketChannel.write(buffer);
-			        }catch(Exception e){
-			            	//if close, do nothing
-			        }
-	            	 buffer.clear();
+			synchronized(machineChannelMap){
+				for (int j = 0; j < peerChannels.size(); j++) {
+		            SocketChannel socketChannel = null;
+		            socketChannel = peerChannels.get(j);
+			            buffer.clear();
+			            buffer.put( (new String("killexit")).getBytes());
+			            buffer.flip();	            
+			            try{
+			            	socketChannel.write(buffer);
+				        }catch(Exception e){
+				            	//if close, do nothing
+				        }
+		            	 buffer.clear();
+				
 				}
-	            
 	           
-	        }
+	        }//end syn machineChannelMap
 	          
 			if (DEBUG && logger.isDebugEnabled()) {
 	            logger.debug("After sending kill to all daemon");
@@ -2597,6 +2602,7 @@ if(DEBUG && logger.isDebugEnabled())
 		        }
 				versionComplete.notify();
 			}
+			shouldVersionCompleteWait  = false;
 		}
 		
 		ByteBuffer endMsg = ByteBuffer.allocate(4);
@@ -2822,19 +2828,21 @@ if(DEBUG && logger.isDebugEnabled())
 					
 					
               					synchronized(versionComplete){
-            						isVersionCompleteWaiting = true;
-            						try {
-            							versionComplete.wait();
-            							if (DEBUG && logger.isDebugEnabled()) {
-            					              logger.debug("timer wait end");
-            					        }
-            						} catch (InterruptedException e) {
-            							if (DEBUG && logger.isDebugEnabled()) {
-            					              logger.debug("--interupt timer wait--");
-            					        }
-            							e.printStackTrace();
-            							break;
-            						}
+              						if(shouldVersionCompleteWait == true){
+	            						isVersionCompleteWaiting = true;
+	            						try {
+	            							versionComplete.wait();
+	            							if (DEBUG && logger.isDebugEnabled()) {
+	            					              logger.debug("timer wait end");
+	            					        }
+	            						} catch (InterruptedException e) {
+	            							if (DEBUG && logger.isDebugEnabled()) {
+	            					              logger.debug("--interupt timer wait--");
+	            					        }
+	            							e.printStackTrace();
+	            							break;
+	            						}
+              						}
             						
             					}// end of syn versionComplete
               				
@@ -2883,6 +2891,8 @@ if(DEBUG && logger.isDebugEnabled())
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
+				
+				doRestarting = false;
       		}
 		}
     	
