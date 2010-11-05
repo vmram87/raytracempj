@@ -310,7 +310,7 @@ function init(){
 				<div id="graphicView_option" class="option_item" onclick="selectOption('graphicView')">Nodes Status View</div>
 				<div id="fileList_option" class="option_item" onclick="selectOption('fileList')">Files View</div>
 				<div id="sysConfig_option" class="option_item" onclick="selectOption('sysConfig')">System Configuration</div>	
-				<div id="userGuide_option" class="option_item" onclick="selectOption('userGuide')">User Guide</div>				
+				<!--  <div id="userGuide_option" class="option_item" onclick="selectOption('userGuide')">User Guide</div>	-->			
 			</div><!-- end of left_option_area-->
 			
 			<div id="file_tree">
