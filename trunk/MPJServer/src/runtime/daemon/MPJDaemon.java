@@ -493,20 +493,24 @@ private boolean initWait = true;
       		  if(DEBUG && logger.isDebugEnabled()) { 
                     logger.debug("wait for worldProcessTable, time:" + new Timestamp(System.currentTimeMillis())); 
                 }
-      		  worldProcessTable.wait(1000 * nprocs * 8);
+      		  worldProcessTable.wait(1000 * nprocs * 5);
       		  if(DEBUG && logger.isDebugEnabled()) { 
       			  	logger.debug("Time:" + new Timestamp(System.currentTimeMillis()));
                     logger.debug("After wait or notify worldProcessTable.size(): " +worldProcessTable.size()); 
                 }
-      		  processStartLock.acquire();
+      		  //processStartLock.acquire();
       		  if(worldProcessTable.size() != processes && kill_signal == false){      			
       			  isFinished = true;
       			  sendRestartReqestToMainHost();
       		  }
-      		  processStartLock.signal();
+      		  //processStartLock.signal();
       	  }
         }
-		       
+		   
+      
+      if(DEBUG && logger.isDebugEnabled()) { 
+          logger.debug("wait for process to end" +worldProcessTable.size()); 
+      }
 		
       //Wait for the I/O threads to finish. They finish when 
       // their corresponding JVMs finish. 
@@ -1412,6 +1416,9 @@ private void restoreVariables() {
             		  initWait = false;
             		  worldProcessTable.notifyAll();
             	  }
+            	  if(DEBUG && logger.isDebugEnabled()) { 
+                      logger.debug ("before acquire processStartLock");
+            	  } 
             	  try{
             		  processStartLock.acquire();
             	  }catch (InterruptedException e1){
@@ -1491,7 +1498,7 @@ private void restoreVariables() {
                         }
                         
                       //wait 3s and then forcely kill 
-                       Thread.currentThread().sleep(3000);
+                       //Thread.currentThread().sleep(3000);
                        Iterator it = rankProcessIdTable.entrySet().iterator();
                        System.out.println("Forecefully Kill: " + rankProcessIdTable);
 						while(it.hasNext()){
@@ -1499,6 +1506,7 @@ private void restoreVariables() {
 							String pId = (String)entry.getValue();
 							Runtime.getRuntime().exec("kill -9 " + pId);
 						}
+						//Thread.currentThread().sleep(2000);
                     }
                     
                 }
@@ -1963,84 +1971,85 @@ private void restoreVariables() {
 	        }
 		  	
 		//while in the channel and table initial period, can't send ack
-		  	try {
-				initLock.acquire();
-			} catch (InterruptedException e1) {
-				e1.printStackTrace();
-				if (DEBUG && logger.isDebugEnabled()) {
-		            logger.debug("Interrupted whne acquire initLock, return");
-		        }
-				return;
-			}
+//		  	try {
+//				initLock.acquire();
+//			} catch (InterruptedException e1) {
+//				e1.printStackTrace();
+//				if (DEBUG && logger.isDebugEnabled()) {
+//		            logger.debug("Interrupted whne acquire initLock, return");
+//		        }
+//				return;
+//			}
 			
 			//we should seperated acquire the lock.
-			try{
-				heartBeatLock.acquire();
-			}
-			catch (InterruptedException e2){
-				initLock.signal();
-				e2.printStackTrace();
-				if (DEBUG && logger.isDebugEnabled()) {
-		            logger.debug("Interrupted when acqure heartBeatLock, return");
-		        }
-				return;
-			}
+//			try{
+//				heartBeatLock.acquire();
+//			}
+//			catch (InterruptedException e2){
+//				e2.printStackTrace();
+//				if (DEBUG && logger.isDebugEnabled()) {
+//		            logger.debug("Interrupted when acqure heartBeatLock, return");
+//		        }
+//				return;
+//			}
+//			if (DEBUG && logger.isDebugEnabled()) {
+//	            logger.debug("have acquire heartbeatLock");
+//	        }
 			
-			
-			long lsb, msb, versionNum;
-			ByteBuffer uuidBuffer = ByteBuffer.allocate(20);
-			while(uuidBuffer.hasRemaining()){
-				try{
-					if(socketChannel.read(uuidBuffer) == -1)
-						throw new ClosedChannelException();
-				}
-				catch(IOException e){
-					e.printStackTrace();
-					if (DEBUG && logger.isDebugEnabled()) {
-			            logger.debug("read channel close, return");
-			        }
-					initLock.signal();
-					heartBeatLock.signal();
-					return;
+			synchronized(worldProcessTable){
+				long lsb, msb, versionNum;
+				ByteBuffer uuidBuffer = ByteBuffer.allocate(20);
+				while(uuidBuffer.hasRemaining()){
+					try{
+						if(socketChannel.read(uuidBuffer) == -1)
+							throw new ClosedChannelException();
+					}
+					catch(IOException e){
+						e.printStackTrace();
+						if (DEBUG && logger.isDebugEnabled()) {
+				            logger.debug("read channel close, return");
+				        }
+						//heartBeatLock.signal();
+						return;
+					}
+					
 				}
 				
-			}
-			
-			uuidBuffer.flip();
-			msb = uuidBuffer.getLong();
-			lsb = uuidBuffer.getLong();
-			versionNum = uuidBuffer.getInt();
-			UUID ruid = new UUID(msb, lsb);
-		  	
-			
-			ByteBuffer ackBuffer = ByteBuffer.allocate(4);
-			ackBuffer.putInt(DAEMON_MARKER_ACK);
-			
-			ackBuffer.flip();
-			while(ackBuffer.hasRemaining()){
-				try{
-					if(socketChannel.write(ackBuffer) == -1)
-						throw new ClosedChannelException();
+				uuidBuffer.flip();
+				msb = uuidBuffer.getLong();
+				lsb = uuidBuffer.getLong();
+				versionNum = uuidBuffer.getInt();
+				UUID ruid = new UUID(msb, lsb);
+			  	
+				
+				ByteBuffer ackBuffer = ByteBuffer.allocate(4);
+				ackBuffer.putInt(DAEMON_MARKER_ACK);
+				
+				ackBuffer.flip();
+				while(ackBuffer.hasRemaining()){
+					try{
+						if(socketChannel.write(ackBuffer) == -1)
+							throw new ClosedChannelException();
+					}
+					catch(IOException e){
+						e.printStackTrace();
+						if (DEBUG && logger.isDebugEnabled()) {
+				            logger.debug("write channel close, return");
+				        }
+						//heartBeatLock.signal();
+						return;
+					}
 				}
-				catch(IOException e){
-					e.printStackTrace();
-					if (DEBUG && logger.isDebugEnabled()) {
-			            logger.debug("write channel close, return");
-			        }
-					initLock.signal();
-					heartBeatLock.signal();
-					return;
-				}
-			}
-			
-			checkpointingProcessTable.put(ruid, 0);
-			worldProcessTable.remove(ruid);
-			processValidMap.put(ruid, false);
-			if (DEBUG && logger.isDebugEnabled()) {
-	            logger.debug("processValidMap size:" + processValidMap.size());
-	        }
-			initLock.signal();
-			heartBeatLock.signal();
+				
+				checkpointingProcessTable.put(ruid, 0);
+				worldProcessTable.remove(ruid);
+				processValidMap.put(ruid, false);
+				if (DEBUG && logger.isDebugEnabled()) {
+		            logger.debug("processValidMap size:" + processValidMap.size());
+		        }
+				//heartBeatLock.signal();
+				
+			}//end of syn
 			
 		}
 
@@ -2101,7 +2110,7 @@ private void restoreVariables() {
 			}
 			heartBeatBeginLock.signal();
 			
-			MAX_CHECKPOINT_INVALID_TIME = nprocs*2 ;
+			MAX_CHECKPOINT_INVALID_TIME = nprocs ;
 			
 			while(!isFinished){
 				try {
